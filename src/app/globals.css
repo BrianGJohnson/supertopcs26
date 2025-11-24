@@ -1,24 +1,18 @@
+/* Matte background base token */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --app-bg-base: #060B12;
 }
 
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  background: #0B1220;
+  color: #E7ECF5;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  margin: 0;
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -39,4 +33,11 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+.heroGradient {
+  background: linear-gradient(120deg, #ffffff 0%, #8ed3ff 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
