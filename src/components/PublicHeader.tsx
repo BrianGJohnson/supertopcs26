@@ -4,10 +4,26 @@ import { Container, Group, Text } from "@mantine/core";
 export function PublicHeader() {
   return (
     <Container size="lg" px="md" py="md">
-      <Group justify="space-between">
-        <Text size="xl" fw={700}>
-          SuperTopics
-        </Text>
+      <Group justify="space-between" align="center">
+        <Link href="/" style={{ textDecoration: "none" }}>
+          <Group gap={4} align="center">
+            <Text
+              fw={800}
+              span
+              style={{ color: "#E7ECF5", letterSpacing: "-1px", fontSize: 28 }}
+            >
+              Super
+            </Text>
+            <Text
+              fw={900}
+              className="heroGradient"
+              span
+              style={{ letterSpacing: "-1px", fontSize: 28 }}
+            >
+              Topics
+            </Text>
+          </Group>
+        </Link>
         <Group gap="lg">
           <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
             Home
