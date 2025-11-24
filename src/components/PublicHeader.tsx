@@ -1,28 +1,20 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Container, Group, Text } from "@mantine/core";
+import { Container, Group } from "@mantine/core";
 
 export function PublicHeader() {
   return (
     <Container size="lg" px="md" py="md">
       <Group justify="space-between" align="center">
         <Link href="/" style={{ textDecoration: "none" }}>
-          <Group gap={4} align="center">
-            <Text
-              fw={800}
-              span
-              style={{ color: "#E7ECF5", letterSpacing: "-1px", fontSize: 28 }}
-            >
-              Super
-            </Text>
-            <Text
-              fw={900}
-              className="heroGradient"
-              span
-              style={{ letterSpacing: "-1px", fontSize: 28 }}
-            >
-              Topics
-            </Text>
-          </Group>
+          <Image
+            src="/branding/logo-horizontal-2400.png"
+            alt="Super Topics"
+            width={2400}
+            height={800}
+            className="publicHeaderLogo"
+            priority
+          />
         </Link>
         <Group gap="lg">
           <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>

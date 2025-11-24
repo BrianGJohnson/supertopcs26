@@ -1,6 +1,8 @@
 /* Matte background base token */
 :root {
   --app-bg-base: #060B12;
+  --content-max: 900px;
+  --content-max-wide: 1200px;
 }
 
 html,
@@ -36,8 +38,20 @@ a {
 }
 
 .heroGradient {
-  background: linear-gradient(120deg, #ffffff 0%, #8ed3ff 80%);
+  background: linear-gradient(120deg, #f7fbff 0%, #b3d8ff 40%, #3a7bd5 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.publicHeaderLogo {
+  height: 92px;
+  width: auto;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .publicHeaderLogo {
+    height: 80px;
+  }
 }

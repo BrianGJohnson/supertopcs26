@@ -20,7 +20,7 @@ const theme = createTheme({
   headings: {
     fontFamily: inter.style.fontFamily,
     sizes: {
-      h1: { fontSize: "3.3rem", fontWeight: 900 },
+      h1: { fontSize: "3.3rem", fontWeight: 900, lineHeight: 1.2 },
       h2: { fontSize: "2.4rem", fontWeight: 800 },
       h3: { fontSize: "1.75rem", fontWeight: 700 },
     },

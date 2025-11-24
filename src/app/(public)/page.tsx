@@ -2,19 +2,16 @@ import { Stack, Title, Text } from '@mantine/core';
 
 export default function HomePage() {
   return (
-    <Stack align="center" justify="center" spacing="md" mt="xl">
-      <Title
-        order={1}
+    <Stack align="center" justify="center" spacing={20} mt="xl">
+      <h1
         className="heroGradient"
-        align="center"
-        fw={900}
-        style={{ fontSize: 84, lineHeight: 1.12 }}
+        style={{ fontSize: 84, fontWeight: 900, lineHeight: 1.15, textAlign: "center" }}
       >
-        Stop Guessing.<br style={{ margin: 0, padding: 0, lineHeight: 0 }} />
-        <span style={{ display: 'block', marginTop: -8 }}>Start Growing.</span>
-      </Title>
-      <Text size="xl" align="center">
-        The fastest path to YouTube success comes from identifying the right topic, a Super Topic.
+        <span style={{ display: "block", marginBottom: 8 }}>Stop Guessing.</span>
+        <span style={{ display: "block" }}>Start Growing.</span>
+      </h1>
+      <Text size="xl" align="center" style={{ fontSize: 24, lineHeight: 1.4, color: "#E3E7EC" }}>
+        You’ve heard it before. If they don’t click, they don’t watch. If they don’t watch, you can’t grow. The simplest path to YouTube success is identifying a great topic, a Super Topic.
       </Text>
     </Stack>
   );

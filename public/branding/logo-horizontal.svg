@@ -1,0 +1,25 @@
+<svg width="1600" height="400" viewBox="0 0 1600 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="heroGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f7fbff" />
+      <stop offset="40%" stop-color="#b3d8ff" />
+      <stop offset="100%" stop-color="#3a7bd5" />
+    </linearGradient>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;900&amp;display=swap');
+      .text-super { font-family: 'Inter', sans-serif; font-weight: 700; fill: #E7ECF5; }
+      .text-topics { font-family: 'Inter', sans-serif; font-weight: 900; fill: url(#heroGradient); }
+    </style>
+  </defs>
+
+  <!-- Icon Section -->
+  <g transform="translate(100, 50) scale(0.6)">
+    <rect width="512" height="512" rx="128" fill="#0B1220" />
+    <rect x="128" y="256" width="100" height="128" rx="20" fill="#2a3342" />
+    <rect x="256" y="128" width="100" height="256" rx="20" fill="url(#heroGradient)" />
+  </g>
+
+  <!-- Wordmark Section: Two Words -->
+  <text x="480" y="240" font-size="140" class="text-super">Super</text>
+  <text x="900" y="240" font-size="140" class="text-topics">Topics</text>
+</svg>

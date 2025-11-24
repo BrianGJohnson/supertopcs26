@@ -7,7 +7,7 @@ export default function MembersLayout({
 }) {
   return (
     <Box pt="md">
-      <Container size="md" px="sm">
+      <Container size="md" px="sm" style={{ maxWidth: "var(--content-max)" }}>
         {children}
       </Container>
     </Box>

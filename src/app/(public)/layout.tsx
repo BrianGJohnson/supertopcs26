@@ -9,7 +9,7 @@ export default function PublicLayout({
   return (
     <Box pt="xl">
       <PublicHeader />
-      <Container size="lg" px="md">
+      <Container size="full" px="md" style={{ maxWidth: "var(--content-max)" }}>
         {children}
       </Container>
     </Box>
