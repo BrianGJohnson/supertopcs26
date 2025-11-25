@@ -2,11 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container, Group } from "@mantine/core";
 
+const navItems = [
+  { href: "/", label: "Home" },
+  { href: "/blog", label: "Blog" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/demo", label: "Demo" },
+];
+
 export function PublicHeader() {
   return (
     <Container size="lg" px="md" py="md">
       <Group justify="space-between" align="center">
-        <Link href="/" style={{ textDecoration: "none" }}>
+        <Link href="/">
           <Image
             src="/branding/logo-horizontal-2400.png"
             alt="Super Topics"
@@ -17,18 +24,11 @@ export function PublicHeader() {
           />
         </Link>
         <Group gap="lg">
-          <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-            Home
-          </Link>
-          <Link href="/blog" style={{ textDecoration: "none", color: "inherit" }}>
-            Blog
-          </Link>
-          <Link href="/pricing" style={{ textDecoration: "none", color: "inherit" }}>
-            Pricing
-          </Link>
-          <Link href="/demo" style={{ textDecoration: "none", color: "inherit" }}>
-            Demo
-          </Link>
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} className="publicNavLink">
+              {item.label}
+            </Link>
+          ))}
         </Group>
       </Group>
     </Container>
