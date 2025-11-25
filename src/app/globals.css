@@ -83,22 +83,6 @@ a {
     margin-top: var(--hero-top-offset-mobile);
   }
 }
-.heroStack {
-  margin-top: calc(var(--hero-top-offset-desktop) + 18px) !important;
-}
-
-@media (max-width: 768px) {
-  .heroStack {
-    margin-top: calc(var(--hero-top-offset-mobile) + 12px) !important;
-  }
-}
-
-.publicNavLink {
-  color: var(--text-primary);
-  font-size: var(--font-nav-size);
-  font-weight: var(--font-nav-weight);
-  text-decoration: none;
-}
 
 .heroHeadline span {
   display: block;
