@@ -5,13 +5,10 @@ import Link from "next/link";
 import { Container, Group, Text } from "@mantine/core";
 
 const navItems = [
-	{ href: "/", label: "Home" },
-	{ href: "/blog", label: "Blog" },
-	{ href: "/pricing", label: "Pricing" },
-	{ href: "/demo", label: "Demo" },
-];
-
-export function PublicHeader() {
+  { href: "/blog", label: "Blog" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/demo", label: "Demo" },
+];export function PublicHeader() {
 	return (
 		<Container size="lg" px="md" py="md">
 			<Group justify="space-between" align="center">

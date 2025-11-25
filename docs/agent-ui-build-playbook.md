@@ -69,6 +69,26 @@ Create reusable homegrown components for repeated patterns:
 
 Extract these when a pattern repeats 2-3 times. Store them in `src/components/` organized by domain (e.g., `marketing/`, `members/`, `shared/`).
 
+## Header and Footer Lock-In
+
+The public header and footer designs are considered “locked.” Agents must not change their structure, spacing, nav items, or visual style without an explicit request to redesign them.
+
+**Header Pattern:**
+- **Left:** Clickable logo + “Super Topics” wordmark that links to `/`.
+- **Right:** Nav links `Blog`, `Pricing`, `Demo` (no Home link).
+
+**Footer Pattern:**
+- **Line 1:** “Super Topics” text on the left, `Docs`, `Changelog`, `Status` links on the right.
+- **Line 2:** Centered copyright line.
+
+Any future changes should be done by editing `PublicHeader`, `SiteFooter`, or `PublicLayout`, not scattered across pages.
+
+## Client Components
+
+- Any component that uses Next.js `Link` via `component={Link}` or other interactive Mantine elements (Button, Anchor, NavLink, Menu, etc) must be a client component.
+- These files must start with `"use client";` as the first line.
+- Example files: PublicHeader, SiteFooter, any navigation bars or interactive footers.
+
 ## Marketing vs Members Area
 
 **Marketing pages** (landing, pricing, about):

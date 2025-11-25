@@ -1,5 +1,4 @@
-import { Container, Box } from "@mantine/core";
-import { PublicHeader } from "@/components/PublicHeader";
+import { PublicLayout as Layout } from "@/components/layout/PublicLayout";
 
 export default function PublicLayout({
   children,
@@ -7,11 +6,8 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Box pt="xl">
-      <PublicHeader />
-      <Container size="full" px="md" style={{ maxWidth: "var(--content-max)" }}>
-        {children}
-      </Container>
-    </Box>
+    <Layout>
+      {children}
+    </Layout>
   );
 }
