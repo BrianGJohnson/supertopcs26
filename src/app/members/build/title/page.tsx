@@ -20,6 +20,11 @@ export default function TitlePage() {
           description="Use emotional triggers and clarity to generate high-click titles."
         />
         <BuilderStepper activeStep={4} />
+
+        {/* Footer */}
+        <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">
+          SuperTopics.app © 2025 • All Rights Reserved • You Dig?
+        </footer>
       </div>
     </PageShell>
   );

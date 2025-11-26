@@ -17,12 +17,17 @@ export default function SeedPage() {
           icon={IconSeedling}
           line1="Create Your Next Winning"
           line2="Video Package"
-          description="Click Top 10 to begin expanding your seed topic. After each expansion saves, the next tool will unlock. Complete all four to fully map your topic."
+          description="Click Top 10 to start expanding your seed topic. Each save unlocks the next tool. Complete all four to fully map your topic."
         />
         <BuilderStepper activeStep={1} />
         <SeedCard />
         <Step1Card />
         <TopicsTable />
+
+        {/* Footer */}
+        <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">
+          SuperTopics.app © 2025 • All Rights Reserved • You Dig?
+        </footer>
       </div>
     </PageShell>
   );
@@ -75,7 +80,7 @@ function Step1Card() {
         <div className="flex-1 space-y-3 text-center md:text-left">
           <h2 className="text-3xl font-bold text-white">Step 1 • Topic Expansion</h2>
           <p className="text-text-secondary text-lg font-light leading-relaxed">
-            Add at least 100 phrases tied to your two word seed topic. Aim for 200 for a more complete ecosystem.
+            Add at least 100 phrases to proceed. Aim for 200 to uncover deeper YouTube opportunities.
           </p>
         </div>
 
@@ -114,27 +119,27 @@ function Step1Card() {
       <div className="h-px w-full bg-white/5"></div>
 
       {/* Bottom Section: Session & Sources */}
-      <div className="px-8 py-6 md:px-10 bg-black/20 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="px-10 py-10 md:px-12 bg-black/20 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-3">
-          <button className="px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium text-white flex items-center gap-3 hover:bg-white/10 transition-colors cursor-pointer">
-            <span className="text-text-secondary">Session:</span> Content Creation
-            <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button className="px-7 py-4 bg-gradient-to-b from-[#2E3338] to-[#1E2228] rounded-full text-white/[0.82] font-bold border-2 border-[#6B9BD1]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex items-center gap-2 hover:from-[#353A40] hover:to-[#252A30] transition-all cursor-pointer">
+            Session: Content Creation
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         </div>
-        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm font-medium">
-          <span className="text-text-secondary uppercase tracking-wider text-xs">Raw Sources</span>
-          <a href="#" className="text-[#FF8A3D] hover:text-[#FF8A3D]/80 transition-colors drop-shadow-[0_0_8px_rgba(255,138,61,0.3)]">
+        <div className="flex flex-wrap justify-center items-baseline gap-x-3 gap-y-2">
+          <span className="text-white/[0.68] font-bold text-base mr-2">Topic Sources:</span>
+          <a href="#" className="px-3.5 py-1.5 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] rounded-full text-sm text-[#CC7A3D] font-medium border border-[#CC7A3D]/45 transition-all">
             Top 10 (10)
           </a>
-          <a href="#" className="text-text-secondary/60 hover:text-text-primary transition-colors">
+          <a href="#" className="px-3.5 py-1.5 bg-gradient-to-b from-[#252930] to-[#1A1E24] rounded-full text-sm text-[#B8CC75]/70 font-medium border border-[#B8CC75]/35 hover:border-[#B8CC75]/45 hover:text-[#B8CC75]/80 transition-all">
             Child (0)
           </a>
-          <a href="#" className="text-text-secondary/60 hover:text-text-primary transition-colors">
+          <a href="#" className="px-3.5 py-1.5 bg-gradient-to-b from-[#252930] to-[#1A1E24] rounded-full text-sm text-[#45B87A]/70 font-medium border border-[#45B87A]/35 hover:border-[#45B87A]/45 hover:text-[#45B87A]/80 transition-all">
             A–Z (0)
           </a>
-          <a href="#" className="text-text-secondary/60 hover:text-text-primary transition-colors">
+          <a href="#" className="px-3.5 py-1.5 bg-gradient-to-b from-[#252930] to-[#1A1E24] rounded-full text-sm text-[#35AABC]/70 font-medium border border-[#35AABC]/35 hover:border-[#35AABC]/45 hover:text-[#35AABC]/80 transition-all">
             Prefix (0)
           </a>
         </div>
@@ -164,16 +169,16 @@ function TopicsTable() {
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="border-b border-white/5 bg-white/5">
-            <th className="px-8 py-5 text-xs font-bold text-text-secondary uppercase tracking-widest">Phrase</th>
-            <th className="px-8 py-5 text-xs font-bold text-text-secondary uppercase tracking-widest text-right">Tag</th>
+            <th className="pl-9 pr-8 py-5 text-[18px] font-bold text-white/[0.86] uppercase tracking-[0.15em]">Phrase</th>
+            <th className="pl-8 pr-12 py-5 text-[18px] font-bold text-white/[0.86] uppercase tracking-[0.15em] text-right">Tag</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody className="divide-y divide-white/5 bg-black/[0.03]">
           {rows.map((phrase, i) => (
-            <tr key={i} className="hover:bg-white/5 transition-colors group">
-              <td className="px-8 py-5 text-white group-hover:text-primary transition-colors">{phrase}</td>
+            <tr key={i} className="hover:bg-white/[0.04] transition-colors group">
+              <td className="px-8 py-5 text-white/[0.86] group-hover:text-white transition-colors">{phrase}</td>
               <td className="px-8 py-5 text-right">
-                <span className="px-3 py-1 bg-[#FF8A3D]/10 rounded-full text-xs text-[#FF8A3D] border border-[#FF8A3D]/20 font-medium">
+                <span className="px-3 py-1 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] rounded-full text-xs text-[#CC7A3D] border border-[#CC7A3D]/55 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   Top 10
                 </span>
               </td>
