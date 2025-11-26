@@ -33,17 +33,17 @@ function HeroSection() {
         </div>
       </div>
       <div className="space-y-2">
-        <h1 className="text-[3.4rem] md:text-[4.2rem] font-extrabold text-white tracking-tight drop-shadow-lg leading-[1.15]">
+        <h1 className="text-[3.4rem] md:text-[4.2rem] font-extrabold text-white tracking-tight drop-shadow-lg leading-[1.08]">
           Create Your Next Winning<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent mt-[14px] inline-block">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent mt-[4px] inline-block">
             Video Package
           </span>
         </h1>
-        <p className="text-[1.35rem] text-text-secondary font-light mt-1">
+        <p className="text-[1.35rem] text-text-secondary font-light mt-5">
           Work from left to right. Start with Top-10 Topics for quick results.
         </p>
       </div>
-      <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
+      <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50 mt-2"></div>
     </div>
   );
 }
