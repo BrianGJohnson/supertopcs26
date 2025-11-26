@@ -1,7 +1,8 @@
 import React from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
-import { IconSeedling, IconPlant2 } from "@tabler/icons-react";
+import { HeroModule } from "@/components/layout/HeroModule";
+import { IconSeedling } from "@tabler/icons-react";
 
 export default function SeedPage() {
   return (
@@ -11,7 +12,12 @@ export default function SeedPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
 
         <MemberHeader />
-        <HeroSection />
+        <HeroModule
+          icon={IconSeedling}
+          line1="Create Your Next Winning"
+          line2="Video Package"
+          description="Work from left to right. Start with Top-10 Topics for quick results."
+        />
         <Stepper />
         <SeedCard />
         <Step1Card />
@@ -22,31 +28,6 @@ export default function SeedPage() {
 }
 
 // --- Components ---
-
-function HeroSection() {
-  return (
-    <div className="text-center flex flex-col items-center gap-0 mt-4">
-      <div className="relative mb-[-24px]">
-        <div className="absolute -inset-6 bg-primary/8 blur-2xl rounded-full"></div>
-        <div className="w-36 h-36 rounded-full flex items-center justify-center relative z-10">
-          <IconSeedling size={112} strokeWidth={1.5} className="text-primary drop-shadow-[0_0_8px_rgba(122,92,250,0.25)]" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <h1 className="text-[3.4rem] md:text-[4.2rem] font-extrabold text-white tracking-tight drop-shadow-lg leading-[1.08]">
-          Create Your Next Winning<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent mt-[4px] inline-block">
-            Video Package
-          </span>
-        </h1>
-        <p className="text-[1.35rem] text-text-secondary font-light mt-5">
-          Work from left to right. Start with Top-10 Topics for quick results.
-        </p>
-      </div>
-      <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50 mt-2"></div>
-    </div>
-  );
-}
 
 function Stepper() {
   const steps = [
