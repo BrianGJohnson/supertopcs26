@@ -9,7 +9,7 @@ import React from "react";
  * - Circles: w-12 h-12, ring-4 ring-background, border-2 border-white/20
  * - Active: bg-[#1A2754], text-white, shadow glow
  * - Inactive: bg-surface, text-text-secondary, opacity-60
- * - Labels: text-[10px] md:text-xs, font-medium, uppercase, tracking-widest
+ * - Labels: text-[10px] md:text-xs, font-light, uppercase, tracking-widest
  * - Active label: text-white/75 with drop-shadow
  */
 
@@ -55,7 +55,7 @@ export function BuilderStepper({ activeStep }: BuilderStepperProps) {
             
             {/* Step Label */}
             <span 
-              className={`text-[10px] md:text-xs font-medium uppercase tracking-widest ${
+              className={`text-[10px] md:text-xs font-light uppercase tracking-widest ${
                 isActive 
                   ? "text-white/75 drop-shadow-[0_0_10px_rgba(26,39,84,0.5)]" 
                   : "text-text-secondary"
