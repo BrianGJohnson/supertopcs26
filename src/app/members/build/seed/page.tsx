@@ -2,6 +2,7 @@ import React from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
+import { BuilderStepper } from "@/components/stepper/BuilderStepper";
 import { IconSeedling } from "@tabler/icons-react";
 
 export default function SeedPage() {
@@ -18,7 +19,7 @@ export default function SeedPage() {
           line2="Video Package"
           description="Work from left to right. Start with Top-10 Topics for quick results."
         />
-        <Stepper />
+        <BuilderStepper activeStep={1} />
         <SeedCard />
         <Step1Card />
         <TopicsTable />
@@ -28,39 +29,6 @@ export default function SeedPage() {
 }
 
 // --- Components ---
-
-function Stepper() {
-  const steps = [
-    { label: "Seed", active: true },
-    { label: "Refine", active: false },
-    { label: "Super", active: false },
-    { label: "Title", active: false },
-    { label: "Package", active: false },
-    { label: "Upload", active: false },
-  ];
-
-  return (
-    <div className="flex justify-between items-center relative max-w-3xl mx-auto w-full px-4 py-4 -mt-4">
-      <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -z-10"></div>
-      {steps.map((step, index) => (
-        <div key={step.label} className={`flex flex-col items-center gap-3 ${step.active ? "" : "opacity-45"}`}>
-          {step.active ? (
-            <div className="w-12 h-12 rounded-full bg-gradient-to-b from-primary to-purple-700 text-white flex items-center justify-center font-bold shadow-[0_0_20px_rgba(122,92,250,0.4)] ring-4 ring-background z-10">
-              {index + 1}
-            </div>
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-surface border border-white/10 text-text-secondary flex items-center justify-center font-medium ring-4 ring-background z-10">
-              {index + 1}
-            </div>
-          )}
-          <span className={`text-[10px] md:text-xs font-bold uppercase tracking-widest ${step.active ? "text-primary drop-shadow-[0_0_10px_rgba(122,92,250,0.5)]" : "text-text-secondary"}`}>
-            {step.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function SeedCard() {
   return (
