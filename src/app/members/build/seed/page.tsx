@@ -39,7 +39,7 @@ function SeedCard() {
           <input
             type="text"
             placeholder="content creator"
-            className="w-full bg-black/40 border border-white/10 rounded-2xl px-8 py-5 text-xl text-white focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-white/40 text-center shadow-inner"
+            className="w-full bg-black/40 bg-gradient-to-b from-white/[0.03] to-transparent border border-white/30 rounded-2xl px-8 py-5 text-xl text-white focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-white/85 text-center shadow-inner"
           />
           <div className="absolute right-6 top-1/2 -translate-y-1/2 text-primary/50">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
