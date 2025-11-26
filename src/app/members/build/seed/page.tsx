@@ -17,7 +17,7 @@ export default function SeedPage() {
           icon={IconSeedling}
           line1="Create Your Next Winning"
           line2="Video Package"
-          description="Work from left to right. Start with Top-10 Topics for quick results."
+          description="Click Top 10 to begin expanding your seed topic. After each expansion saves, the next tool will unlock. Complete all four to fully map your topic."
         />
         <BuilderStepper activeStep={1} />
         <SeedCard />
@@ -33,7 +33,7 @@ export default function SeedPage() {
 function SeedCard() {
   return (
     <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group -mt-4">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-50"></div>
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-25"></div>
       <div className="max-w-2xl mx-auto flex flex-col gap-8 relative z-10">
         <div className="relative">
           <input
@@ -49,16 +49,16 @@ function SeedCard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="px-4 py-4 bg-[#FF8A3D]/10 hover:bg-[#FF8A3D]/20 border border-[#FF8A3D]/20 rounded-xl text-[#FF8A3D] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(255,138,61,0.1)]">
+          <button className="px-4 py-4 bg-[#FF8A3D]/10 hover:bg-[#FF8A3D]/20 border border-[#FF8A3D]/30 rounded-xl text-[#FF8A3D] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(255,138,61,0.1)]">
             Top 10
           </button>
-          <button className="px-4 py-4 bg-[#D4E882]/10 hover:bg-[#D4E882]/20 border border-[#D4E882]/20 rounded-xl text-[#D4E882] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(212,232,130,0.1)]">
+          <button className="px-4 py-4 bg-[#D4E882]/10 hover:bg-[#D4E882]/20 border border-[#D4E882]/30 rounded-xl text-[#D4E882] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(212,232,130,0.1)]">
             Child
           </button>
-          <button className="px-4 py-4 bg-[#4DD68A]/10 hover:bg-[#4DD68A]/20 border border-[#4DD68A]/20 rounded-xl text-[#4DD68A] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(77,214,138,0.1)]">
+          <button className="px-4 py-4 bg-[#4DD68A]/10 hover:bg-[#4DD68A]/20 border border-[#4DD68A]/30 rounded-xl text-[#4DD68A] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(77,214,138,0.1)]">
             A–Z
           </button>
-          <button className="px-4 py-4 bg-[#39C7D8]/10 hover:bg-[#39C7D8]/20 border border-[#39C7D8]/20 rounded-xl text-[#39C7D8] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(57,199,216,0.1)]">
+          <button className="px-4 py-4 bg-[#39C7D8]/10 hover:bg-[#39C7D8]/20 border border-[#39C7D8]/30 rounded-xl text-[#39C7D8] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(57,199,216,0.1)]">
             Prefix
           </button>
         </div>
@@ -73,25 +73,40 @@ function Step1Card() {
       {/* Top Section: Bucket Info */}
       <div className="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-10">
         <div className="flex-1 space-y-3 text-center md:text-left">
-          <h2 className="text-3xl font-bold text-white">Step 1: Build Your Bucket</h2>
+          <h2 className="text-3xl font-bold text-white">Step 1 • Topic Expansion</h2>
           <p className="text-text-secondary text-lg font-light leading-relaxed">
-            Add at least 100 phrases tied to one two-word topic. Aim for around 200.
+            Add at least 100 phrases tied to your two word seed topic. Aim for 200 for a more complete ecosystem.
           </p>
         </div>
 
         <div className="flex flex-col items-center gap-3">
-          <div className="px-8 py-3 bg-gradient-to-r from-primary to-purple-600 rounded-full text-white font-bold shadow-[0_0_20px_rgba(122,92,250,0.4)] border border-white/10">
+          <div className="px-7 py-4 bg-gradient-to-b from-[#2E3338] to-[#1E2228] rounded-full text-white font-bold border-2 border-[#6B9BD1]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             Your Topics: 11
           </div>
         </div>
 
         <div className="flex-shrink-0">
-          <button className="px-8 py-4 bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 text-red-300 border border-red-500/30 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.15)] cursor-pointer">
-            Add 89 more topics
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
+          {(() => {
+            const topicCount = 11; // TODO: Replace with actual count
+            const needsMore = topicCount < 100;
+            const remaining = 100 - topicCount;
+            
+            return needsMore ? (
+              <button className="px-8 py-4 bg-gradient-to-r from-[#D95555]/15 to-[#C94545]/15 hover:from-[#D95555]/25 hover:to-[#C94545]/25 text-red-300 border-2 border-red-500/20 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.15)] cursor-pointer">
+                Add {remaining} more topics
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            ) : (
+              <button className="px-8 py-4 bg-gradient-to-b from-[#1E2A38] to-[#151D28] hover:from-[#243040] hover:to-[#1A2530] text-[#A8C4E0] border border-[#4A5568]/60 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] cursor-pointer">
+                Proceed
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            );
+          })()}
         </div>
       </div>
 
