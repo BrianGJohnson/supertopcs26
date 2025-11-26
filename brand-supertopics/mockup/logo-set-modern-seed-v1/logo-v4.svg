@@ -1,0 +1,23 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad4" x1="200" y1="0" x2="800" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#4FE4FF"/>
+    </linearGradient>
+    <filter id="glow4" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="25" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#05060A" stroke="url(#grad4)" stroke-width="8"/>
+  
+  <!-- Logo Shape: Floating Leaves -->
+  <g filter="url(#glow4)">
+    <rect x="500" y="200" width="24" height="600" rx="12" fill="url(#grad4)"/>
+    <circle cx="400" cy="500" r="60" fill="none" stroke="url(#grad4)" stroke-width="12"/>
+    <circle cx="650" cy="350" r="80" fill="none" stroke="url(#grad4)" stroke-width="12"/>
+    <path d="M500 500 L460 500" stroke="url(#grad4)" stroke-width="8"/>
+    <path d="M524 350 L600 350" stroke="url(#grad4)" stroke-width="8"/>
+  </g>
+</svg>

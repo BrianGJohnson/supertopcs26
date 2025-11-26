@@ -1,0 +1,17 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad6" x1="512" y1="200" x2="512" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4FE4FF"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#0F111A"/>
+  
+  <!-- Logo Shape: Monoline -->
+  <path d="M512 800 L512 200" stroke="url(#grad6)" stroke-width="20" stroke-linecap="round"/>
+  <path d="M512 600 C400 600 350 500 350 450" stroke="url(#grad6)" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <path d="M512 400 C650 400 700 300 700 250" stroke="url(#grad6)" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <circle cx="350" cy="450" r="15" fill="url(#grad6)"/>
+  <circle cx="700" cy="250" r="15" fill="url(#grad6)"/>
+</svg>

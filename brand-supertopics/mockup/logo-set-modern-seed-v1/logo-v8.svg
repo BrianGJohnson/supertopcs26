@@ -1,0 +1,22 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad8" x1="200" y1="200" x2="800" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4FE4FF"/>
+      <stop offset="1" stop-color="#63E6B8"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#05060A" stroke="#1F2937" stroke-width="4"/>
+  
+  <!-- Logo Shape: Tech Grid -->
+  <path d="M512 800 L512 200" stroke="url(#grad8)" stroke-width="24"/>
+  <rect x="462" y="500" width="50" height="10" fill="url(#grad8)"/>
+  <rect x="300" y="450" width="162" height="10" fill="url(#grad8)"/>
+  <rect x="300" y="450" width="10" height="60" fill="url(#grad8)"/>
+  
+  <rect x="512" y="300" width="50" height="10" fill="url(#grad8)"/>
+  <rect x="562" y="300" width="188" height="10" fill="url(#grad8)"/>
+  <rect x="740" y="250" width="10" height="60" fill="url(#grad8)"/>
+  
+  <circle cx="512" cy="200" r="20" fill="url(#grad8)"/>
+</svg>

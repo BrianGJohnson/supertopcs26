@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad3" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A2F2D2"/>
+      <stop offset="1" stop-color="#63E6B8"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#111827"/>
+  
+  <!-- Logo Shape: Split Stem -->
+  <g>
+    <rect x="496" y="600" width="32" height="200" rx="16" fill="url(#grad3)"/>
+    <rect x="496" y="250" width="32" height="300" rx="16" fill="url(#grad3)"/>
+    
+    <path d="M496 500 C400 500 350 400 350 350 C350 350 450 450 496 500 Z" fill="url(#grad3)"/>
+    <path d="M528 350 C650 350 700 250 700 200 C700 200 600 300 528 350 Z" fill="url(#grad3)"/>
+  </g>
+</svg>

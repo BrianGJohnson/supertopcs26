@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradA" x1="0" y1="1024" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4FD9FF"/>
+      <stop offset="1" stop-color="#2BD899"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="30" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="circleGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+    </filter>
+  </defs>
+  
+  <!-- Container Glow -->
+  <circle cx="512" cy="512" r="480" fill="#45E7FF" fill-opacity="0.1" filter="url(#circleGlow)"/>
+  <!-- Container Background -->
+  <circle cx="512" cy="512" r="480" fill="#0B0F19"/>
+  
+  <!-- Symbol: Asymmetrical Ascending -->
+  <g filter="url(#softGlow)">
+    <!-- Stem -->
+    <path d="M512 800 L512 200 L542 200 L542 800 Z" fill="url(#gradA)"/>
+    <!-- Lower Left Leaf -->
+    <path d="M512 650 L350 580 L512 580 Z" fill="url(#gradA)"/>
+    <!-- Middle Right Leaf -->
+    <path d="M542 500 L700 430 L542 430 Z" fill="url(#gradA)"/>
+    <!-- Top Left Leaf -->
+    <path d="M512 350 L400 300 L512 300 Z" fill="url(#gradA)"/>
+  </g>
+</svg>

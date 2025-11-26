@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="512" y1="800" x2="512" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4FD9FF"/>
+      <stop offset="100%" stop-color="#2BD899"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+  
+  <!-- Vertical Bar -->
+  <rect x="482" y="200" width="60" height="624" rx="30" fill="url(#grad1)"/>
+  
+  <!-- Left Circle (Lower) -->
+  <circle cx="350" cy="600" r="100" fill="url(#grad1)"/>
+  
+  <!-- Right Circle (Higher) -->
+  <circle cx="674" cy="424" r="100" fill="url(#grad1)"/>
+</svg>

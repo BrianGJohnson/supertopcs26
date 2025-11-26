@@ -1,0 +1,15 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad9" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#1A1B2E"/>
+  
+  <!-- Logo Shape: Asymmetrical Balance -->
+  <path d="M512 800 L512 200" stroke="url(#grad9)" stroke-width="30" stroke-linecap="round"/>
+  <path d="M512 600 C300 600 200 400 200 300 C200 300 400 400 512 500 Z" fill="url(#grad9)"/>
+  <path d="M512 400 C600 400 650 300 650 250 C650 250 550 350 512 400 Z" fill="url(#grad9)"/>
+</svg>

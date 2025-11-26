@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad4" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f12711"/>
+      <stop offset="100%" stop-color="#f5af19"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+  
+  <!-- Vertical Bar -->
+  <rect x="487" y="200" width="50" height="624" rx="25" fill="url(#grad4)"/>
+  
+  <!-- Left Circle (Touching) -->
+  <circle cx="400" cy="600" r="90" fill="url(#grad4)"/>
+  
+  <!-- Right Circle (Touching) -->
+  <circle cx="624" cy="424" r="90" fill="url(#grad4)"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradSprout" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2EC4B6"/>
+      <stop offset="50%" stop-color="#6EE7B7"/>
+      <stop offset="100%" stop-color="#A7F3D0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Sprout v5: Stout & Strong -->
+  <path d="M240 460 C240 460 230 350 260 250 C265 230 280 230 275 250 C250 350 270 460 270 460 L240 460 Z" fill="url(#gradSprout)"/>
+  <path d="M255 350 C220 350 150 320 150 240 C150 180 220 300 260 320 Z" fill="url(#gradSprout)"/>
+  <path d="M270 300 C310 300 380 260 380 180 C380 120 310 250 275 280 Z" fill="url(#gradSprout)"/>
+</svg>

@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad9" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FC466B"/>
+      <stop offset="100%" stop-color="#3F5EFB"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+  
+  <!-- Group with Glow -->
+  <g filter="url(#glow)">
+    <!-- Vertical Bar -->
+    <rect x="492" y="200" width="40" height="624" rx="20" fill="url(#grad9)"/>
+    
+    <!-- Left Circle -->
+    <circle cx="350" cy="600" r="100" fill="url(#grad9)"/>
+    
+    <!-- Right Circle -->
+    <circle cx="674" cy="424" r="100" fill="url(#grad9)"/>
+  </g>
+</svg>

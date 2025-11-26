@@ -1,0 +1,22 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradSeedling" x1="512" y1="800" x2="512" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1F7E6C"/>
+      <stop offset="30%" stop-color="#3CE3AF"/>
+      <stop offset="100%" stop-color="#7CF4C4"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Container -->
+  <circle cx="512" cy="512" r="480" fill="#0D111A"/>
+  
+  <!-- Seedling v10: Tiny Sprout -->
+  <g>
+    <!-- Stem -->
+    <path d="M512 700 Q512 600 512 500" stroke="url(#gradSeedling)" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <!-- Left Leaf -->
+    <path d="M512 550 C480 550 420 520 420 450 C420 400 480 500 512 530" fill="url(#gradSeedling)"/>
+    <!-- Right Leaf -->
+    <path d="M512 530 C540 530 600 500 600 430 C600 380 540 480 512 510" fill="url(#gradSeedling)"/>
+  </g>
+</svg>

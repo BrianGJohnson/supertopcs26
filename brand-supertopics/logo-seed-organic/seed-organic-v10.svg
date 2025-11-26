@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    Version 10: Minimalist Tiny Sprout
+    To get the transparent version, hide or remove the group with id="container"
+  -->
+  <defs>
+    <linearGradient id="gradOrganic" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7EE8C2"/>
+      <stop offset="100%" stop-color="#74C8FF"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feFlood flood-color="#00FFD0" flood-opacity="0.15" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g id="container">
+    <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+    <circle cx="512" cy="512" r="460" stroke="#00FFD0" stroke-opacity="0.03" stroke-width="4"/>
+  </g>
+
+  <g id="seedling" filter="url(#softGlow)">
+    <!-- Stem -->
+    <path d="M500 750 C500 750 500 600 520 450 C525 430 540 430 535 450 C515 600 520 750 520 750 L500 750 Z" fill="url(#gradOrganic)"/>
+    <!-- Left Leaf -->
+    <path d="M510 550 C480 550 420 520 420 450 C420 400 480 500 512 530 Z" fill="url(#gradOrganic)"/>
+    <!-- Right Leaf -->
+    <path d="M530 530 C560 530 620 500 620 430 C620 380 560 480 532 510 Z" fill="url(#gradOrganic)"/>
+  </g>
+</svg>

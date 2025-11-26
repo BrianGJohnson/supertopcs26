@@ -1,0 +1,25 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad10" x1="512" y1="200" x2="512" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63E6B8"/>
+      <stop offset="0.5" stop-color="#4FE4FF"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <filter id="glow10" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#0F111A" stroke="url(#grad10)" stroke-width="2"/>
+  
+  <!-- Logo Shape: Abstract Symbol -->
+  <g filter="url(#glow10)">
+    <path d="M512 850 L512 150" stroke="url(#grad10)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M512 550 L350 450" stroke="url(#grad10)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M512 350 L674 250" stroke="url(#grad10)" stroke-width="16" stroke-linecap="round"/>
+    
+    <circle cx="350" cy="450" r="40" fill="none" stroke="url(#grad10)" stroke-width="8"/>
+    <circle cx="674" cy="250" r="50" fill="none" stroke="url(#grad10)" stroke-width="8"/>
+  </g>
+</svg>

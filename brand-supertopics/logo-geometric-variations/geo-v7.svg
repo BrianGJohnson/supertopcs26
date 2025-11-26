@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad7" x1="512" y1="200" x2="512" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF0099"/>
+      <stop offset="100%" stop-color="#493240"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+  
+  <!-- Vertical Bar (Tapered/Triangle-ish) -->
+  <path d="M482 200 L542 200 L522 824 L502 824 Z" fill="url(#grad7)"/>
+  
+  <!-- Left Circle -->
+  <circle cx="380" cy="650" r="90" fill="url(#grad7)"/>
+  
+  <!-- Right Circle -->
+  <circle cx="644" cy="374" r="90" fill="url(#grad7)"/>
+</svg>

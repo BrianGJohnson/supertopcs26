@@ -1,0 +1,40 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradA" x1="0" y1="1024" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4FD9FF"/>
+      <stop offset="1" stop-color="#2BD899"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="30" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="circleGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+    </filter>
+  </defs>
+  
+  <!-- Container Glow -->
+  <circle cx="512" cy="512" r="480" fill="#45E7FF" fill-opacity="0.1" filter="url(#circleGlow)"/>
+  <!-- Container Background -->
+  <circle cx="512" cy="512" r="480" fill="#0B0F19"/>
+  
+  <!-- Symbol: Tech Circuit Leaf -->
+  <g filter="url(#softGlow)">
+    <!-- Main Stem with Nodes -->
+    <rect x="497" y="200" width="30" height="600" fill="url(#gradA)"/>
+    <circle cx="512" cy="200" r="25" fill="url(#gradA)"/>
+    <circle cx="512" cy="800" r="25" fill="url(#gradA)"/>
+    
+    <!-- Branch 1 -->
+    <rect x="527" y="400" width="150" height="20" fill="url(#gradA)"/>
+    <circle cx="677" cy="410" r="15" fill="url(#gradA)"/>
+    
+    <!-- Branch 2 -->
+    <rect x="347" y="550" width="150" height="20" fill="url(#gradA)"/>
+    <circle cx="347" cy="560" r="15" fill="url(#gradA)"/>
+    
+    <!-- Branch 3 -->
+    <rect x="527" y="650" width="100" height="20" fill="url(#gradA)"/>
+    <circle cx="627" cy="660" r="15" fill="url(#gradA)"/>
+  </g>
+</svg>

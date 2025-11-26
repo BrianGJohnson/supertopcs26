@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    Version 6: Wide Open
+    To get the transparent version, hide or remove the group with id="container"
+  -->
+  <defs>
+    <linearGradient id="gradOrganic" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7EE8C2"/>
+      <stop offset="100%" stop-color="#74C8FF"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feFlood flood-color="#00FFD0" flood-opacity="0.15" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g id="container">
+    <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+    <circle cx="512" cy="512" r="460" stroke="#00FFD0" stroke-opacity="0.03" stroke-width="4"/>
+  </g>
+
+  <g id="seedling" filter="url(#softGlow)">
+    <!-- Stem -->
+    <path d="M512 800 C512 800 512 600 512 450 C512 430 520 430 520 450 C520 600 530 800 530 800 L512 800 Z" fill="url(#gradOrganic)"/>
+    <!-- Left Leaf -->
+    <path d="M512 500 C450 500 300 480 280 380 C270 330 450 450 512 480 Z" fill="url(#gradOrganic)"/>
+    <!-- Right Leaf -->
+    <path d="M520 480 C590 480 740 460 760 360 C770 310 590 430 520 460 Z" fill="url(#gradOrganic)"/>
+  </g>
+</svg>

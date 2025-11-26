@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad5" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8E2DE2"/>
+      <stop offset="100%" stop-color="#4A00E0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="512" cy="512" r="480" fill="#0A0F18"/>
+  
+  <!-- Vertical Bar (Overlapping) -->
+  <rect x="482" y="200" width="60" height="624" rx="30" fill="url(#grad5)" fill-opacity="0.8"/>
+  
+  <!-- Left Circle (Overlapping) -->
+  <circle cx="450" cy="600" r="110" fill="url(#grad5)" fill-opacity="0.8"/>
+  
+  <!-- Right Circle (Overlapping) -->
+  <circle cx="574" cy="424" r="110" fill="url(#grad5)" fill-opacity="0.8"/>
+</svg>

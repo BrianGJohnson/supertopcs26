@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad7" x1="0" y1="1024" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#63E6B8"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <filter id="glow7" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="30" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#111827"/>
+  
+  <!-- Logo Shape: Solid Overlap -->
+  <g filter="url(#glow7)">
+    <rect x="482" y="200" width="60" height="600" rx="30" fill="url(#grad7)"/>
+    <circle cx="350" cy="500" r="100" fill="url(#grad7)" fill-opacity="0.6"/>
+    <circle cx="680" cy="300" r="120" fill="url(#grad7)" fill-opacity="0.8"/>
+  </g>
+</svg>

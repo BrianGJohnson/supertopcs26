@@ -1,0 +1,18 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad5" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#63E6B8"/>
+    </linearGradient>
+  </defs>
+  
+  <circle cx="512" cy="512" r="480" fill="#1A1B2E"/>
+  
+  <!-- Logo Shape: Intersecting -->
+  <g opacity="0.9">
+    <path d="M512 800 L512 200" stroke="url(#grad5)" stroke-width="40" stroke-linecap="square"/>
+    <circle cx="512" cy="500" r="150" fill="none" stroke="url(#grad5)" stroke-width="40"/>
+    <path d="M512 500 L300 400" stroke="url(#grad5)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M512 350 L750 250" stroke="url(#grad5)" stroke-width="30" stroke-linecap="round"/>
+  </g>
+</svg>
