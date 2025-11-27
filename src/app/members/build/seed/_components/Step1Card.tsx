@@ -1,8 +1,9 @@
 import React from "react";
+import { SessionMenu } from "@/components/SessionMenu";
 
 export function Step1Card() {
   return (
-    <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl flex flex-col">
+    <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl flex flex-col relative z-20">
       {/* Top Section: Bucket Info */}
       <div className="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-10">
         <div className="flex-1 space-y-3 text-center md:text-left">
@@ -47,14 +48,9 @@ export function Step1Card() {
       <div className="h-px w-full bg-white/5"></div>
 
       {/* Bottom Section: Session & Sources */}
-      <div className="px-10 py-10 md:px-12 bg-black/20 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="px-10 py-10 md:px-12 bg-black/20 rounded-b-3xl flex flex-col md:flex-row justify-between items-center gap-6 overflow-visible">
         <div className="flex items-center gap-3">
-          <button className="px-7 py-4 bg-gradient-to-b from-[#2E3338] to-[#1E2228] rounded-full text-white/[0.82] font-bold border-2 border-[#6B9BD1]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] flex items-center gap-2 hover:from-[#353A40] hover:to-[#252A30] transition-all cursor-pointer">
-            Session: Content Creation
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+          <SessionMenu />
         </div>
         <div className="flex flex-wrap justify-center items-baseline gap-x-3 gap-y-2">
           <span className="text-white/[0.68] font-bold text-base mr-2">Topic Sources:</span>

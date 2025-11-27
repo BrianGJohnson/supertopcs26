@@ -1,4 +1,3 @@
-// Hooks index - placeholder for custom React hooks
-// Add hook exports here as needed
-
-export {};
+// Hooks index - custom React hooks and data helpers
+export * from './useSessions';
+export * from './useSeedPhrases';

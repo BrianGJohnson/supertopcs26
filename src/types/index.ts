@@ -1,4 +1,2 @@
-// Types index - placeholder for shared TypeScript definitions
-// Add type exports here as needed
-
-export {};
+// Types index - shared TypeScript definitions
+export * from './database';
