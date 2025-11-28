@@ -211,6 +211,32 @@ function hasOutdatedYear(phrase: string): boolean {
 }
 
 /**
+ * Check if phrase contains social media spam artifacts
+ * Returns true if phrase should be REMOVED
+ */
+function hasSocialMediaSpam(phrase: string): boolean {
+  // Filter 1: Contains hashtags (social media artifact)
+  if (phrase.includes('#')) {
+    return true;
+  }
+  
+  // Filter 2: Contains @ mentions
+  if (/@\w+/.test(phrase)) {
+    return true;
+  }
+  
+  // Filter 3: Has 3+ emojis (spam indicator)
+  // Match emoji unicode ranges
+  const emojiPattern = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu;
+  const emojiMatches = phrase.match(emojiPattern);
+  if (emojiMatches && emojiMatches.length >= 3) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Save phrases to database (deduped against existing, filtered for relevance and year)
  */
 async function savePhrases(
@@ -234,6 +260,11 @@ async function savePhrases(
     
     // Filter 2: remove phrases with outdated years
     if (hasOutdatedYear(phrase)) {
+      continue;
+    }
+    
+    // Filter 3: remove social media spam (hashtags, @mentions, 3+ emojis)
+    if (hasSocialMediaSpam(phrase)) {
       continue;
     }
     
