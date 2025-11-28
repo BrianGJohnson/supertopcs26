@@ -1,9 +1,20 @@
+"use client";
+
 import Link from "next/link";
 import { PageShell } from "@/components/layout/PageShell";
-import { HeroModule } from "@/components/layout/HeroModule";
-import { IconSeedling } from "@tabler/icons-react";
+import { supabase } from "@/lib/supabase";
+import { IconBrandGoogle } from "@tabler/icons-react";
 
-export default function HomePage() {
+export default function LoginPage() {
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: "http://localhost:3000/auth/callback",
+      },
+    });
+  };
+
   return (
     <PageShell>
       <div className="flex flex-col gap-12 relative z-10 max-w-5xl mx-auto">
@@ -35,13 +46,28 @@ export default function HomePage() {
           </div>
         </nav>
 
-        {/* Hero Section - Same as members build page */}
-        <HeroModule
-          icon={IconSeedling}
-          line1="If They Don't Click"
-          line2="They Don't Watch"
-          description="Imagine finding not just a good topic but a super topic, then packaging your title and thumbnail so more viewers click, watch longer, and come back."
-        />
+        {/* Hero Section */}
+        <div className="text-center flex flex-col items-center gap-0 mt-8 md:mt-12">
+          <h1 className="text-[3.4rem] md:text-[4.2rem] font-extrabold text-white tracking-tight drop-shadow-lg leading-[1.22]">
+            Log In
+          </h1>
+          <p className="text-[1.5rem] text-text-secondary font-light mt-[20px] max-w-2xl mx-auto">
+            Access your tools and super topic sessions.
+          </p>
+          <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-gray-500 to-transparent opacity-40 mt-8"></div>
+        </div>
+
+        {/* Google Login Button */}
+        <div className="w-full max-w-md mx-auto flex flex-col items-center">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full px-8 py-4 bg-gradient-to-b from-[#1E2A38] to-[#151D28] hover:from-[#243040] hover:to-[#1A2530] text-[#A8C4E0] border border-[#4A5568]/60 rounded-xl font-bold transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] flex items-center justify-center gap-3"
+          >
+            <IconBrandGoogle size={24} className="text-white" />
+            Continue with Google
+          </button>
+        </div>
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">

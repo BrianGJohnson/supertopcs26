@@ -2,6 +2,16 @@ import { supabase, getCurrentUserId } from '@/lib/supabase';
 import type { Session, SessionInsert } from '@/types/database';
 
 /**
+ * Helper to throw proper Error from Supabase error
+ */
+function throwSupabaseError(error: unknown): never {
+  if (error && typeof error === 'object' && 'message' in error) {
+    throw new Error(String((error as { message: unknown }).message));
+  }
+  throw new Error('Database operation failed');
+}
+
+/**
  * Create a new builder session
  */
 export async function createSession(
@@ -25,7 +35,7 @@ export async function createSession(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throwSupabaseError(error);
   return data;
 }
 
@@ -41,7 +51,7 @@ export async function listSessions(): Promise<Session[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) throwSupabaseError(error);
   return data ?? [];
 }
 
@@ -57,7 +67,7 @@ export async function getSessionById(sessionId: string): Promise<Session | null>
 
   if (error) {
     if (error.code === 'PGRST116') return null; // Not found
-    throw error;
+    throwSupabaseError(error);
   }
   return data;
 }
@@ -76,7 +86,7 @@ export async function updateSession(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throwSupabaseError(error);
   return data;
 }
 
@@ -89,5 +99,5 @@ export async function deleteSession(sessionId: string): Promise<void> {
     .delete()
     .eq('id', sessionId);
 
-  if (error) throw error;
+  if (error) throwSupabaseError(error);
 }

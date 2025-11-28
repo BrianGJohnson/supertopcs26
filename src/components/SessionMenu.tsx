@@ -3,13 +3,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@tabler/icons-react";
-import { createSession, listSessions, Session } from "@/hooks/useSessions";
+import { createSession, listSessions } from "@/hooks/useSessions";
+import { addSeedPhrases } from "@/hooks/useSeedPhrases";
+import { Modal, ModalButton } from "@/components/ui/Modal";
+import type { Session } from "@/types/database";
 
 interface SessionMenuProps {
   currentSessionName?: string;
 }
 
-export function SessionMenu({ currentSessionName = "Content Creation" }: SessionMenuProps) {
+export function SessionMenu({ currentSessionName = "New Session" }: SessionMenuProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get("session_id");
@@ -17,6 +20,9 @@ export function SessionMenu({ currentSessionName = "Content Creation" }: Session
   const [isOpen, setIsOpen] = useState(false);
   const [showSwitchList, setShowSwitchList] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [seedPhraseInput, setSeedPhraseInput] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside
@@ -31,14 +37,45 @@ export function SessionMenu({ currentSessionName = "Content Creation" }: Session
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleNewSession = async () => {
+  const handleNewSessionClick = () => {
+    setIsOpen(false);
+    setIsNewSessionModalOpen(true);
+  };
+
+  const handleCreateSession = async () => {
+    if (!seedPhraseInput.trim()) return;
+    
+    setIsCreating(true);
     try {
-      const name = `Session ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      const newSession = await createSession(name);
-      router.push(`/members/build/seed?session_id=${newSession.id}`);
-      setIsOpen(false);
+      const name = seedPhraseInput.trim();
+      const newSession = await createSession(name, name);
+      
+      // Save the seed phrase to seed_phrases table
+      await addSeedPhrases(newSession.id, [
+        {
+          phrase: name,
+          builderSourceTag: "seed",
+          originSourceModule: "seed",
+        },
+      ]);
+      
+      // Redirect with seed param for autofill
+      router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodeURIComponent(name)}`);
+      setIsNewSessionModalOpen(false);
+      setSeedPhraseInput("");
     } catch (error) {
-      console.error("Failed to create session", error);
+      // Handle both Error objects and Supabase error objects
+      const message = 
+        error instanceof Error ? error.message : 
+        (error && typeof error === 'object' && 'message' in error) ? String((error as { message: unknown }).message) :
+        "Unknown error";
+      console.error("Failed to create session:", message, error);
+      // If not authenticated, redirect to login
+      if (message === "Not authenticated") {
+        router.push("/login");
+      }
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -92,7 +129,7 @@ export function SessionMenu({ currentSessionName = "Content Creation" }: Session
         <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
           <div className="p-1 space-y-1">
             <button
-              onClick={handleNewSession}
+              onClick={handleNewSessionClick}
               className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors"
             >
               <IconPlus size={18} className="text-blue-400" />
@@ -150,6 +187,54 @@ export function SessionMenu({ currentSessionName = "Content Creation" }: Session
           </div>
         </div>
       )}
+
+      {/* New Session Modal */}
+      <Modal
+        isOpen={isNewSessionModalOpen}
+        onClose={() => {
+          setIsNewSessionModalOpen(false);
+          setSeedPhraseInput("");
+        }}
+        title="Create New Session"
+        footer={
+          <>
+            <ModalButton
+              variant="secondary"
+              onClick={() => {
+                setIsNewSessionModalOpen(false);
+                setSeedPhraseInput("");
+              }}
+            >
+              Cancel
+            </ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={handleCreateSession}
+            >
+              {isCreating ? "Creating..." : "+ Create Session"}
+            </ModalButton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-[1.125rem] leading-relaxed">
+            Add a two word phrase that describes the type of topics you're interested in. Example: <span className="text-white/80">poodle grooming</span>.
+          </p>
+          <input
+            type="text"
+            value={seedPhraseInput}
+            onChange={(e) => setSeedPhraseInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && seedPhraseInput.trim()) {
+                handleCreateSession();
+              }
+            }}
+            placeholder="Enter seed phrase..."
+            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg text-base text-white placeholder-white/30 focus:outline-none focus:border-[#6B9BD1]/50 focus:ring-1 focus:ring-[#6B9BD1]/30 transition-all"
+            autoFocus
+          />
+        </div>
+      </Modal>
     </div>
   );
 }
