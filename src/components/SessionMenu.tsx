@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@tabler/icons-react";
-import { createSession, listSessions } from "@/hooks/useSessions";
+import { createSession, listSessions, getSessionById } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { Modal, ModalButton } from "@/components/ui/Modal";
 import type { Session } from "@/types/database";
@@ -12,7 +12,7 @@ interface SessionMenuProps {
   currentSessionName?: string;
 }
 
-export function SessionMenu({ currentSessionName = "New Session" }: SessionMenuProps) {
+export function SessionMenu({ currentSessionName }: SessionMenuProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSessionId = searchParams.get("session_id");
@@ -20,10 +20,28 @@ export function SessionMenu({ currentSessionName = "New Session" }: SessionMenuP
   const [isOpen, setIsOpen] = useState(false);
   const [showSwitchList, setShowSwitchList] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [seedPhraseInput, setSeedPhraseInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch current session on mount or when session_id changes
+  useEffect(() => {
+    async function fetchCurrentSession() {
+      if (currentSessionId) {
+        try {
+          const session = await getSessionById(currentSessionId);
+          setCurrentSession(session);
+        } catch (error) {
+          console.error("Failed to fetch session:", error);
+        }
+      } else {
+        setCurrentSession(null);
+      }
+    }
+    fetchCurrentSession();
+  }, [currentSessionId]);
 
   // Close on click outside
   useEffect(() => {
@@ -101,11 +119,8 @@ export function SessionMenu({ currentSessionName = "New Session" }: SessionMenuP
     setIsOpen(false);
   };
 
-  // If we have a session ID in URL, try to find its name from the list if we loaded it
-  // Ideally we would fetch the single session name server side or via hook, 
-  // but for this UI component we'll stick to the prop or fallback.
-  // If sessions are loaded, we can lookup the name.
-  const displaySessionName = sessions.find(s => s.id === currentSessionId)?.name || currentSessionName;
+  // Display name: fetched session > prop > "New Session"
+  const displaySessionName = currentSession?.name || currentSessionName || "New Session";
 
   return (
     <div className="relative z-50" ref={menuRef}>

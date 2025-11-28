@@ -1,17 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { toTitleCase } from '@/lib/utils';
 import type { Seed, SeedInsert } from '@/types/database';
-
-/**
- * Convert string to Title Case (each word capitalized)
- * "youtube algorithm" → "YouTube Algorithm"
- */
-function toTitleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
 
 export interface AddSeedInput {
   phrase: string;

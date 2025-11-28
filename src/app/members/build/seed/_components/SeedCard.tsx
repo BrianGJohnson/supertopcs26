@@ -1,6 +1,40 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { getSessionById } from "@/hooks/useSessions";
 
 export function SeedCard() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const seedFromUrl = searchParams.get("seed");
+  
+  const [searchPhrase, setSearchPhrase] = useState("");
+
+  // Load seed phrase from URL param or fetch from session
+  useEffect(() => {
+    async function loadSeedPhrase() {
+      // First check URL param (set after session creation)
+      if (seedFromUrl) {
+        setSearchPhrase(decodeURIComponent(seedFromUrl));
+        return;
+      }
+      
+      // Otherwise fetch from session
+      if (sessionId) {
+        try {
+          const session = await getSessionById(sessionId);
+          if (session?.seed_phrase) {
+            setSearchPhrase(session.seed_phrase);
+          }
+        } catch (error) {
+          console.error("Failed to load session:", error);
+        }
+      }
+    }
+    loadSeedPhrase();
+  }, [sessionId, seedFromUrl]);
+
   return (
     <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group -mt-4">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-25"></div>
@@ -8,7 +42,9 @@ export function SeedCard() {
         <div className="relative">
           <input
             type="text"
-            placeholder="content creator"
+            value={searchPhrase}
+            onChange={(e) => setSearchPhrase(e.target.value)}
+            placeholder="Enter seed phrase..."
             className="w-full bg-black/40 bg-gradient-to-b from-white/[0.03] to-transparent border border-white/30 rounded-2xl px-8 py-5 text-xl text-white focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-white/85 text-center shadow-inner"
           />
           <div className="absolute right-6 top-1/2 -translate-y-1/2 text-primary/50">

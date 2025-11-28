@@ -1,4 +1,5 @@
 import { supabase, getCurrentUserId } from '@/lib/supabase';
+import { toTitleCase } from '@/lib/utils';
 import type { Session, SessionInsert } from '@/types/database';
 
 /**
@@ -9,18 +10,6 @@ function throwSupabaseError(error: unknown): never {
     throw new Error(String((error as { message: unknown }).message));
   }
   throw new Error('Database operation failed');
-}
-
-/**
- * Convert string to Title Case (each word capitalized)
- * "youtube algorithm" → "YouTube Algorithm"
- */
-function toTitleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 /**
