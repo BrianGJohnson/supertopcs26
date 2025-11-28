@@ -6,7 +6,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
 import { Modal, ModalButton } from "@/components/ui/Modal";
-import { IconFolders, IconTrash, IconExternalLink, IconCalendar, IconHash } from "@tabler/icons-react";
+import { IconFolders, IconTrash, IconExternalLink, IconCalendar, IconHash, IconSquare, IconSquareCheck } from "@tabler/icons-react";
 import { listSessions, deleteSession } from "@/hooks/useSessions";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
 import type { Session } from "@/types/database";
@@ -22,6 +22,10 @@ export default function SessionsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<SessionWithCount | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
 
   // Fetch sessions with phrase counts
   useEffect(() => {
@@ -81,6 +85,11 @@ export default function SessionsPage() {
     try {
       await deleteSession(sessionToDelete.id);
       setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionToDelete.id);
+        return next;
+      });
       setDeleteModalOpen(false);
       setSessionToDelete(null);
     } catch (error) {
@@ -89,6 +98,60 @@ export default function SessionsPage() {
       setIsDeleting(false);
     }
   };
+
+  // Toggle single selection
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Toggle all selection
+  const toggleAllSelection = () => {
+    if (selectedIds.size === sessions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sessions.map((s) => s.id)));
+    }
+  };
+
+  // Bulk delete confirmation
+  const handleBulkDeleteClick = () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleteModalOpen(true);
+  };
+
+  // Confirm bulk delete
+  const handleConfirmBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      // Delete all selected sessions
+      await Promise.all(
+        Array.from(selectedIds).map((id) => deleteSession(id))
+      );
+      setSessions((prev) => prev.filter((s) => !selectedIds.has(s.id)));
+      setSelectedIds(new Set());
+      setBulkDeleteModalOpen(false);
+    } catch (error) {
+      console.error("Failed to delete sessions:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Calculate total phrases for selected sessions
+  const selectedPhrasesCount = sessions
+    .filter((s) => selectedIds.has(s.id))
+    .reduce((sum, s) => sum + s.phraseCount, 0);
+
+  const allSelected = sessions.length > 0 && selectedIds.size === sessions.length;
+  const someSelected = selectedIds.size > 0;
 
   return (
     <PageShell>
@@ -118,73 +181,122 @@ export default function SessionsPage() {
               </p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/5 bg-white/5">
-                  <th className="pl-8 pr-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
-                    Session Name
-                  </th>
-                  <th className="px-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
-                    <div className="flex items-center gap-2">
-                      <IconCalendar size={16} className="text-white/50" />
-                      Created
-                    </div>
-                  </th>
-                  <th className="px-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
-                    <div className="flex items-center gap-2">
-                      <IconHash size={16} className="text-white/50" />
-                      Phrases
-                    </div>
-                  </th>
-                  <th className="pl-4 pr-8 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em] text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {sessions.map((session) => (
-                  <tr
-                    key={session.id}
-                    className="hover:bg-white/[0.04] transition-colors group"
+            <>
+              {/* Bulk Actions Bar */}
+              {someSelected && (
+                <div className="px-8 py-4 bg-red-500/5 border-b border-red-500/20 flex items-center justify-between">
+                  <span className="text-white/70 text-sm">
+                    <span className="text-white font-medium">{selectedIds.size}</span> session{selectedIds.size !== 1 ? "s" : ""} selected
+                    <span className="text-white/40 ml-2">({selectedPhrasesCount} total phrases)</span>
+                  </span>
+                  <button
+                    onClick={handleBulkDeleteClick}
+                    className="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 text-sm font-medium transition-all flex items-center gap-2"
                   >
-                    <td className="pl-8 pr-4 py-5">
-                      <span className="text-white/[0.86] group-hover:text-white transition-colors font-medium">
-                        {session.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-5 text-white/60">
-                      {session.created_at ? formatDate(session.created_at) : "—"}
-                    </td>
-                    <td className="px-4 py-5">
-                      <span className="px-3 py-1 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] rounded-full text-sm text-white/70 border border-white/10 font-medium">
-                        {session.phraseCount}
-                      </span>
-                    </td>
-                    <td className="pl-4 pr-8 py-5">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Open Button */}
-                        <button
-                          onClick={() => handleOpenSession(session.id)}
-                          className="px-4 py-2 rounded-lg bg-[#4A90D9]/10 hover:bg-[#4A90D9]/20 border border-[#4A90D9]/30 text-[#4A90D9] text-sm font-medium transition-all flex items-center gap-2"
-                        >
-                          <IconExternalLink size={16} />
-                          Open
-                        </button>
-                        
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteClick(session)}
-                          className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium transition-all flex items-center gap-2"
-                        >
-                          <IconTrash size={16} />
-                          Delete
-                        </button>
+                    <IconTrash size={16} />
+                    Delete Selected
+                  </button>
+                </div>
+              )}
+              
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/5">
+                    {/* Select All Checkbox */}
+                    <th className="pl-6 pr-2 py-5 w-12">
+                      <button
+                        onClick={toggleAllSelection}
+                        className="text-white/50 hover:text-white/80 transition-colors"
+                        title={allSelected ? "Deselect all" : "Select all"}
+                      >
+                        {allSelected ? (
+                          <IconSquareCheck size={22} className="text-[#4A90D9]" />
+                        ) : (
+                          <IconSquare size={22} />
+                        )}
+                      </button>
+                    </th>
+                    <th className="pl-2 pr-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
+                      Session Name
+                    </th>
+                    <th className="px-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
+                      <div className="flex items-center gap-2">
+                        <IconCalendar size={16} className="text-white/50" />
+                        Created
                       </div>
-                    </td>
+                    </th>
+                    <th className="px-4 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em]">
+                      <div className="flex items-center gap-2">
+                        <IconHash size={16} className="text-white/50" />
+                        Phrases
+                      </div>
+                    </th>
+                    <th className="pl-4 pr-8 py-5 text-[16px] font-bold text-white/[0.86] uppercase tracking-[0.12em] text-right">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {sessions.map((session) => {
+                    const isSelected = selectedIds.has(session.id);
+                    return (
+                      <tr
+                        key={session.id}
+                        className={`hover:bg-white/[0.04] transition-colors group ${isSelected ? "bg-[#4A90D9]/5" : ""}`}
+                      >
+                        {/* Row Checkbox */}
+                        <td className="pl-6 pr-2 py-5">
+                          <button
+                            onClick={() => toggleSelection(session.id)}
+                            className="text-white/50 hover:text-white/80 transition-colors"
+                          >
+                            {isSelected ? (
+                              <IconSquareCheck size={22} className="text-[#4A90D9]" />
+                            ) : (
+                              <IconSquare size={22} />
+                            )}
+                          </button>
+                        </td>
+                        <td className="pl-2 pr-4 py-5">
+                          <span className="text-white/[0.86] group-hover:text-white transition-colors font-medium">
+                            {session.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-5 text-white/60">
+                          {session.created_at ? formatDate(session.created_at) : "—"}
+                        </td>
+                        <td className="px-4 py-5">
+                          <span className="px-3 py-1 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] rounded-full text-sm text-white/70 border border-white/10 font-medium">
+                            {session.phraseCount}
+                          </span>
+                        </td>
+                        <td className="pl-4 pr-8 py-5">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Open Button */}
+                            <button
+                              onClick={() => handleOpenSession(session.id)}
+                              className="px-4 py-2 rounded-lg bg-[#4A90D9]/10 hover:bg-[#4A90D9]/20 border border-[#4A90D9]/30 text-[#4A90D9] text-sm font-medium transition-all flex items-center gap-2"
+                            >
+                              <IconExternalLink size={16} />
+                              Open
+                            </button>
+                            
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => handleDeleteClick(session)}
+                              className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium transition-all flex items-center gap-2"
+                            >
+                              <IconTrash size={16} />
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
 
@@ -238,6 +350,43 @@ export default function SessionsPage() {
           </p>
           <p className="text-white/60 text-[1.125rem] leading-relaxed">
             This will permanently remove the session and all <span className="text-white font-medium">{sessionToDelete?.phraseCount} phrases</span> associated with it.
+          </p>
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <p className="text-red-400 text-sm font-medium">
+              ⚠️ This action cannot be undone.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        title="Delete Multiple Sessions"
+        footer={
+          <>
+            <ModalButton
+              variant="secondary"
+              onClick={() => setBulkDeleteModalOpen(false)}
+            >
+              Cancel
+            </ModalButton>
+            <ModalButton
+              variant="danger"
+              onClick={handleConfirmBulkDelete}
+            >
+              {isDeleting ? "Deleting..." : `Delete ${selectedIds.size} Session${selectedIds.size !== 1 ? "s" : ""}`}
+            </ModalButton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-[1.125rem] leading-relaxed">
+            Are you sure you want to delete <span className="text-white font-medium">{selectedIds.size} session{selectedIds.size !== 1 ? "s" : ""}</span>?
+          </p>
+          <p className="text-white/60 text-[1.125rem] leading-relaxed">
+            This will permanently remove all selected sessions and <span className="text-white font-medium">{selectedPhrasesCount} total phrases</span>.
           </p>
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
             <p className="text-red-400 text-sm font-medium">

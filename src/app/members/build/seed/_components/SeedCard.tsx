@@ -7,6 +7,7 @@ import { getSessionById } from "@/hooks/useSessions";
 import { addSeeds, getSeedsByMethod } from "@/hooks/useSeedPhrases";
 import { PhraseSelectModal } from "./PhraseSelectModal";
 import { IconCheck } from "@tabler/icons-react";
+import { toTitleCase } from "@/lib/utils";
 
 // Module completion state type
 type ModuleStatus = "idle" | "loading" | "complete";
@@ -372,7 +373,7 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
               <SeedIconGreen size={28} />
             </span>
             <span className="text-xl text-white font-medium">
-              {seedPhrase || "No seed phrase"}
+              {seedPhrase ? toTitleCase(seedPhrase) : "No seed phrase"}
             </span>
           </div>
 

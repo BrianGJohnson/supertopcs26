@@ -169,7 +169,49 @@ function isRelevantToSeed(phrase: string, significantWords: string[]): boolean {
 }
 
 /**
- * Save phrases to database (deduped against existing, filtered for relevance)
+ * Get allowed years for filtering (current year + next year if Sept-Dec)
+ */
+function getAllowedYears(): Set<string> {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
+  
+  const allowed = new Set<string>();
+  allowed.add(String(currentYear));
+  
+  // If September (8) through December (11), also allow next year
+  if (currentMonth >= 8) {
+    allowed.add(String(currentYear + 1));
+  }
+  
+  return allowed;
+}
+
+/**
+ * Check if phrase contains an outdated year (should be filtered out)
+ * Returns true if phrase should be REMOVED
+ */
+function hasOutdatedYear(phrase: string): boolean {
+  const allowedYears = getAllowedYears();
+  
+  // Match 4-digit years (2020-2099 range to avoid matching other numbers)
+  const yearPattern = /\b(20[2-9]\d)\b/g;
+  const matches = phrase.match(yearPattern);
+  
+  if (!matches) return false; // No years found, keep the phrase
+  
+  // If any year in the phrase is NOT allowed, filter it out
+  for (const year of matches) {
+    if (!allowedYears.has(year)) {
+      return true; // Has outdated year, should be removed
+    }
+  }
+  
+  return false; // All years are allowed
+}
+
+/**
+ * Save phrases to database (deduped against existing, filtered for relevance and year)
  */
 async function savePhrases(
   sessionId: string,
@@ -185,8 +227,13 @@ async function savePhrases(
     const normalized = normalizePhrase(phrase);
     if (!normalized || existingNormalized.has(normalized)) continue;
     
-    // Filter: must contain at least one significant word from seed
+    // Filter 1: must contain at least one significant word from seed
     if (!isRelevantToSeed(phrase, seedSignificantWords)) {
+      continue;
+    }
+    
+    // Filter 2: remove phrases with outdated years
+    if (hasOutdatedYear(phrase)) {
       continue;
     }
     
