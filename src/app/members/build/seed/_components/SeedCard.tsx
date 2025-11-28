@@ -25,6 +25,46 @@ interface ProgressState {
   total: number;
 }
 
+// Progress messages for each method (Brand Voice: viewer-focused, educational)
+const PROGRESS_MESSAGES: Record<string, string[]> = {
+  top10: [
+    "These Are The Most Popular Topics With Viewers",
+    "High Popularity Means More Competition",
+    "Orange Signals Strong Interest But Crowded Space",
+    "The Foundation — Popular Topics Viewers Love",
+    "Starting With What Viewers Want Most",
+  ],
+  child: [
+    "Derived From Your Top 10 — Still Popular",
+    "Same Viewer Interest With Less Competition",
+    "The Sweet Spot — Popular But Less Crowded",
+    "Green Means Room To Grow And Stand Out",
+    "Premium Topics — Popularity Meets Opportunity",
+  ],
+  az: [
+    "Uncovering Every Possible Topic Variation",
+    "Discovering Topics Most Creators Miss",
+    "Diving Deep Into Your Topic Landscape",
+    "Finding The Topics Others Overlook",
+    "Hidden Gems Waiting For Your Channel",
+  ],
+  prefix: [
+    "Identifying Question-Based Topic Angles",
+    "Questions Reveal What Viewers Wonder",
+    "These Topics Often Drive Evergreen Views",
+    "How, What, Why — Powerful Title Starters",
+    "Question Topics Attract Long-Term Traffic",
+  ],
+};
+
+// Method colors for progress bar
+const METHOD_COLORS: Record<string, string> = {
+  top10: "#FF8A3D",
+  child: "#D4E882",
+  az: "#4DD68A",
+  prefix: "#39C7D8",
+};
+
 interface SeedCardProps {
   onPhrasesAdded?: () => void;
 }
@@ -52,10 +92,12 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
   // Progress tracking for streaming methods
   const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 0 });
   const [activeStreamMethod, setActiveStreamMethod] = useState<keyof ModuleState | null>(null);
+  const [messageIndex, setMessageIndex] = useState(0);
   
   // Polling interval ref
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const messageRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load seed phrase from URL param or fetch from session
   useEffect(() => {
@@ -131,6 +173,16 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
     }, 5000); // Increment every 5 seconds (roughly matches API timing)
   }, []);
 
+  // Start message rotation
+  const startMessageRotation = useCallback(() => {
+    if (messageRef.current) return;
+    setMessageIndex(0);
+    
+    messageRef.current = setInterval(() => {
+      setMessageIndex((prev) => prev + 1);
+    }, 8000); // Rotate every 8 seconds
+  }, []);
+
   // Stop polling
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -141,6 +193,11 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
       clearInterval(progressRef.current);
       progressRef.current = null;
     }
+    if (messageRef.current) {
+      clearInterval(messageRef.current);
+      messageRef.current = null;
+    }
+    setMessageIndex(0);
   }, []);
 
   // Cleanup on unmount
@@ -182,6 +239,8 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
     
     // Start polling to refresh table
     startPolling();
+    // Start message rotation
+    startMessageRotation();
     
     try {
       // Build request body
@@ -407,6 +466,46 @@ export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
               shadowColor="rgba(57,199,216,0.1)"
             />
           </div>
+
+          {/* Progress Bar - Only visible during streaming */}
+          {activeStreamMethod && (
+            <div className="flex flex-col mt-2 animate-in fade-in duration-300">
+              {/* Message */}
+              <p 
+                className="text-center text-xl font-semibold mb-4 transition-opacity duration-500"
+                style={{ color: METHOD_COLORS[activeStreamMethod] }}
+              >
+                {PROGRESS_MESSAGES[activeStreamMethod]?.[messageIndex % PROGRESS_MESSAGES[activeStreamMethod].length]}
+              </p>
+              
+              {/* Progress Bar Container */}
+              <div className="relative h-7 bg-black/40 rounded-full border border-white/10 overflow-hidden">
+                {/* Fill */}
+                <div 
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                  style={{ 
+                    width: progress.total > 0 ? `${(progress.current / progress.total) * 100}%` : '0%',
+                    backgroundColor: METHOD_COLORS[activeStreamMethod],
+                    opacity: 0.3,
+                  }}
+                />
+                {/* Shimmer effect */}
+                <div 
+                  className="absolute inset-y-0 left-0 rounded-full animate-pulse"
+                  style={{ 
+                    width: progress.total > 0 ? `${(progress.current / progress.total) * 100}%` : '0%',
+                    background: `linear-gradient(90deg, transparent, ${METHOD_COLORS[activeStreamMethod]}40, transparent)`,
+                  }}
+                />
+                {/* Progress text */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-white/70">
+                    {progress.current} / {progress.total}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
