@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@tabler/icons-react";
 import { createSession, listSessions } from "@/hooks/useSessions";
-import { addSeedPhrases } from "@/hooks/useSeedPhrases";
+import { addSeeds } from "@/hooks/useSeedPhrases";
 import { Modal, ModalButton } from "@/components/ui/Modal";
 import type { Session } from "@/types/database";
 
@@ -50,12 +50,11 @@ export function SessionMenu({ currentSessionName = "New Session" }: SessionMenuP
       const name = seedPhraseInput.trim();
       const newSession = await createSession(name, name);
       
-      // Save the seed phrase to seed_phrases table
-      await addSeedPhrases(newSession.id, [
+      // Save the seed phrase to seeds table
+      await addSeeds(newSession.id, [
         {
           phrase: name,
-          builderSourceTag: "seed",
-          originSourceModule: "seed",
+          generationMethod: "seed",
         },
       ]);
       

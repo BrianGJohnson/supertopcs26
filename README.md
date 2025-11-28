@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Super Topics
+
+YouTube topic research and video package builder.
+
+## Tech Stack
+
+- **Framework:** Next.js 14 (App Router)
+- **Database:** Supabase (PostgreSQL)
+- **ORM:** Drizzle
+- **Styling:** Tailwind CSS
+- **Auth:** Supabase Auth
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Schema is managed by Drizzle. Source of truth: `src/server/db/schema.ts`
 
-## Learn More
+```bash
+# Push schema changes to database
+npx drizzle-kit push --force
 
-To learn more about Next.js, take a look at the following resources:
+# View database in browser
+npx drizzle-kit studio
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/                    # Next.js pages
+│   └── members/build/      # Builder wizard (seed → refine → super → title → package → upload)
+├── components/             # React components
+├── hooks/                  # Data hooks (useSessions, useSeedPhrases)
+├── lib/                    # Utilities (supabase client)
+├── server/db/              # Drizzle schema
+└── types/                  # TypeScript types
+```
 
-## Deploy on Vercel
+## Database Tables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **sessions** - Research workspaces
+- **seeds** - Generated phrases from autocomplete
+- **seed_analysis** - Scoring and analysis per seed

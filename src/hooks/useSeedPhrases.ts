@@ -1,37 +1,43 @@
-import { supabase, getCurrentUserId } from '@/lib/supabase';
-import type { SeedPhrase, SeedPhraseInsert } from '@/types/database';
+import { supabase } from '@/lib/supabase';
+import type { Seed, SeedInsert } from '@/types/database';
 
-export interface AddPhraseInput {
+/**
+ * Convert string to Title Case (each word capitalized)
+ * "youtube algorithm" → "YouTube Algorithm"
+ */
+function toTitleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+export interface AddSeedInput {
   phrase: string;
-  builderSourceTag?: string;
-  originSourceModule?: string;
-  parentPhraseId?: string;
-  hierarchyPath?: string;
-  hierarchyDepth?: number;
+  generationMethod?: string; // top10, child, a2z, prefix
+  parentSeedId?: string;
+  position?: number;
 }
 
 /**
- * Add multiple seed phrases to a session
+ * Add multiple seeds to a session
+ * Phrases are automatically converted to Title Case
  */
-export async function addSeedPhrases(
+export async function addSeeds(
   sessionId: string,
-  phrases: AddPhraseInput[]
-): Promise<SeedPhrase[]> {
-  const userId = await getCurrentUserId();
-
-  const inserts: SeedPhraseInsert[] = phrases.map((p) => ({
-    user_id: userId,
+  seeds: AddSeedInput[]
+): Promise<Seed[]> {
+  const inserts: SeedInsert[] = seeds.map((s) => ({
     session_id: sessionId,
-    phrase: p.phrase,
-    builder_source_tag: p.builderSourceTag ?? null,
-    origin_source_module: p.originSourceModule ?? 'seed',
-    parent_phrase_id: p.parentPhraseId ?? null,
-    hierarchy_path: p.hierarchyPath ?? null,
-    hierarchy_depth: p.hierarchyDepth ?? null,
+    phrase: toTitleCase(s.phrase),
+    generation_method: s.generationMethod ?? null,
+    parent_seed_id: s.parentSeedId ?? null,
+    position: s.position ?? null,
   }));
 
   const { data, error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .insert(inserts)
     .select();
 
@@ -40,13 +46,13 @@ export async function addSeedPhrases(
 }
 
 /**
- * Get all seed phrases for a session, ordered by created_at ASC
+ * Get all seeds for a session, ordered by created_at ASC
  */
-export async function getSeedPhrasesBySession(
+export async function getSeedsBySession(
   sessionId: string
-): Promise<SeedPhrase[]> {
+): Promise<Seed[]> {
   const { data, error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .select('*')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
@@ -56,13 +62,13 @@ export async function getSeedPhrasesBySession(
 }
 
 /**
- * Get only selected seed phrases for a session
+ * Get only selected seeds for a session
  */
-export async function getSelectedSeedPhrases(
+export async function getSelectedSeeds(
   sessionId: string
-): Promise<SeedPhrase[]> {
+): Promise<Seed[]> {
   const { data, error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .select('*')
     .eq('session_id', sessionId)
     .eq('is_selected', true)
@@ -73,13 +79,13 @@ export async function getSelectedSeedPhrases(
 }
 
 /**
- * Get finalist seed phrases for a session
+ * Get finalist seeds for a session
  */
-export async function getFinalistSeedPhrases(
+export async function getFinalistSeeds(
   sessionId: string
-): Promise<SeedPhrase[]> {
+): Promise<Seed[]> {
   const { data, error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .select('*')
     .eq('session_id', sessionId)
     .eq('is_finalist', true)
@@ -90,16 +96,16 @@ export async function getFinalistSeedPhrases(
 }
 
 /**
- * Toggle selection state for a phrase
+ * Toggle selection state for a seed
  */
-export async function togglePhraseSelected(
-  phraseId: string,
+export async function toggleSeedSelected(
+  seedId: string,
   isSelected: boolean
-): Promise<SeedPhrase> {
+): Promise<Seed> {
   const { data, error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .update({ is_selected: isSelected })
-    .eq('id', phraseId)
+    .eq('id', seedId)
     .select()
     .single();
 
@@ -108,16 +114,16 @@ export async function togglePhraseSelected(
 }
 
 /**
- * Toggle favorite state for a phrase
+ * Toggle finalist state for a seed
  */
-export async function togglePhraseFavorite(
-  phraseId: string,
-  isFavorite: boolean
-): Promise<SeedPhrase> {
+export async function toggleSeedFinalist(
+  seedId: string,
+  isFinalist: boolean
+): Promise<Seed> {
   const { data, error } = await supabase
-    .from('seed_phrases')
-    .update({ is_favorite: isFavorite })
-    .eq('id', phraseId)
+    .from('seeds')
+    .update({ is_finalist: isFinalist })
+    .eq('id', seedId)
     .select()
     .single();
 
@@ -129,25 +135,43 @@ export async function togglePhraseFavorite(
  * Bulk update selection state
  */
 export async function bulkSetSelected(
-  phraseIds: string[],
+  seedIds: string[],
   isSelected: boolean
 ): Promise<void> {
   const { error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .update({ is_selected: isSelected })
-    .in('id', phraseIds);
+    .in('id', seedIds);
 
   if (error) throw error;
 }
 
 /**
- * Delete phrases from a session
+ * Delete seeds
  */
-export async function deleteSeedPhrases(phraseIds: string[]): Promise<void> {
+export async function deleteSeeds(seedIds: string[]): Promise<void> {
   const { error } = await supabase
-    .from('seed_phrases')
+    .from('seeds')
     .delete()
-    .in('id', phraseIds);
+    .in('id', seedIds);
 
   if (error) throw error;
+}
+
+/**
+ * Get seeds by generation method (for counting)
+ */
+export async function getSeedsByMethod(
+  sessionId: string,
+  method: string
+): Promise<Seed[]> {
+  const { data, error } = await supabase
+    .from('seeds')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('generation_method', method)
+    .order('position', { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
 }

@@ -12,7 +12,20 @@ function throwSupabaseError(error: unknown): never {
 }
 
 /**
+ * Convert string to Title Case (each word capitalized)
+ * "youtube algorithm" → "YouTube Algorithm"
+ */
+function toTitleCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * Create a new builder session
+ * Name and seed phrase are automatically converted to Title Case
  */
 export async function createSession(
   name: string,
@@ -22,11 +35,10 @@ export async function createSession(
 
   const insert: SessionInsert = {
     user_id: userId,
-    name,
-    seed_phrase: seedPhrase ?? null,
+    name: toTitleCase(name),
+    seed_phrase: seedPhrase ? toTitleCase(seedPhrase) : null,
     current_step: 1,
     status: 'active',
-    source_module: 'builder',
   };
 
   const { data, error } = await supabase
@@ -73,15 +85,15 @@ export async function getSessionById(sessionId: string): Promise<Session | null>
 }
 
 /**
- * Update session fields (e.g., current_step, last_activity_at)
+ * Update session fields
  */
 export async function updateSession(
   sessionId: string,
-  updates: Partial<Pick<Session, 'name' | 'seed_phrase' | 'current_step' | 'status' | 'total_phrases_generated' | 'total_phrases_refined' | 'total_super_items' | 'total_titles_saved' | 'total_packages_saved'>>
+  updates: Partial<Pick<Session, 'name' | 'seed_phrase' | 'current_step' | 'status'>>
 ): Promise<Session> {
   const { data, error } = await supabase
     .from('sessions')
-    .update({ ...updates, last_activity_at: new Date().toISOString() })
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', sessionId)
     .select()
     .single();
@@ -91,7 +103,7 @@ export async function updateSession(
 }
 
 /**
- * Delete a session (cascades to disposable tables)
+ * Delete a session (cascades to seeds and seed_analysis)
  */
 export async function deleteSession(sessionId: string): Promise<void> {
   const { error } = await supabase
