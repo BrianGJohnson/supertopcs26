@@ -1,19 +1,14 @@
-import { db, health_checks } from '@/server/db';
-import { desc } from 'drizzle-orm';
+import { db } from '@/server/db';
+import { sessions } from '@/server/db/schema';
+import { sql } from 'drizzle-orm';
 
 export async function GET() {
   try {
-    const inserted = await db.insert(health_checks).values({ note: 'test from /api/health/db' }).returning();
-    const last = await db.select().from(health_checks).orderBy(desc(health_checks.created_at)).limit(1);
-
-    if (!last || last.length === 0) {
-      return new Response(JSON.stringify({ ok: false, error: 'no rows returned' }), { status: 500 });
-    }
-
-    const lastRow = last[0];
-
+    // Simple connection test - just count sessions
+    const result = await db.select({ count: sql<number>`count(*)` }).from(sessions);
+    
     return new Response(
-      JSON.stringify({ ok: true, lastId: lastRow.id, lastNote: lastRow.note }),
+      JSON.stringify({ ok: true, sessionCount: result[0]?.count ?? 0 }),
       { status: 200 }
     );
   } catch (err) {

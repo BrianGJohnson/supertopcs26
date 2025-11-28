@@ -365,6 +365,40 @@ SESSION BUTTON (GRAPHITE PILL — INTERACTIVE)
 SECTION 8: TAG AND TOPIC SOURCE PILLS (LOCKED)
 ================================================================================
 
+TAG COLOR HIERARCHY — DIFFICULTY TO VIEWS SYSTEM
+
+The tag colors follow a traffic-light inspired system to guide creators toward
+topics with the best opportunity for views. This is NOT decorative — it
+communicates competitive difficulty at a glance.
+
+COLOR PROGRESSION (Hardest → Easiest):
+┌─────────┬─────────────┬──────────────────────────────────────────────────────┐
+│ Tag     │ Color       │ Meaning                                              │
+├─────────┼─────────────┼──────────────────────────────────────────────────────┤
+│ Seed    │ #E85C4A     │ Burnt orange/red — STOP. Most competitive. Your      │
+│         │ (Red-Orange)│ starting point, not your destination.                │
+├─────────┼─────────────┼──────────────────────────────────────────────────────┤
+│ Top 10  │ #FF8A3D     │ Orange — CAUTION. Competitive but doable. The dream  │
+│         │ (Orange)    │ topics, but know you're competing.                   │
+├─────────┼─────────────┼──────────────────────────────────────────────────────┤
+│ Child   │ #D4E882     │ Yellow-green — GO ZONE BEGINS. Opportunity zone.     │
+│         │ (Lime)      │ Derived from Top 10, less competition.               │
+├─────────┼─────────────┼──────────────────────────────────────────────────────┤
+│ A-Z     │ #4DD68A     │ Green — FANTASTIC. Great terms. High topic strength  │
+│         │ (Green)     │ scores here indicate excellent video potential.      │
+├─────────┼─────────────┼──────────────────────────────────────────────────────┤
+│ Prefix  │ #39C7D8     │ Teal — FANTASTIC. Same opportunity as A-Z. Question- │
+│         │ (Teal)      │ based phrases often have clearer viewer intent.      │
+└─────────┴─────────────┴──────────────────────────────────────────────────────┘
+
+CREATOR GUIDANCE:
+- Child, A-Z, Prefix = Where creators should focus
+- Top 10 = Aspirational but competitive
+- Seed = Reference point only, not a target
+
+This hierarchy should inform all UI decisions involving tag display, filtering,
+or sorting. When in doubt, green/teal = good, red/orange = challenging.
+
 TOPIC SOURCES LABEL
 - Text: "Topic Sources:"
 - Color: White at 68% opacity

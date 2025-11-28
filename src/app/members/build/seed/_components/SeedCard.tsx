@@ -1,31 +1,74 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { SeedIconGreen } from "@/components/icons";
 import { getSessionById } from "@/hooks/useSessions";
+import { addSeeds, getSeedsByMethod } from "@/hooks/useSeedPhrases";
+import { PhraseSelectModal } from "./PhraseSelectModal";
+import { IconCheck } from "@tabler/icons-react";
 
-export function SeedCard() {
+// Module completion state type
+type ModuleStatus = "idle" | "loading" | "complete";
+
+interface ModuleState {
+  top10: ModuleStatus;
+  child: ModuleStatus;
+  az: ModuleStatus;
+  prefix: ModuleStatus;
+}
+
+// Progress state for streaming methods
+interface ProgressState {
+  current: number;
+  total: number;
+}
+
+interface SeedCardProps {
+  onPhrasesAdded?: () => void;
+}
+
+export function SeedCard({ onPhrasesAdded }: SeedCardProps) {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
   
-  const [searchPhrase, setSearchPhrase] = useState("");
+  const [seedPhrase, setSeedPhrase] = useState("");
+  
+  // Modal state (only for Top 10)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPhrases, setModalPhrases] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Module completion tracking
+  const [modules, setModules] = useState<ModuleState>({
+    top10: "idle",
+    child: "idle",
+    az: "idle",
+    prefix: "idle",
+  });
+
+  // Progress tracking for streaming methods
+  const [progress, setProgress] = useState<ProgressState>({ current: 0, total: 0 });
+  const [activeStreamMethod, setActiveStreamMethod] = useState<keyof ModuleState | null>(null);
+  
+  // Polling interval ref
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const progressRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load seed phrase from URL param or fetch from session
   useEffect(() => {
     async function loadSeedPhrase() {
-      // First check URL param (set after session creation)
       if (seedFromUrl) {
-        setSearchPhrase(decodeURIComponent(seedFromUrl));
+        setSeedPhrase(decodeURIComponent(seedFromUrl));
         return;
       }
       
-      // Otherwise fetch from session
       if (sessionId) {
         try {
           const session = await getSessionById(sessionId);
           if (session?.seed_phrase) {
-            setSearchPhrase(session.seed_phrase);
+            setSeedPhrase(session.seed_phrase);
           }
         } catch (error) {
           console.error("Failed to load session:", error);
@@ -35,40 +78,349 @@ export function SeedCard() {
     loadSeedPhrase();
   }, [sessionId, seedFromUrl]);
 
+  // Load existing module completion state from database on mount
+  useEffect(() => {
+    async function loadModuleStates() {
+      if (!sessionId) return;
+      
+      try {
+        // Check which methods already have phrases saved
+        const [top10Seeds, childSeeds, azSeeds, prefixSeeds] = await Promise.all([
+          getSeedsByMethod(sessionId, "top10"),
+          getSeedsByMethod(sessionId, "child"),
+          getSeedsByMethod(sessionId, "az"),
+          getSeedsByMethod(sessionId, "prefix"),
+        ]);
+        
+        setModules({
+          top10: top10Seeds.length > 0 ? "complete" : "idle",
+          child: childSeeds.length > 0 ? "complete" : "idle",
+          az: azSeeds.length > 0 ? "complete" : "idle",
+          prefix: prefixSeeds.length > 0 ? "complete" : "idle",
+        });
+      } catch (error) {
+        console.error("Failed to load module states:", error);
+      }
+    }
+    loadModuleStates();
+  }, [sessionId]);
+
+  // Start polling when streaming is active
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    
+    // Immediately trigger first refresh
+    onPhrasesAdded?.();
+    
+    pollingRef.current = setInterval(() => {
+      onPhrasesAdded?.(); // Trigger table refresh
+    }, 3000); // Every 3 seconds
+  }, [onPhrasesAdded]);
+
+  // Start progress simulation (estimates based on ~5 seconds per item)
+  const startProgressSimulation = useCallback((total: number) => {
+    if (progressRef.current) return;
+    
+    let current = 0;
+    progressRef.current = setInterval(() => {
+      current += 1;
+      if (current <= total) {
+        setProgress({ current, total });
+      }
+    }, 5000); // Increment every 5 seconds (roughly matches API timing)
+  }, []);
+
+  // Stop polling
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    if (progressRef.current) {
+      clearInterval(progressRef.current);
+      progressRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  // Fetch Top 10 suggestions (uses modal for selection)
+  const fetchTop10 = async () => {
+    if (!seedPhrase || !sessionId) return;
+    
+    setModules((prev) => ({ ...prev, top10: "loading" }));
+    
+    try {
+      const response = await fetch("/api/autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: seedPhrase, method: "top10" }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to fetch suggestions");
+      
+      const data = await response.json();
+      setModalPhrases(data.suggestions);
+      setModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch Top 10 suggestions:", error);
+      setModules((prev) => ({ ...prev, top10: "idle" }));
+    }
+  };
+
+  // Stream suggestions for Child, A-Z, Prefix (saves directly to DB)
+  const streamSuggestions = async (method: "child" | "az" | "prefix") => {
+    if (!seedPhrase || !sessionId) return;
+    
+    setModules((prev) => ({ ...prev, [method]: "loading" }));
+    setActiveStreamMethod(method);
+    setProgress({ current: 0, total: 0 });
+    
+    // Start polling to refresh table
+    startPolling();
+    
+    try {
+      // Build request body
+      const requestBody: { sessionId: string; seed: string; method: string; parentPhrases?: string[] } = {
+        sessionId,
+        seed: seedPhrase,
+        method,
+      };
+      
+      // For child method, get the existing Top 10 phrases
+      if (method === "child") {
+        const top10Seeds = await getSeedsByMethod(sessionId, "top10");
+        if (top10Seeds.length === 0) {
+          console.error("No Top 10 phrases found to expand");
+          setModules((prev) => ({ ...prev, [method]: "idle" }));
+          stopPolling();
+          setActiveStreamMethod(null);
+          return;
+        }
+        requestBody.parentPhrases = top10Seeds.map((s) => s.phrase);
+        setProgress({ current: 0, total: top10Seeds.length });
+        startProgressSimulation(top10Seeds.length);
+      } else if (method === "az") {
+        setProgress({ current: 0, total: 26 });
+        startProgressSimulation(26);
+      } else if (method === "prefix") {
+        setProgress({ current: 0, total: 25 });
+        startProgressSimulation(25);
+      }
+      
+      const response = await fetch("/api/autocomplete/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) throw new Error("Failed to stream suggestions");
+      
+      const data = await response.json();
+      
+      // Mark as complete
+      setModules((prev) => ({ ...prev, [method]: "complete" }));
+      setProgress(data.progress || { current: 0, total: 0 });
+      
+      // Final refresh
+      onPhrasesAdded?.();
+    } catch (error) {
+      console.error(`Failed to stream ${method} suggestions:`, error);
+      setModules((prev) => ({ ...prev, [method]: "idle" }));
+    } finally {
+      stopPolling();
+      setActiveStreamMethod(null);
+    }
+  };
+
+  // Handle button click based on method
+  const handleExpansionClick = (method: keyof ModuleState) => {
+    if (method === "top10") {
+      fetchTop10();
+    } else {
+      streamSuggestions(method);
+    }
+  };
+
+  // Save selected phrases (Top 10 only)
+  const handleSavePhrases = async (selectedPhrases: string[]) => {
+    if (!sessionId || selectedPhrases.length === 0) {
+      setModalOpen(false);
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      const seedInputs = selectedPhrases.map((phrase, index) => ({
+        phrase,
+        generationMethod: "top10",
+        position: index,
+      }));
+      
+      await addSeeds(sessionId, seedInputs);
+      setModules((prev) => ({ ...prev, top10: "complete" }));
+      setModalOpen(false);
+      
+      // Notify parent to refresh table
+      onPhrasesAdded?.();
+    } catch (error) {
+      console.error("Failed to save phrases:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Determine which modules are unlocked based on sequential completion (left to right)
+  const isModuleUnlocked = (method: keyof ModuleState): boolean => {
+    // Top 10 is always unlocked first (if not complete)
+    if (method === "top10") return modules.top10 !== "complete";
+    
+    // Child unlocks only after Top 10 is complete (and Child isn't complete)
+    if (method === "child") {
+      return modules.top10 === "complete" && modules.child !== "complete";
+    }
+    
+    // A-Z unlocks only after Child is complete (and A-Z isn't complete)
+    if (method === "az") {
+      return modules.top10 === "complete" && 
+             modules.child === "complete" && 
+             modules.az !== "complete";
+    }
+    
+    // Prefix unlocks only after A-Z is complete (and Prefix isn't complete)
+    if (method === "prefix") {
+      return modules.top10 === "complete" && 
+             modules.child === "complete" && 
+             modules.az === "complete" &&
+             modules.prefix !== "complete";
+    }
+    
+    return false;
+  };
+
+  // Get button label based on state
+  const getButtonLabel = (method: keyof ModuleState, defaultLabel: string): string => {
+    const status = modules[method];
+    
+    if (status === "loading") {
+      // Show progress for streaming methods
+      if (activeStreamMethod === method && progress.total > 0) {
+        return `${progress.current}/${progress.total}...`;
+      }
+      return "Loading...";
+    }
+    
+    return defaultLabel;
+  };
+
+  // Button component with states
+  const ExpansionButton = ({
+    method,
+    label,
+    colorClass,
+    borderColor,
+    shadowColor,
+  }: {
+    method: keyof ModuleState;
+    label: string;
+    colorClass: string;
+    borderColor: string;
+    shadowColor: string;
+  }) => {
+    const status = modules[method];
+    const isComplete = status === "complete";
+    const isLoading = status === "loading";
+    const isUnlocked = isModuleUnlocked(method);
+    const isClickable = isUnlocked && !isLoading;
+    const displayLabel = getButtonLabel(method, label);
+    
+    return (
+      <button
+        onClick={() => isClickable && handleExpansionClick(method)}
+        disabled={!isClickable}
+        className={`
+          px-4 py-4 rounded-xl font-semibold text-[17px] leading-tight transition-all
+          flex items-center justify-center gap-2
+          ${isComplete
+            ? "bg-white/5 border border-white/10 text-white/40 cursor-default"
+            : isLoading
+            ? "bg-white/10 border border-white/20 text-white/70 cursor-wait"
+            : isUnlocked
+            ? `${colorClass} border ${borderColor} text-inherit hover:opacity-90 shadow-[0_0_15px_${shadowColor}] cursor-pointer`
+            : "bg-white/[0.05] border border-white/15 text-white/45 cursor-default"
+          }
+        `}
+      >
+        {isComplete && <IconCheck size={18} className="text-white/40" />}
+        {displayLabel}
+      </button>
+    );
+  };
+
   return (
-    <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group -mt-4">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-25"></div>
-      <div className="max-w-2xl mx-auto flex flex-col gap-8 relative z-10">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchPhrase}
-            onChange={(e) => setSearchPhrase(e.target.value)}
-            placeholder="Enter seed phrase..."
-            className="w-full bg-black/40 bg-gradient-to-b from-white/[0.03] to-transparent border border-white/30 rounded-2xl px-8 py-5 text-xl text-white focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-white/85 text-center shadow-inner"
-          />
-          <div className="absolute right-6 top-1/2 -translate-y-1/2 text-primary/50">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+    <>
+      <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group -mt-4">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary opacity-25"></div>
+        <div className="max-w-2xl mx-auto flex flex-col gap-8 relative z-10">
+          {/* Locked Seed Display */}
+          <div className="flex items-center justify-center gap-3 bg-black/40 bg-gradient-to-b from-white/[0.03] to-transparent border border-white/20 rounded-2xl px-8 py-5">
+            <span className="opacity-80">
+              <SeedIconGreen size={28} />
+            </span>
+            <span className="text-xl text-white font-medium">
+              {seedPhrase || "No seed phrase"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <ExpansionButton
+              method="top10"
+              label="Top 10"
+              colorClass="bg-[#FF8A3D]/10 hover:bg-[#FF8A3D]/20 text-[#FF8A3D]"
+              borderColor="border-[#FF8A3D]/30"
+              shadowColor="rgba(255,138,61,0.1)"
+            />
+            <ExpansionButton
+              method="child"
+              label="Child"
+              colorClass="bg-[#D4E882]/10 hover:bg-[#D4E882]/20 text-[#D4E882]"
+              borderColor="border-[#D4E882]/30"
+              shadowColor="rgba(212,232,130,0.1)"
+            />
+            <ExpansionButton
+              method="az"
+              label="A–Z"
+              colorClass="bg-[#4DD68A]/10 hover:bg-[#4DD68A]/20 text-[#4DD68A]"
+              borderColor="border-[#4DD68A]/30"
+              shadowColor="rgba(77,214,138,0.1)"
+            />
+            <ExpansionButton
+              method="prefix"
+              label="Prefix"
+              colorClass="bg-[#39C7D8]/10 hover:bg-[#39C7D8]/20 text-[#39C7D8]"
+              borderColor="border-[#39C7D8]/30"
+              shadowColor="rgba(57,199,216,0.1)"
+            />
           </div>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="px-4 py-4 bg-[#FF8A3D]/10 hover:bg-[#FF8A3D]/20 border border-[#FF8A3D]/30 rounded-xl text-[#FF8A3D] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(255,138,61,0.1)]">
-            Top 10
-          </button>
-          <button className="px-4 py-4 bg-[#D4E882]/10 hover:bg-[#D4E882]/20 border border-[#D4E882]/30 rounded-xl text-[#D4E882] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(212,232,130,0.1)]">
-            Child
-          </button>
-          <button className="px-4 py-4 bg-[#4DD68A]/10 hover:bg-[#4DD68A]/20 border border-[#4DD68A]/30 rounded-xl text-[#4DD68A] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(77,214,138,0.1)]">
-            A–Z
-          </button>
-          <button className="px-4 py-4 bg-[#39C7D8]/10 hover:bg-[#39C7D8]/20 border border-[#39C7D8]/30 rounded-xl text-[#39C7D8] font-semibold text-[17px] leading-tight transition-all shadow-[0_0_15px_rgba(57,199,216,0.1)]">
-            Prefix
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* Phrase Selection Modal (Top 10 only) */}
+      <PhraseSelectModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setModules((prev) => ({ ...prev, top10: "idle" }));
+        }}
+        title="Select Top 10 Topics"
+        phrases={modalPhrases}
+        onSave={handleSavePhrases}
+        isLoading={isSaving}
+      />
+    </>
   );
 }

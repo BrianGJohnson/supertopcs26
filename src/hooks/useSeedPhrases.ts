@@ -35,7 +35,7 @@ export async function addSeeds(
 }
 
 /**
- * Get all seeds for a session, ordered by created_at ASC
+ * Get all seeds for a session, ordered by created_at DESC (newest first)
  */
 export async function getSeedsBySession(
   sessionId: string
@@ -44,7 +44,7 @@ export async function getSeedsBySession(
     .from('seeds')
     .select('*')
     .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return data ?? [];

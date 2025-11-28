@@ -101,6 +101,7 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
     if (!showSwitchList) {
       try {
         const list = await listSessions();
+        // Store all sessions but only show first 10 in dropdown
         setSessions(list);
       } catch (error) {
         console.error("Failed to list sessions", error);
@@ -112,12 +113,18 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
   const handleSelectSession = (sessionId: string) => {
     router.push(`/members/build/seed?session_id=${sessionId}`);
     setIsOpen(false);
+    setShowSwitchList(false);
   };
 
   const handleManageSessions = () => {
     router.push("/members/sessions");
     setIsOpen(false);
+    setShowSwitchList(false);
   };
+
+  // Sessions to display (max 10)
+  const displaySessions = sessions.slice(0, 10);
+  const hasMoreSessions = sessions.length > 10;
 
   // Display name: fetched session > prop > "New Session"
   const displaySessionName = currentSession?.name || currentSessionName || "New Session";
@@ -140,7 +147,7 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-100">
           <div className="p-1 space-y-1">
             <button
               onClick={handleNewSessionClick}
@@ -150,44 +157,23 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
               New Session
             </button>
 
-            <div className="relative">
-              <button
-                onClick={handleSwitchSessionClick}
-                className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors justify-between group"
+            <button
+              onClick={handleSwitchSessionClick}
+              className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors justify-between group"
+            >
+              <div className="flex items-center gap-3">
+                <IconArrowsExchange size={18} className="text-green-400" />
+                Switch Session
+              </div>
+              <svg
+                className={`w-4 h-4 text-white/40 transition-transform`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <div className="flex items-center gap-3">
-                  <IconArrowsExchange size={18} className="text-green-400" />
-                  Switch Session
-                </div>
-                <svg
-                  className={`w-4 h-4 text-white/40 transition-transform ${showSwitchList ? "rotate-90" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-
-              {showSwitchList && (
-                <div className="bg-black/20 mx-2 mb-2 rounded-lg max-h-60 overflow-y-auto custom-scrollbar">
-                  {sessions.length === 0 ? (
-                    <div className="px-4 py-3 text-xs text-white/40 text-center">Loading...</div>
-                  ) : (
-                    sessions.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSelectSession(s.id)}
-                        className={`w-full px-4 py-2.5 text-left text-xs hover:bg-white/5 flex items-center justify-between transition-colors ${s.id === currentSessionId ? 'text-white bg-white/5' : 'text-white/70'}`}
-                      >
-                        <span className="truncate pr-2">{s.name}</span>
-                        {s.id === currentSessionId && <IconCheck size={14} className="text-green-400 flex-shrink-0" />}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
             <div className="h-px bg-white/10 my-1 mx-2" />
 
@@ -198,6 +184,41 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
               <IconSettingsCog size={18} className="text-gray-400" />
               Manage Sessions
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Flyout submenu - appears to the right of main menu */}
+      {isOpen && showSwitchList && (
+        <div className="absolute top-full left-[18.5rem] mt-2 w-64 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl z-[200] animate-in fade-in slide-in-from-left-2 duration-100">
+          <div className="py-2 max-h-80 overflow-y-auto custom-scrollbar">
+            {sessions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-white/40 text-center">Loading...</div>
+            ) : displaySessions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-white/40 text-center">No sessions yet</div>
+            ) : (
+              <>
+                {displaySessions.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleSelectSession(s.id)}
+                    className={`w-full px-4 py-3 text-left text-sm hover:bg-white/5 flex items-center justify-between transition-colors ${s.id === currentSessionId ? 'text-white bg-white/5' : 'text-white/70'}`}
+                  >
+                    <span className="truncate pr-2">{s.name}</span>
+                    {s.id === currentSessionId && <IconCheck size={14} className="text-green-400 flex-shrink-0" />}
+                  </button>
+                ))}
+                {/* View All link when more than 10 sessions */}
+                {hasMoreSessions && (
+                  <button
+                    onClick={handleManageSessions}
+                    className="w-full px-4 py-3 text-left text-sm text-[#6B9BD1] hover:bg-white/5 transition-colors border-t border-white/10 mt-2"
+                  >
+                    View all {sessions.length} sessions →
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

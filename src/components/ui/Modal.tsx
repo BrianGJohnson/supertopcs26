@@ -43,11 +43,11 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
       />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-lg mx-4 bg-[#1A1E24] border border-white/10 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative z-10 w-full max-w-xl mx-4 bg-[#1A1E24] border border-white/10 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-            <h2 className="text-lg font-bold text-white">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+            <h2 className="text-[1.375rem] font-bold text-white">{title}</h2>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors"

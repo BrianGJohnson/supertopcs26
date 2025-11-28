@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
@@ -9,6 +11,13 @@ import { Step1Card } from "./_components/Step1Card";
 import { TopicsTable } from "./_components/TopicsTable";
 
 export default function SeedPage() {
+  // Shared refresh trigger - increment to refresh table
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  const onPhrasesAdded = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
     <PageShell>
       <div className="flex flex-col gap-12 relative z-10 max-w-5xl mx-auto">
@@ -23,9 +32,9 @@ export default function SeedPage() {
           description="Click Top 10 to start expanding your seed topic. Each save unlocks the next tool. Complete all four to fully map your topic."
         />
         <BuilderStepper activeStep={1} />
-        <SeedCard />
-        <Step1Card />
-        <TopicsTable />
+        <SeedCard onPhrasesAdded={onPhrasesAdded} />
+        <Step1Card refreshTrigger={refreshTrigger} />
+        <TopicsTable refreshTrigger={refreshTrigger} />
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">
