@@ -139,12 +139,13 @@ function ToastItem({
   };
 
   // Icon and accent color based on type
+  // Note: Success uses subdued gray instead of green for brand consistency
   const config = {
     success: {
       icon: IconCheck,
-      accentColor: "#2BD899",
-      bgAccent: "bg-[#2BD899]/10",
-      borderAccent: "border-[#2BD899]/30",
+      accentColor: "#8A95A5",
+      bgAccent: "bg-[#8A95A5]/10",
+      borderAccent: "border-[#8A95A5]/30",
     },
     info: {
       icon: IconInfoCircle,

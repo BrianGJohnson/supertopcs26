@@ -22,6 +22,7 @@ function SeedPageContent() {
   const [seeds, setSeeds] = useState<Seed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [isExpanding, setIsExpanding] = useState(false);
   
   // Fetch all seeds for the session - SINGLE fetch used by all components
   const fetchSeeds = useCallback(async () => {
@@ -71,17 +72,21 @@ function SeedPageContent() {
           icon={IconSeedling}
           line1="Create Your Next Winning"
           line2="Video Package"
-          description="Click Top 10 to start expanding your seed topic. Each save unlocks the next tool. Complete all four to fully map your topic."
+          description="Enter your topic and click Expand to discover what viewers want to watch. We'll find the best opportunities for your channel."
         />
         <BuilderStepper activeStep={1} />
         <SeedCard 
           onPhrasesAdded={onPhrasesAdded} 
           sourceCounts={sourceCounts}
           seeds={seeds}
+          isExpanding={isExpanding}
+          setIsExpanding={setIsExpanding}
         />
         <Step1Card 
           topicCount={seeds.length}
           sourceCounts={sourceCounts}
+          isExpanding={isExpanding}
+          hasSeedPhrase={seeds.some(s => s.generation_method === 'seed')}
         />
         <TopicsTable 
           seeds={seeds}

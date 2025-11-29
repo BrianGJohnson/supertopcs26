@@ -57,6 +57,28 @@ COLOR USAGE GUIDELINES
 │ Purple should feel like a reward, not wallpaper.                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ GREEN — DO NOT USE FOR UI ACCENTS                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Green is RESERVED for the tag hierarchy system only:                        │
+│ - A-Z source tags (#4DD68A)                                                 │
+│ - Prefix source tags (#39C7D8 teal-green)                                   │
+│ - Child source tags (#D4E882 yellow-green)                                  │
+│                                                                             │
+│ Do NOT use green for:                                                       │
+│ - Toast success indicators (use gray #8A95A5 instead)                       │
+│ - Modal checkmarks or confirmation icons                                    │
+│ - Buttons or interactive elements                                           │
+│ - Status badges outside of topic sources                                    │
+│                                                                             │
+│ For success/completion indicators, use:                                     │
+│ - Subdued gray: #8A95A5                                                     │
+│ - Electric blue: #6B9BD1                                                    │
+│ - Charcoal variants: #2E3338 to #1E2228                                     │
+│                                                                             │
+│ This prevents green from losing its special meaning in the tag hierarchy.   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
 BORDER RADIUS SCALE
 - Small:   0.375rem (6px)  — sm
 - Medium:  0.75rem (12px)  — md

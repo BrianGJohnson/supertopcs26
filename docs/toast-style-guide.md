@@ -145,9 +145,11 @@ SECTION 8: TOAST TYPES
 ================================================================================
 
 SUCCESS (Confirmation, completion)
-- Accent color: #2BD899 (brand green)
+- Accent color: #8A95A5 (subdued gray)
 - Icon: Checkmark (IconCheck)
 - Use for: "Session complete", "Changes saved", "Created successfully"
+- Note: We use gray instead of green to maintain brand consistency.
+        Green is reserved for tag hierarchy indicators (A-Z, Prefix sources).
 
 INFO (Neutral information)
 - Accent color: #4A90D9 (brand blue)
@@ -188,7 +190,7 @@ SECTION 10: QUICK REFERENCE — KEY VALUES
 
 COLORS
 - Toast background:      #1A1E24
-- Success accent:        #2BD899
+- Success accent:        #8A95A5 (subdued gray — NOT green)
 - Info accent:           #4A90D9
 - Warning accent:        #F5A623
 - Error accent:          #D95555

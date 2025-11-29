@@ -11,9 +11,11 @@ interface Step1CardProps {
     az: number;
     prefix: number;
   };
+  isExpanding: boolean;
+  hasSeedPhrase: boolean;
 }
 
-export function Step1Card({ topicCount, sourceCounts }: Step1CardProps) {
+export function Step1Card({ topicCount, sourceCounts, isExpanding, hasSeedPhrase }: Step1CardProps) {
   // Calculate tools completion
   const toolsCompleted = [
     sourceCounts.top10 > 0,
@@ -21,7 +23,83 @@ export function Step1Card({ topicCount, sourceCounts }: Step1CardProps) {
     sourceCounts.az > 0,
     sourceCounts.prefix > 0,
   ].filter(Boolean).length;
-  const allToolsComplete = toolsCompleted === 4;
+  
+  // GATE: Only show complete if all tools done AND we're not actively expanding
+  // This syncs with the toast timing in SeedCard
+  const allToolsComplete = toolsCompleted === 4 && !isExpanding;
+  
+  // Determine the current state
+  const hasStarted = toolsCompleted > 0 || isExpanding;
+
+  // Get description text based on state
+  const getDescription = () => {
+    if (allToolsComplete) {
+      return (
+        <>
+          Expansion complete! You have {topicCount} topics.<br />
+          Ready to refine your selection.
+        </>
+      );
+    }
+    if (isExpanding) {
+      return (
+        <>
+          Your topic is expanding automatically.<br />
+          We're mapping out the topic landscape—even the hidden corners.
+        </>
+      );
+    }
+    if (!hasSeedPhrase) {
+      // No seed phrase yet
+      return (
+        <>
+          Create a session with a topic to begin.<br />
+          We'll explore the full range of related topics.
+        </>
+      );
+    }
+    // Has seed phrase but hasn't started
+    return (
+      <>
+        Click "Expand Topic" above to begin.<br />
+        We'll map out related topics for you.
+      </>
+    );
+  };
+
+  // Get status indicator based on state  
+  const getStatusIndicator = () => {
+    if (allToolsComplete) {
+      return (
+        <button className="px-8 py-4 bg-gradient-to-b from-[#1E2A38] to-[#151D28] hover:from-[#243040] hover:to-[#1A2530] text-[#A8C4E0] border border-[#4A5568]/60 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] cursor-pointer">
+          Proceed to Refine
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
+      );
+    }
+    if (isExpanding) {
+      return (
+        <div className="px-8 py-4 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] text-white/60 border border-white/10 rounded-xl font-medium flex items-center gap-3">
+          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Expanding...
+        </div>
+      );
+    }
+    // Idle state
+    return (
+      <div className="px-8 py-4 bg-gradient-to-b from-[#2A2E34] to-[#1E2228] text-white/40 border border-white/10 rounded-xl font-medium flex items-center gap-3">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Waiting to Start
+      </div>
+    );
+  };
 
   return (
     <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl flex flex-col relative z-20">
@@ -30,8 +108,7 @@ export function Step1Card({ topicCount, sourceCounts }: Step1CardProps) {
         <div className="flex-1 space-y-3 text-center md:text-left max-w-md">
           <h2 className="text-3xl font-bold text-white">Step 1 • Topic Expansion</h2>
           <p className="text-text-secondary text-lg font-light leading-relaxed">
-            Run all 4 expansion tools to fully map your topic.<br />
-            Each tool uncovers different viewer interests.
+            {getDescription()}
           </p>
         </div>
 
@@ -43,38 +120,9 @@ export function Step1Card({ topicCount, sourceCounts }: Step1CardProps) {
               Your Topics: {topicCount}
             </div>
 
-            {/* Complete Button or Proceed Button */}
-            {!allToolsComplete ? (
-              <button className="px-8 py-4 bg-gradient-to-r from-[#D95555]/15 to-[#C94545]/15 hover:from-[#D95555]/25 hover:to-[#C94545]/25 text-red-300 border-2 border-red-500/20 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.15)] cursor-pointer">
-                Complete all 4 tools
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
-            ) : (
-              <button className="px-8 py-4 bg-gradient-to-b from-[#1E2A38] to-[#151D28] hover:from-[#243040] hover:to-[#1A2530] text-[#A8C4E0] border border-[#4A5568]/60 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] cursor-pointer">
-                Proceed to Refine
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
-            )}
+            {/* Status indicator */}
+            {getStatusIndicator()}
           </div>
-          
-          {/* Progress dots - only show when incomplete */}
-          {!allToolsComplete && (
-            <div className="flex items-center gap-2 pr-2">
-              {[sourceCounts.top10, sourceCounts.child, sourceCounts.az, sourceCounts.prefix].map((count, i) => (
-                <div
-                  key={i}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    count > 0 ? "bg-green-400" : "bg-white/20"
-                  }`}
-                />
-              ))}
-              <span className="text-white/50 text-sm font-medium ml-1">{toolsCompleted} of 4</span>
-            </div>
-          )}
         </div>
       </div>
 

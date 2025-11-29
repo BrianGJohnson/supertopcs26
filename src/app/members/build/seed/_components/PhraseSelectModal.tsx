@@ -213,7 +213,7 @@ export function PhraseSelectModal({
         {/* Empty state */}
         {phrases.length === 0 && (
           <div className="text-center py-8 text-white/40 text-[1.125rem]">
-            No phrases found. Try a different search.
+            No phrases found. Try a different topic.
           </div>
         )}
       </div>

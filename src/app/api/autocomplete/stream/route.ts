@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { toTitleCase } from "@/lib/utils";
 import {
@@ -17,6 +17,17 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// Type for SSE progress events
+interface ProgressEvent {
+  type: "progress" | "complete" | "error";
+  method: string;
+  current: number;
+  total: number;
+  added: number;
+  totalAdded: number;
+  query?: string;
+}
 
 /**
  * Save phrases to database (deduped against existing, filtered for relevance and year)
@@ -96,7 +107,7 @@ async function getExistingPhrases(sessionId: string): Promise<Set<string>> {
  * POST /api/autocomplete/stream
  * 
  * Streams autocomplete results directly to the database.
- * Returns progress updates via Server-Sent Events.
+ * Returns progress updates via Server-Sent Events (SSE) for real-time UI updates.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -104,128 +115,229 @@ export async function POST(request: NextRequest) {
     const { sessionId, seed, method, parentPhrases } = body;
 
     if (!sessionId || !seed || !method) {
-      return NextResponse.json(
-        { error: "Missing sessionId, seed, or method" },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: "Missing sessionId, seed, or method" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Get existing phrases for deduplication
-    const existingNormalized = await getExistingPhrases(sessionId);
-    const seedNormalized = normalizePhrase(seed);
-    existingNormalized.add(seedNormalized); // Don't include the seed itself
-    
-    // Extract significant words from seed for relevance filtering
-    const seedSignificantWords = getSignificantWords(seed);
+    // Create a TransformStream for SSE
+    const encoder = new TextEncoder();
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
 
-    let totalAdded = 0;
-    let progress = { current: 0, total: 0 };
+    // Helper to send SSE events
+    const sendEvent = async (event: ProgressEvent) => {
+      const data = `data: ${JSON.stringify(event)}\n\n`;
+      await writer.write(encoder.encode(data));
+    };
 
-    switch (method) {
-      case "child": {
-        if (!parentPhrases || !Array.isArray(parentPhrases) || parentPhrases.length === 0) {
-          return NextResponse.json(
-            { error: "Child method requires parentPhrases array" },
-            { status: 400 }
-          );
-        }
+    // Start the async processing
+    (async () => {
+      try {
+        // Get existing phrases for deduplication
+        const existingNormalized = await getExistingPhrases(sessionId);
+        const seedNormalized = normalizePhrase(seed);
+        existingNormalized.add(seedNormalized); // Don't include the seed itself
+        
+        // Extract significant words from seed for relevance filtering
+        const seedSignificantWords = getSignificantWords(seed);
 
-        const childPrefixes = ["how to", "what does"];
-        const shuffledParents = shuffle(parentPhrases);
-        progress.total = shuffledParents.length;
+        let totalAdded = 0;
 
-        for (let p = 0; p < shuffledParents.length; p++) {
-          const parent = shuffledParents[p];
-          progress.current = p + 1;
+        switch (method) {
+          case "child": {
+            if (!parentPhrases || !Array.isArray(parentPhrases) || parentPhrases.length === 0) {
+              await sendEvent({
+                type: "error",
+                method,
+                current: 0,
+                total: 0,
+                added: 0,
+                totalAdded: 0,
+              });
+              break;
+            }
 
-          // Direct expansion
-          const directResults = await fetchAutocomplete(parent);
-          const directAdded = await savePhrases(sessionId, directResults, method, existingNormalized, seedSignificantWords);
-          totalAdded += directAdded;
-          await randomDelay(1200, 1800);
+            const childPrefixes = ["how to", "what does"];
+            const shuffledParents = shuffle(parentPhrases);
+            const total = shuffledParents.length * (1 + childPrefixes.length); // Total queries
+            let current = 0;
 
-          // Prefix expansions
-          for (let i = 0; i < childPrefixes.length; i++) {
-            const prefix = childPrefixes[i];
-            const prefixResults = await fetchAutocomplete(`${prefix} ${parent}`);
-            const prefixAdded = await savePhrases(sessionId, prefixResults, method, existingNormalized, seedSignificantWords);
-            totalAdded += prefixAdded;
+            for (let p = 0; p < shuffledParents.length; p++) {
+              const parent = shuffledParents[p];
 
-            if (i < childPrefixes.length - 1 || p < shuffledParents.length - 1) {
+              // Direct expansion
+              current++;
+              const directResults = await fetchAutocomplete(parent);
+              const directAdded = await savePhrases(sessionId, directResults, method, existingNormalized, seedSignificantWords);
+              totalAdded += directAdded;
+              
+              await sendEvent({
+                type: "progress",
+                method,
+                current,
+                total,
+                added: directAdded,
+                totalAdded,
+                query: parent,
+              });
+              
               await randomDelay(1200, 1800);
+
+              // Prefix expansions
+              for (let i = 0; i < childPrefixes.length; i++) {
+                const prefix = childPrefixes[i];
+                current++;
+                const query = `${prefix} ${parent}`;
+                const prefixResults = await fetchAutocomplete(query);
+                const prefixAdded = await savePhrases(sessionId, prefixResults, method, existingNormalized, seedSignificantWords);
+                totalAdded += prefixAdded;
+
+                await sendEvent({
+                  type: "progress",
+                  method,
+                  current,
+                  total,
+                  added: prefixAdded,
+                  totalAdded,
+                  query,
+                });
+
+                if (i < childPrefixes.length - 1 || p < shuffledParents.length - 1) {
+                  await randomDelay(1200, 1800);
+                }
+              }
+
+              // Occasional longer pause between parent phrases
+              if (p < shuffledParents.length - 1 && p % 3 === 2) {
+                await randomDelay(2500, 4000);
+              }
             }
+            break;
           }
 
-          // Occasional longer pause between parent phrases
-          if (p < shuffledParents.length - 1 && p % 3 === 2) {
-            await randomDelay(2500, 4000);
-          }
-        }
-        break;
-      }
+          case "az": {
+            const alphabet = shuffle("abcdefghijklmnopqrstuvwxyz".split(""));
+            const total = alphabet.length;
 
-      case "az": {
-        const alphabet = shuffle("abcdefghijklmnopqrstuvwxyz".split(""));
-        progress.total = alphabet.length;
+            for (let i = 0; i < alphabet.length; i++) {
+              const letter = alphabet[i];
+              const current = i + 1;
+              const query = `${seed} ${letter}`;
 
-        for (let i = 0; i < alphabet.length; i++) {
-          const letter = alphabet[i];
-          progress.current = i + 1;
+              const results = await fetchAutocomplete(query);
+              const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
+              totalAdded += added;
 
-          const results = await fetchAutocomplete(`${seed} ${letter}`);
-          const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
-          totalAdded += added;
+              await sendEvent({
+                type: "progress",
+                method,
+                current,
+                total,
+                added,
+                totalAdded,
+                query,
+              });
 
-          if (i < alphabet.length - 1) {
-            await randomDelay(1500, 2000);
-            if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-              await randomDelay(2000, 3500);
+              if (i < alphabet.length - 1) {
+                await randomDelay(1500, 2000);
+                if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
+                  await randomDelay(2000, 3500);
+                }
+              }
             }
+            break;
           }
-        }
-        break;
-      }
 
-      case "prefix": {
-        const prefixes = shuffle([
-          "what", "what does", "why", "how", "how to",
-          "does", "can", "is", "will", "why does",
-          "problems", "tip", "how does", "understand", "explain",
-          "change", "update", "fix", "guide to", "learn",
-          "broken", "improve", "help with", "strategy", "plan for",
-        ]);
-        progress.total = prefixes.length;
+          case "prefix": {
+            const prefixes = shuffle([
+              "what", "what does", "why", "how", "how to",
+              "does", "can", "is", "will", "why does",
+              "problems", "tip", "how does", "understand", "explain",
+              "change", "update", "fix", "guide to", "learn",
+              "broken", "improve", "help with", "strategy", "plan for",
+            ]);
+            const total = prefixes.length;
 
-        for (let i = 0; i < prefixes.length; i++) {
-          const prefix = prefixes[i];
-          progress.current = i + 1;
+            for (let i = 0; i < prefixes.length; i++) {
+              const prefix = prefixes[i];
+              const current = i + 1;
+              const query = `${prefix} ${seed}`;
 
-          const results = await fetchAutocomplete(`${prefix} ${seed}`);
-          const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
-          totalAdded += added;
+              const results = await fetchAutocomplete(query);
+              const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
+              totalAdded += added;
 
-          if (i < prefixes.length - 1) {
-            await randomDelay(1500, 2000);
-            if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-              await randomDelay(2000, 3500);
+              await sendEvent({
+                type: "progress",
+                method,
+                current,
+                total,
+                added,
+                totalAdded,
+                query,
+              });
+
+              if (i < prefixes.length - 1) {
+                await randomDelay(1500, 2000);
+                if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
+                  await randomDelay(2000, 3500);
+                }
+              }
             }
+            break;
           }
+
+          default:
+            await sendEvent({
+              type: "error",
+              method,
+              current: 0,
+              total: 0,
+              added: 0,
+              totalAdded: 0,
+            });
         }
-        break;
+
+        // Send completion event
+        await sendEvent({
+          type: "complete",
+          method,
+          current: 0,
+          total: 0,
+          added: 0,
+          totalAdded,
+        });
+
+      } catch (error) {
+        console.error("Stream processing error:", error);
+        await sendEvent({
+          type: "error",
+          method,
+          current: 0,
+          total: 0,
+          added: 0,
+          totalAdded: 0,
+        });
+      } finally {
+        await writer.close();
       }
+    })();
 
-      default:
-        return NextResponse.json({ error: `Unknown method: ${method}` }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      method,
-      totalAdded,
-      progress,
+    // Return the SSE response immediately
+    return new Response(stream.readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
     });
   } catch (error) {
     console.error("Stream API error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }

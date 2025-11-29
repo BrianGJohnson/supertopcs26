@@ -21,11 +21,22 @@ interface ModuleState {
   prefix: ModuleStatus;
 }
 
+// SSE Progress event type (matches API)
+interface StreamProgressEvent {
+  type: "progress" | "complete" | "error";
+  method: string;
+  current: number;
+  total: number;
+  added: number;
+  totalAdded: number;
+  query?: string;
+}
+
 // Progress messages for each method (Brand Voice: viewer-focused, educational)
 const PROGRESS_MESSAGES: Record<string, string[]> = {
   top10: [
     "Finding The Most Popular Topics",
-    "Identifying What Viewers Search For Most",
+    "Identifying What Viewers Want Most",
     "Building Your Foundation Topics",
   ],
   child: [
@@ -45,13 +56,17 @@ const PROGRESS_MESSAGES: Record<string, string[]> = {
   ],
 };
 
-// Method colors
+// Method colors (for status dots only - matches source tags)
 const METHOD_COLORS: Record<string, string> = {
   top10: "#FF8A3D",
-  child: "#D4E882",
+  child: "#D4E882",  // Softer yellow-green to match table tags
   az: "#4DD68A",
   prefix: "#39C7D8",
 };
+
+// Neutral color for progress bar and messages (cream white with hint of blue)
+const PROGRESS_NEUTRAL_COLOR = "#E0E7EF";
+const PROGRESS_BAR_COLOR = "#6B9BD1"; // Electric blue - consistent, professional
 
 interface SeedCardProps {
   onPhrasesAdded?: () => void;
@@ -62,9 +77,11 @@ interface SeedCardProps {
     prefix: number;
   };
   seeds: Seed[];
+  isExpanding: boolean;
+  setIsExpanding: (value: boolean) => void;
 }
 
-export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps) {
+export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, setIsExpanding }: SeedCardProps) {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
@@ -83,9 +100,9 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
   const [isAutoExpanding, setIsAutoExpanding] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0); // 0-100 percentage
   const [messageIndex, setMessageIndex] = useState(0);
+  const [isFullyFinished, setIsFullyFinished] = useState(false); // Gate: only true when toast fires
   const expansionAbortRef = useRef(false);
   const messageRef = useRef<NodeJS.Timeout | null>(null);
-  const progressRef = useRef<NodeJS.Timeout | null>(null);
   
   // Module completion tracking
   const [modules, setModules] = useState<ModuleState>({
@@ -94,15 +111,18 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
     az: "idle",
     prefix: "idle",
   });
-  
-  // Polling interval ref
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if all modules are complete
-  const allComplete = modules.top10 === "complete" && 
+  // Check if all modules are complete (data exists)
+  const modulesAllComplete = modules.top10 === "complete" && 
                       modules.child === "complete" && 
                       modules.az === "complete" && 
                       modules.prefix === "complete";
+
+  // GATE: Only show "complete" UI if:
+  // 1. We're not currently expanding AND all modules have data, OR
+  // 2. We explicitly finished (isFullyFinished is true)
+  // This prevents the "complete" message from showing during active expansion
+  const allComplete = isFullyFinished || (!isAutoExpanding && !isExpanding && modulesAllComplete);
 
   // Check if any expansion has started
   const hasStarted = modules.top10 !== "idle";
@@ -139,61 +159,20 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
     });
   }, [sourceCounts]);
 
-  // Start polling when streaming is active
-  const startPolling = useCallback(() => {
-    if (pollingRef.current) return;
-    onPhrasesAdded?.();
-    pollingRef.current = setInterval(() => {
-      onPhrasesAdded?.();
-    }, 3000);
-  }, [onPhrasesAdded]);
-
-  // Start message rotation
+  // Start message rotation - 10 seconds per message for proper reading time
   const startMessageRotation = useCallback(() => {
     if (messageRef.current) return;
     setMessageIndex(0);
     messageRef.current = setInterval(() => {
       setMessageIndex((prev) => prev + 1);
-    }, 6000);
-  }, []);
-
-  // Start progress animation (smooth increment)
-  const startProgressAnimation = useCallback((startPercent: number, endPercent: number, durationMs: number) => {
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-    }
-    
-    const steps = 20;
-    const increment = (endPercent - startPercent) / steps;
-    const intervalMs = durationMs / steps;
-    let current = startPercent;
-    
-    progressRef.current = setInterval(() => {
-      current += increment;
-      if (current >= endPercent) {
-        current = endPercent;
-        if (progressRef.current) {
-          clearInterval(progressRef.current);
-          progressRef.current = null;
-        }
-      }
-      setOverallProgress(Math.round(current));
-    }, intervalMs);
+    }, 10000);
   }, []);
 
   // Stop all timers
   const stopAllTimers = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
     if (messageRef.current) {
       clearInterval(messageRef.current);
       messageRef.current = null;
-    }
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-      progressRef.current = null;
     }
     setMessageIndex(0);
   }, []);
@@ -250,6 +229,8 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
       // Switch modal to expansion mode and start auto-expansion
       setModalMode("expanding");
       setIsAutoExpanding(true);
+      setIsExpanding(true); // Sync with parent
+      setIsFullyFinished(false); // Reset the finished flag
       setOverallProgress(10); // Top 10 selection = 10%
       expansionAbortRef.current = false;
       
@@ -263,35 +244,112 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
     }
   };
 
-  // Run the full auto-expansion sequence
+  /**
+   * Stream SSE events from the autocomplete API
+   * Updates progress in real-time as each query completes
+   */
+  const streamExpansion = async (
+    method: string,
+    seed: string,
+    parentPhrases?: string[]
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const body: Record<string, unknown> = { sessionId, seed, method };
+      if (parentPhrases) {
+        body.parentPhrases = parentPhrases;
+      }
+
+      fetch("/api/autocomplete/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(async (response) => {
+        if (!response.ok || !response.body) {
+          console.error(`Stream failed for ${method}`);
+          resolve(false);
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process complete SSE events (separated by double newlines)
+            const events = buffer.split("\n\n");
+            buffer = events.pop() || ""; // Keep incomplete event in buffer
+
+            for (const eventStr of events) {
+              if (!eventStr.startsWith("data: ")) continue;
+              
+              try {
+                const event: StreamProgressEvent = JSON.parse(eventStr.slice(6));
+                
+                if (event.type === "progress") {
+                  // Update expansion progress for modal
+                  setExpansionProgress({
+                    phase: method as "child" | "az" | "prefix",
+                    current: event.current,
+                    total: event.total,
+                  });
+                  
+                  // Refresh the seeds table immediately when new phrases are added
+                  if (event.added > 0) {
+                    onPhrasesAdded?.();
+                  }
+                } else if (event.type === "complete") {
+                  // Phase complete - refresh table one final time
+                  onPhrasesAdded?.();
+                  resolve(true);
+                  return;
+                } else if (event.type === "error") {
+                  console.error(`Error in ${method} stream`);
+                  resolve(false);
+                  return;
+                }
+              } catch (parseError) {
+                console.warn("Failed to parse SSE event:", eventStr);
+              }
+            }
+          }
+          
+          // Stream ended without explicit complete event
+          onPhrasesAdded?.();
+          resolve(true);
+        } catch (streamError) {
+          console.error("Stream reading error:", streamError);
+          resolve(false);
+        }
+      }).catch((fetchError) => {
+        console.error("Fetch error:", fetchError);
+        resolve(false);
+      });
+    });
+  };
+
+  // Run the full auto-expansion sequence with SSE streaming
   const runAutoExpansion = async (parentPhrases: string[]) => {
     if (!sessionId || !seedPhrase) return;
     
-    startPolling();
     startMessageRotation();
     
     try {
       // Phase 1: Child (10% → 40%)
       if (!expansionAbortRef.current) {
-        setExpansionProgress({ phase: "child", current: 0, total: parentPhrases.length });
+        setExpansionProgress({ phase: "child", current: 0, total: parentPhrases.length * 3 });
         setModules((prev) => ({ ...prev, child: "loading" }));
-        startProgressAnimation(10, 40, 30000); // Animate over ~30 seconds
         
-        const childResponse = await fetch("/api/autocomplete/stream", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            seed: seedPhrase,
-            method: "child",
-            parentPhrases,
-          }),
-        });
+        const childSuccess = await streamExpansion("child", seedPhrase, parentPhrases);
         
-        if (childResponse.ok) {
+        if (childSuccess) {
           setModules((prev) => ({ ...prev, child: "complete" }));
           setOverallProgress(40);
-          onPhrasesAdded?.();
         }
       }
       
@@ -299,22 +357,12 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
       if (!expansionAbortRef.current) {
         setExpansionProgress({ phase: "az", current: 0, total: 26 });
         setModules((prev) => ({ ...prev, az: "loading" }));
-        startProgressAnimation(40, 70, 60000); // Animate over ~60 seconds
         
-        const azResponse = await fetch("/api/autocomplete/stream", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            seed: seedPhrase,
-            method: "az",
-          }),
-        });
+        const azSuccess = await streamExpansion("az", seedPhrase);
         
-        if (azResponse.ok) {
+        if (azSuccess) {
           setModules((prev) => ({ ...prev, az: "complete" }));
           setOverallProgress(70);
-          onPhrasesAdded?.();
         }
       }
       
@@ -322,30 +370,42 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
       if (!expansionAbortRef.current) {
         setExpansionProgress({ phase: "prefix", current: 0, total: 25 });
         setModules((prev) => ({ ...prev, prefix: "loading" }));
-        startProgressAnimation(70, 100, 60000); // Animate over ~60 seconds
         
-        const prefixResponse = await fetch("/api/autocomplete/stream", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            seed: seedPhrase,
-            method: "prefix",
-          }),
-        });
+        const prefixSuccess = await streamExpansion("prefix", seedPhrase);
         
-        if (prefixResponse.ok) {
-          setModules((prev) => ({ ...prev, prefix: "complete" }));
+        if (prefixSuccess) {
+          // Don't set to "complete" yet - wait for final sync
           setOverallProgress(100);
-          onPhrasesAdded?.();
         }
       }
       
-      // All done!
+      // Final refresh to ensure all phrases are in the database and displayed
+      // Wait longer to ensure all async database writes have completed
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      onPhrasesAdded?.();
+      
+      // Wait for the table to actually render the new data
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Clean up expansion state
+      stopAllTimers();
+      setExpansionProgress(null);
+      setModalOpen(false);
+      setModalMode("selection");
+      
+      // Set prefix to complete in module state
+      setModules((prev) => ({ ...prev, prefix: "complete" }));
+      
+      // NOW set the finished flag - this is the GATE that allows "complete" UI to show
+      setIsFullyFinished(true);
+      setIsAutoExpanding(false);
+      setIsExpanding(false);
+      
+      // Show success toast (fires at same time as UI update)
       showToast({
         type: "success",
-        title: `${toTitleCase(seedPhrase)} Complete!`,
-        message: "Your topic expansion is ready for review.",
+        title: "Session Complete",
+        message: `Your expansion for ${toTitleCase(seedPhrase)} is ready for review.`,
         action: {
           label: "View Results",
           href: "/members/build/refine",
@@ -355,18 +415,19 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
       
     } catch (error) {
       console.error("Auto-expansion failed:", error);
+      stopAllTimers();
+      setIsAutoExpanding(false);
+      setIsExpanding(false);
+      setExpansionProgress(null);
+      setModalOpen(false);
+      setModalMode("selection");
+      
       showToast({
         type: "error",
         title: "Expansion Failed",
         message: "Something went wrong. Please try again.",
         duration: 0,
       });
-    } finally {
-      stopAllTimers();
-      setIsAutoExpanding(false);
-      setExpansionProgress(null);
-      setModalOpen(false);
-      setModalMode("selection");
     }
   };
 
@@ -385,6 +446,30 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
   };
 
   const currentPhase = getCurrentPhase();
+  
+  // Calculate real progress based on current phase progress
+  const getRealProgress = (): number => {
+    if (!expansionProgress || !currentPhase) return overallProgress;
+    
+    const { current, total } = expansionProgress;
+    if (total === 0) return overallProgress;
+    
+    const phaseProgress = (current / total) * 100;
+    
+    // Map phase progress to overall progress ranges
+    switch (currentPhase) {
+      case "child":
+        return Math.round(10 + (phaseProgress * 0.3)); // 10% → 40%
+      case "az":
+        return Math.round(40 + (phaseProgress * 0.3)); // 40% → 70%
+      case "prefix":
+        return Math.round(70 + (phaseProgress * 0.3)); // 70% → 100%
+      default:
+        return overallProgress;
+    }
+  };
+
+  const displayProgress = getRealProgress();
 
   return (
     <>
@@ -408,33 +493,33 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
               <button
                 onClick={handleGenerateClick}
                 disabled={!seedPhrase || !sessionId}
-                className="px-14 py-6 bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0891B2] hover:from-[#8B5CF6] hover:via-[#6366F1] hover:to-[#06B6D4] text-white rounded-2xl font-bold text-3xl transition-all flex items-center gap-3 shadow-[0_0_35px_rgba(124,58,237,0.5)] hover:shadow-[0_0_45px_rgba(124,58,237,0.7)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-14 py-6 bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0891B2] hover:from-[#8B5CF6] hover:via-[#6366F1] hover:to-[#06B6D4] text-white rounded-2xl font-bold text-3xl transition-all flex items-center gap-3 shadow-[0_0_35px_rgba(124,58,237,0.5)] hover:shadow-[0_0_45px_rgba(124,58,237,0.7)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <IconSparkles size={28} />
                 Expand Topic
               </button>
               <p className="text-white/80 text-xl text-center font-medium">
-                From Seed to Super Topic — One Click to Find Yours.
+                {seedPhrase 
+                  ? "From Seed to Super Topic — One Click to Find Yours."
+                  : "Create a session with a topic to get started."
+                }
               </p>
             </div>
           ) : allComplete ? (
             // Completed state: Show success message
-            <div className="flex flex-col items-center gap-4 py-2">
-              <div className="flex items-center gap-3 text-primary">
-                <IconCheck size={24} />
+            <div className="flex flex-col items-center gap-8 py-2">
+              <div className="flex items-center gap-3 text-white">
+                <IconCheck size={24} className="text-white/70" />
                 <span className="text-lg font-semibold">Topic Expansion Complete</span>
               </div>
+              {/* Completion badges - neutral cream/white color for consistency */}
               <div className="flex items-center justify-center gap-3">
                 {(["top10", "child", "az", "prefix"] as const).map((method) => (
                   <div
                     key={method}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
-                    style={{ 
-                      backgroundColor: `${METHOD_COLORS[method]}15`,
-                      color: METHOD_COLORS[method],
-                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-[#E0E7EF] border border-white/20"
                   >
-                    <IconCheck size={14} />
+                    <IconCheck size={14} className="text-white/60" />
                     {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
                   </div>
                 ))}
@@ -443,11 +528,11 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
           ) : (
             // In progress state: Show progress bar and status
             <div className="flex flex-col gap-5 pt-2 w-full self-stretch">
-              {/* Rotating Message */}
+              {/* Rotating Message - neutral cream/white color */}
               {currentPhase && (
                 <p 
-                  className="text-center text-lg font-normal transition-opacity duration-500 opacity-90"
-                  style={{ color: METHOD_COLORS[currentPhase] }}
+                  className="text-center text-lg font-normal transition-opacity duration-500"
+                  style={{ color: PROGRESS_NEUTRAL_COLOR }}
                 >
                   {PROGRESS_MESSAGES[currentPhase]?.[messageIndex % PROGRESS_MESSAGES[currentPhase].length]}
                 </p>
@@ -458,28 +543,26 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
                 className="relative h-5 bg-black/30 rounded-full border border-white/10 overflow-hidden mx-auto"
                 style={{ width: '78%' }}
               >
-                {/* Fill */}
+                {/* Fill - neutral electric blue */}
                 <div 
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out"
                   style={{ 
-                    width: `${overallProgress}%`,
-                    backgroundColor: currentPhase ? METHOD_COLORS[currentPhase] : "#4DD68A",
-                    opacity: 0.5,
+                    width: `${displayProgress}%`,
+                    backgroundColor: PROGRESS_BAR_COLOR,
+                    opacity: 0.7,
                   }}
                 />
                 {/* Shimmer effect */}
                 <div 
                   className="absolute inset-y-0 left-0 rounded-full animate-pulse"
                   style={{ 
-                    width: `${overallProgress}%`,
-                    background: currentPhase 
-                      ? `linear-gradient(90deg, transparent, ${METHOD_COLORS[currentPhase]}50, transparent)`
-                      : `linear-gradient(90deg, transparent, rgba(77,214,138,0.5), transparent)`,
+                    width: `${displayProgress}%`,
+                    background: `linear-gradient(90deg, transparent, ${PROGRESS_BAR_COLOR}50, transparent)`,
                   }}
                 />
               </div>
               
-              {/* Phase Status Dots - brighter labels */}
+              {/* Phase Status Dots - neutral cream color for all */}
               <div className="flex items-center justify-center gap-5">
                 {(["top10", "child", "az", "prefix"] as const).map((method) => {
                   const status = modules[method];
@@ -491,22 +574,18 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds }: SeedCardProps)
                       <div
                         className={`w-3 h-3 rounded-full transition-all ${
                           isComplete 
-                            ? "" 
+                            ? "bg-[#E0E7EF]" 
                             : isActive 
-                            ? "animate-pulse" 
+                            ? "bg-[#E0E7EF] animate-pulse" 
                             : "bg-white/20"
                         }`}
-                        style={isComplete || isActive ? { backgroundColor: METHOD_COLORS[method] } : {}}
                       />
                       <span 
                         className={`text-base font-medium transition-colors ${
-                          isComplete 
-                            ? "" 
-                            : isActive 
-                            ? "" 
+                          isComplete || isActive
+                            ? "text-[#E0E7EF]" 
                             : "text-white/40"
                         }`}
-                        style={isComplete || isActive ? { color: METHOD_COLORS[method] } : {}}
                       >
                         {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
                       </span>
