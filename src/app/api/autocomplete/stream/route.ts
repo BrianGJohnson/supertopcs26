@@ -251,13 +251,19 @@ export async function POST(request: NextRequest) {
           }
 
           case "prefix": {
-            const prefixes = shuffle([
-              "what", "what does", "why", "how", "how to",
-              "does", "can", "is", "will", "why does",
-              "problems", "tip", "how does", "understand", "explain",
-              "change", "update", "fix", "guide to", "learn",
-              "broken", "improve", "help with", "strategy", "plan for",
-            ]);
+            // Ordered by probability of generating quality results
+            // Tier 1: Single words (highest probability)
+            // Tier 2: Two-word phrases (strong patterns)
+            // Tier 3: Action single words
+            const prefixes = [
+              // Tier 1: Single Words
+              "how", "why", "what", "best", "when",
+              "is", "does", "can", "will", "should",
+              // Tier 2: Two-Word Phrases
+              "how to", "how does", "what is", "what does", "why does",
+              // Tier 3: Action Single Words
+              "fix", "improve", "learn", "tips",
+            ];
             const total = prefixes.length;
 
             for (let i = 0; i < prefixes.length; i++) {
