@@ -1,9 +1,9 @@
 ================================================================================
-SUPER TOPICS BUILDER — BRAND FOUNDATIONS REPORT v1.0
+SUPER TOPICS BUILDER — BRAND FOUNDATIONS REPORT v1.1
 ================================================================================
 
 This document defines the visual system for the Super Topics Builder UI as of
-November 26, 2025. All values are extracted from the current implementation
+November 29, 2025. All values are extracted from the current implementation
 and should be used as the source of truth for Page 2 and future pages.
 
 ================================================================================
@@ -19,10 +19,43 @@ CORE AESTHETIC
 GLOBAL COLOR TOKENS
 - Background (page):           #0B1220
 - Surface (cards):             #161c27
-- Primary (accent):            #7A5CFA (purple-violet)
+- Primary (accent):            #7A5CFA (purple-violet) — USE SPARINGLY
 - Accent (secondary):          #3CCFB1 (teal-cyan)
+- Electric Blue (default):     #6B9BD1 — PREFERRED FOR UI ELEMENTS
 - Text Primary:                #E7ECF5
 - Text Secondary:              #A6B0C2
+
+COLOR USAGE GUIDELINES
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ELECTRIC BLUE (#6B9BD1) — DEFAULT CHOICE                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Use for:                                                                    │
+│ - Modal success/info indicators                                             │
+│ - Toast action links ("View Results →")                                     │
+│ - Interactive elements in modals                                            │
+│ - Checkmarks and completion indicators                                      │
+│ - Secondary buttons and links                                               │
+│ - Progress indicators in dialogs                                            │
+│                                                                             │
+│ This is the workhorse brand color for UI interactions.                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PURPLE (#7A5CFA) — USE SPARINGLY                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Reserved for:                                                               │
+│ - Hero gradients and headline accents                                       │
+│ - Primary CTA buttons (e.g., "Expand Topic")                                │
+│ - Ambient background glows                                                  │
+│ - Brand moments that need to feel premium/special                           │
+│                                                                             │
+│ Do NOT use purple for:                                                      │
+│ - Modals, toasts, or utility dialogs                                        │
+│ - Secondary UI elements                                                     │
+│ - Repetitive interface patterns                                             │
+│                                                                             │
+│ Purple should feel like a reward, not wallpaper.                            │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 BORDER RADIUS SCALE
 - Small:   0.375rem (6px)  — sm

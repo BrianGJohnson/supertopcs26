@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, ModalButton } from "@/components/ui/Modal";
-import { IconCheck } from "@tabler/icons-react";
+import { IconCheck, IconLoader2 } from "@tabler/icons-react";
+
+// Expansion progress state
+export interface ExpansionProgress {
+  phase: "child" | "az" | "prefix";
+  current: number;
+  total: number;
+}
 
 interface PhraseSelectModalProps {
   isOpen: boolean;
@@ -11,7 +18,19 @@ interface PhraseSelectModalProps {
   phrases: string[];
   onSave: (selectedPhrases: string[]) => void;
   isLoading?: boolean;
+  // New props for expansion mode
+  mode?: "selection" | "expanding";
+  expansionProgress?: ExpansionProgress | null;
+  seedPhrase?: string;
+  onContinueBrowsing?: () => void;
 }
+
+// Phase display names and colors
+const PHASE_CONFIG = {
+  child: { label: "Child Phrases", color: "#D4E882" },
+  az: { label: "A–Z Expansion", color: "#4DD68A" },
+  prefix: { label: "Prefix Queries", color: "#39C7D8" },
+};
 
 export function PhraseSelectModal({
   isOpen,
@@ -20,12 +39,16 @@ export function PhraseSelectModal({
   phrases,
   onSave,
   isLoading = false,
+  mode = "selection",
+  expansionProgress = null,
+  seedPhrase = "",
+  onContinueBrowsing,
 }: PhraseSelectModalProps) {
   // All phrases selected by default
   const [selected, setSelected] = useState<Set<string>>(new Set(phrases));
 
   // Reset selection when phrases change
-  React.useEffect(() => {
+  useEffect(() => {
     setSelected(new Set(phrases));
   }, [phrases]);
 
@@ -46,6 +69,74 @@ export function PhraseSelectModal({
   const selectedCount = selected.size;
   const totalCount = phrases.length;
 
+  // Render expansion mode
+  if (mode === "expanding") {
+    const currentPhase = expansionProgress?.phase || "child";
+
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onContinueBrowsing || onClose}
+        title="Expanding Your Topic"
+        footer={
+          <ModalButton variant="secondary" onClick={onContinueBrowsing || onClose}>
+            Close & Continue Browsing
+          </ModalButton>
+        }
+      >
+        <div className="space-y-6">
+          {/* Success message - Brand blue */}
+          <div className="flex items-center gap-3 p-4 bg-[#6B9BD1]/10 border border-[#6B9BD1]/30 rounded-xl">
+            <IconCheck size={24} className="text-[#6B9BD1] flex-shrink-0" />
+            <p className="text-white text-[1.125rem]">
+              Top 10 saved! Running deep expansion now.
+            </p>
+          </div>
+
+          {/* Simple phase checklist - no progress bar, no repetition */}
+          <div className="space-y-3">
+            {(["child", "az", "prefix"] as const).map((phase) => {
+              const phaseConfig = PHASE_CONFIG[phase];
+              const isActive = currentPhase === phase;
+              const isComplete = 
+                (phase === "child" && (currentPhase === "az" || currentPhase === "prefix")) ||
+                (phase === "az" && currentPhase === "prefix");
+              const isPending = !isActive && !isComplete;
+
+              return (
+                <div 
+                  key={phase}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    isActive 
+                      ? "bg-white/[0.06] border border-white/20" 
+                      : "bg-black/20 border border-white/5"
+                  }`}
+                >
+                  {isComplete ? (
+                    <IconCheck size={20} className="text-[#6B9BD1]" />
+                  ) : isActive ? (
+                    <IconLoader2 size={20} className="animate-spin" style={{ color: phaseConfig.color }} />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-white/20" />
+                  )}
+                  <span className={`text-[1.125rem] ${isPending ? "text-white/40" : "text-white"}`}>
+                    {phaseConfig.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Info message */}
+          <p className="text-white/60 text-[1.125rem] text-center leading-relaxed">
+            This takes about 2 minutes. Feel free to explore — we'll notify you when it's ready!
+          </p>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Render selection mode (original behavior)
   return (
     <Modal
       isOpen={isOpen}

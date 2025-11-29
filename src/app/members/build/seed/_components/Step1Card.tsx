@@ -1,50 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import React from "react";
 import { SessionMenu } from "@/components/SessionMenu";
-import { getSeedsBySession, getSeedsByMethod } from "@/hooks/useSeedPhrases";
 
 interface Step1CardProps {
-  refreshTrigger?: number;
+  topicCount: number;
+  sourceCounts: {
+    top10: number;
+    child: number;
+    az: number;
+    prefix: number;
+  };
 }
 
-export function Step1Card({ refreshTrigger = 0 }: Step1CardProps) {
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id");
-  
-  const [topicCount, setTopicCount] = useState(0);
-  const [sourceCounts, setSourceCounts] = useState({
-    top10: 0,
-    child: 0,
-    az: 0,
-    prefix: 0,
-  });
-
-  // Fetch seed count for current session
-  useEffect(() => {
-    async function loadSeedCount() {
-      if (sessionId) {
-        try {
-          const seeds = await getSeedsBySession(sessionId);
-          setTopicCount(seeds.length);
-          
-          // Count by method
-          const counts = {
-            top10: seeds.filter(s => s.generation_method === "top10").length,
-            child: seeds.filter(s => s.generation_method === "child").length,
-            az: seeds.filter(s => s.generation_method === "az").length,
-            prefix: seeds.filter(s => s.generation_method === "prefix").length,
-          };
-          setSourceCounts(counts);
-        } catch (error) {
-          console.error("Failed to load seeds:", error);
-        }
-      }
-    }
-    loadSeedCount();
-  }, [sessionId, refreshTrigger]);
-
+export function Step1Card({ topicCount, sourceCounts }: Step1CardProps) {
   // Calculate tools completion
   const toolsCompleted = [
     sourceCounts.top10 > 0,
