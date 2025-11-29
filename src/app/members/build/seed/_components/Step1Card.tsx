@@ -1,9 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SessionMenu } from "@/components/SessionMenu";
 
 interface Step1CardProps {
+  sessionId: string | null;
   topicCount: number;
   sourceCounts: {
     top10: number;
@@ -15,7 +17,10 @@ interface Step1CardProps {
   hasSeedPhrase: boolean;
 }
 
-export function Step1Card({ topicCount, sourceCounts, isExpanding, hasSeedPhrase }: Step1CardProps) {
+export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, hasSeedPhrase }: Step1CardProps) {
+  const router = useRouter();
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   // Calculate tools completion
   const toolsCompleted = [
     sourceCounts.top10 > 0,
@@ -30,6 +35,32 @@ export function Step1Card({ topicCount, sourceCounts, isExpanding, hasSeedPhrase
   
   // Determine the current state
   const hasStarted = toolsCompleted > 0 || isExpanding;
+
+  // Handle "Proceed to Refine" click - runs Data Intake
+  const handleProceedToRefine = async () => {
+    if (!sessionId || isProcessing) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // Run Data Intake API
+      const response = await fetch(`/api/sessions/${sessionId}/intake`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Data Intake failed');
+      }
+      
+      // Navigate to Refine page
+      router.push(`/members/build/refine?session_id=${sessionId}`);
+    } catch (error) {
+      console.error('Failed to run Data Intake:', error);
+      // TODO: Show error toast
+      setIsProcessing(false);
+    }
+  };
 
   // Get description text based on state
   const getDescription = () => {
@@ -71,11 +102,27 @@ export function Step1Card({ topicCount, sourceCounts, isExpanding, hasSeedPhrase
   const getStatusIndicator = () => {
     if (allToolsComplete) {
       return (
-        <button className="px-8 py-4 bg-gradient-to-b from-[#1E2A38] to-[#151D28] hover:from-[#243040] hover:to-[#1A2530] text-[#A8C4E0] border border-[#4A5568]/60 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] cursor-pointer">
-          Proceed to Refine
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
+        <button 
+          onClick={handleProceedToRefine}
+          disabled={isProcessing}
+          className="px-8 py-4 bg-gradient-to-b from-[#1A3D2E] to-[#122820] hover:from-[#1E4A36] hover:to-[#163028] text-[#7DD4A0] border border-[#4DD68A]/50 rounded-xl font-bold transition-all flex items-center gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_20px_rgba(77,214,138,0.15)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessing ? (
+            <>
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Analyzing Patterns...
+            </>
+          ) : (
+            <>
+              Proceed to Refine
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </>
+          )}
         </button>
       );
     }

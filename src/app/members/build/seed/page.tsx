@@ -83,6 +83,7 @@ function SeedPageContent() {
           setIsExpanding={setIsExpanding}
         />
         <Step1Card 
+          sessionId={sessionId}
           topicCount={seeds.length}
           sourceCounts={sourceCounts}
           isExpanding={isExpanding}
