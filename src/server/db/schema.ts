@@ -125,7 +125,7 @@ export const seeds = pgTable('seeds', {
 // ------------------------------------------------------------
 export const seed_analysis = pgTable('seed_analysis', {
   id: uuid('id').primaryKey().defaultRandom(),
-  seed_id: uuid('seed_id').notNull().references(() => seeds.id, { onDelete: 'cascade' }),
+  seed_id: uuid('seed_id').notNull().unique().references(() => seeds.id, { onDelete: 'cascade' }),
   
   // Core scores (0-100)
   topic_strength: integer('topic_strength'),

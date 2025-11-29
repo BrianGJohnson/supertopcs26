@@ -6,11 +6,20 @@ import { RefineTable } from "./RefineTable";
 import { FilterToolbar } from "./FilterToolbar";
 import { ActionToolbar } from "./ActionToolbar";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
+import { supabase } from "@/lib/supabase";
 import type { Seed } from "@/types/database";
 
 // =============================================================================
 // TYPES
 // =============================================================================
+
+interface SeedAnalysis {
+  seed_id: string;
+  topic_strength: number | null;
+  audience_fit: number | null;
+  popularity: number | null;
+  competition: number | null;
+}
 
 interface RefinePhrase {
   id: string;
@@ -29,7 +38,7 @@ interface RefinePhrase {
 // HELPERS
 // =============================================================================
 
-function mapSeedToRefinePhrase(seed: Seed): RefinePhrase {
+function mapSeedToRefinePhrase(seed: Seed, analysis?: SeedAnalysis): RefinePhrase {
   // Map generation_method to source type
   const sourceMap: Record<string, RefinePhrase["source"]> = {
     seed: "seed",
@@ -39,15 +48,30 @@ function mapSeedToRefinePhrase(seed: Seed): RefinePhrase {
     prefix: "prefix",
   };
   
+  // Calculate spread (if we have all scores)
+  let spread: number | null = null;
+  if (analysis?.topic_strength != null && 
+      analysis?.audience_fit != null && 
+      analysis?.popularity != null && 
+      analysis?.competition != null) {
+    const scores = [
+      analysis.topic_strength,
+      analysis.audience_fit,
+      analysis.popularity,
+      analysis.competition,
+    ];
+    spread = Math.max(...scores) - Math.min(...scores);
+  }
+  
   return {
     id: seed.id,
     phrase: seed.phrase,
     source: sourceMap[seed.generation_method || "seed"] || "seed",
-    topic: null, // Will be populated after scoring
-    fit: null,
-    pop: null,
-    comp: null,
-    spread: null,
+    topic: analysis?.topic_strength ?? null,
+    fit: analysis?.audience_fit ?? null,
+    pop: analysis?.popularity ?? null,
+    comp: analysis?.competition ?? null,
+    spread,
     isStarred: seed.is_selected || false,
     isRejected: false,
   };
@@ -66,8 +90,10 @@ export function RefinePageContent() {
   const [phrases, setPhrases] = useState<RefinePhrase[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [isScoring, setIsScoring] = useState(false);
+  const [scoringProgress, setScoringProgress] = useState<{ current: number; total: number } | undefined>();
   
-  // Fetch phrases from database
+  // Fetch phrases and their analysis from database
   const fetchPhrases = useCallback(async () => {
     if (!sessionId) {
       setPhrases([]);
@@ -76,8 +102,25 @@ export function RefinePageContent() {
     }
     
     try {
+      // Fetch seeds
       const seeds = await getSeedsBySession(sessionId);
-      const refinePhrases = seeds.map(mapSeedToRefinePhrase);
+      
+      // Fetch analysis for all seeds
+      const seedIds = seeds.map(s => s.id);
+      const { data: analyses } = await supabase
+        .from("seed_analysis")
+        .select("seed_id, topic_strength, audience_fit, popularity, competition")
+        .in("seed_id", seedIds);
+      
+      // Create lookup map
+      const analysisMap = new Map<string, SeedAnalysis>();
+      analyses?.forEach(a => analysisMap.set(a.seed_id, a));
+      
+      // Map seeds to RefinePhrase with analysis
+      const refinePhrases = seeds.map(seed => 
+        mapSeedToRefinePhrase(seed, analysisMap.get(seed.id))
+      );
+      
       setPhrases(refinePhrases);
     } catch (error) {
       console.error("Failed to load phrases:", error);
@@ -118,10 +161,53 @@ export function RefinePageContent() {
     });
   }, []);
   
-  const handleRunAnalysis = useCallback(() => {
-    // TODO: Implement scoring rounds
-    console.log("Run Analysis clicked");
-  }, []);
+  // Topic Strength Scoring Handler
+  const handleRunTopicScoring = useCallback(async () => {
+    if (!sessionId || isScoring) return;
+    
+    setIsScoring(true);
+    setScoringProgress({ current: 0, total: phrases.length });
+    
+    try {
+      console.log(`[RefinePageContent] Starting Topic Strength scoring for session ${sessionId}`);
+      
+      const response = await fetch(`/api/sessions/${sessionId}/score-topic`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Scoring failed");
+      }
+      
+      const result = await response.json();
+      
+      console.log(`[RefinePageContent] Scoring complete:`, result.distribution);
+      
+      // Update local state with new scores
+      const scoreMap = new Map<string, number>();
+      result.results.forEach((r: { seedId: string; score: number }) => {
+        scoreMap.set(r.seedId, r.score);
+      });
+      
+      setPhrases(prev => prev.map(p => ({
+        ...p,
+        topic: scoreMap.get(p.id) ?? p.topic,
+      })));
+      
+      // Show success feedback
+      // TODO: Add toast notification
+      console.log(`[RefinePageContent] Updated ${result.totalScored} phrases with Topic Strength scores`);
+      
+    } catch (error) {
+      console.error("[RefinePageContent] Topic scoring failed:", error);
+      // TODO: Show error toast
+    } finally {
+      setIsScoring(false);
+      setScoringProgress(undefined);
+    }
+  }, [sessionId, isScoring, phrases.length]);
   
   const handleAutoPick = useCallback(() => {
     // TODO: Implement auto-pick logic
@@ -187,11 +273,13 @@ export function RefinePageContent() {
       {/* Action Toolbar */}
       <ActionToolbar
         selectedCount={selectedIds.size}
-        onRunAnalysis={handleRunAnalysis}
+        onRunTopicScoring={handleRunTopicScoring}
         onAutoPick={handleAutoPick}
         onDeleteSelected={handleDeleteSelected}
         onContinue={handleContinue}
         canContinue={canContinue}
+        isScoring={isScoring}
+        scoringProgress={scoringProgress}
       />
       
       {/* Table - extra spacing above */}
