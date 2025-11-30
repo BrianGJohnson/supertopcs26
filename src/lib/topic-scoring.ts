@@ -46,10 +46,11 @@ export interface ScoringResult {
 // =============================================================================
 
 export const MODEL_CONFIG = {
-  model: "gpt-4o-mini", // OpenAI's GPT-4o Mini (production name)
+  model: "gpt-5-mini", // GPT-5 Mini
   temperature: 1,
   top_p: 1,
   max_completion_tokens: 1500,
+  reasoning_effort: "minimal" as const, // Faster response, fewer tokens
   response_format: { type: "json_object" as const },
 } as const;
 
@@ -64,85 +65,201 @@ export const BATCH_CONFIG = {
 // PROMPTS
 // =============================================================================
 
-export const SYSTEM_PROMPT = `You are a precise evaluator of how specific and descriptive each keyword phrase is as a topic.
-Your task is to score each phrase from 0–98 and return exactly N integers in a JSON object with a "scores" array.
+export const SYSTEM_PROMPT = `You are a YouTube keyword phrase evaluator measuring TOPIC STRENGTH - how compelling and clickable each phrase is.
+Score each phrase from 0–97 and return exactly N integers in a JSON object with a "scores" key.
 
-───────────────────────────────
-SCORING PHILOSOPHY
-───────────────────────────────
-Your goal is to create a LEFT-SKEWED distribution where most phrases score in the moderate-to-low range.
-This helps users identify which phrases to DELETE.
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL MINDSET
+═══════════════════════════════════════════════════════════════════════════════
+These phrases came from YouTube autocomplete - they have REAL search volume.
+They're already validated by user behavior. Start from a position of strength.
 
-Target Distribution:
-• 8-9% score 90-98 (exceptional)
-• 15-23% score 80-89 (strong)
-• 30-39% score 60-79 (moderate)
-• 20-25% score 40-59 (below average)
-• 10-15% score 20-39 (weak)
-• 3-5% score 0-19 (very weak)
+Your job is to measure ENGAGEMENT POTENTIAL, not sentiment or grammar.
+Negative emotions (hate, sucks, broken) drive MASSIVE engagement on YouTube.
+Do NOT let bias against negativity affect your scores.
 
-───────────────────────────────
-BASE SCORING CRITERIA
-───────────────────────────────
-Judge how descriptive, detailed, and information-rich each phrase is:
-- How much does it reveal about what the viewer is interested in?
-- Does it specify who, what, when, where, why, or how?
-- Does it show viewer curiosity or problem-solving intent?
+MULTIPLE PATHS TO EXCELLENCE:
+• Emotional Punch - visceral phrases that trigger clicks
+• Deep Specificity - layered phrases where intent is crystal clear
+• Discovery/Insight - phrases promising valuable understanding
+• Natural Language - phrases that flow like real human questions
 
-HIGH SCORES (80-98):
-• Contains concrete details, analytical depth, or strong intent cues
-• Explores insight, discovery, or cause/effect
-• Natural question structures (who, what, when, where, why, how)
-• Emotional triggers: frustration, curiosity, fear, desire
-• Analytical language: what, why, how, reason, cause, impact, discover, reveal
+A phrase can be GREAT for any of these reasons. Don't require all of them.
 
-MODERATE SCORES (60-79):
-• Some specificity but missing depth
-• Decent clarity but generic elements
-• Common topic without unique angle
+═══════════════════════════════════════════════════════════════════════════════
+BASE SCORE: 65
+═══════════════════════════════════════════════════════════════════════════════
+Every clear topic phrase starts at 65. Adjust up or down from there.
 
-LOW SCORES (20-59):
-• Vague or overly broad topics
-• Missing actionable context
-• Generic phrases anyone might search
+═══════════════════════════════════════════════════════════════════════════════
+TARGET DISTRIBUTION (you MUST hit these targets)
+═══════════════════════════════════════════════════════════════════════════════
+• 10-14% should score 90-97 (exceptional)
+• 20-26% should score 80-89 (strong)
+• 22-28% should score 70-79 (good)
+• 16-20% should score 60-69 (average)
+• 10-14% should score 45-59 (below average)
+• 5-8% should score below 45 (weak - junk, incomplete, names)
 
-VERY LOW SCORES (0-19):
-• Extremely generic single words or short phrases
-• Nonsensical or malformed
-• No clear topic intent
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #1: EMOTIONAL INTENSITY (+0 to +19) 
+═══════════════════════════════════════════════════════════════════════════════
+Measure the STRENGTH of emotion, not whether positive or negative.
+Strong emotion = high engagement = high score.
 
-───────────────────────────────
+FRUSTRATION/VENTING → +15 to +19 (HUGE YouTube audience seeking validation)
+  sucks, trash, garbage, terrible, awful, worst, hate, broken, dead, dying,
+  ruined, destroyed, killing, failing, scam, lie, fake, annoying, useless,
+  pointless, waste, bad, horrible, stupid, dumb, ridiculous, pathetic
+
+FEAR/URGENCY → +12 to +17
+  mistake, wrong, never, stop, avoid, warning, danger, risk, don't, can't,
+  won't, before, too late, dying, dead, end, over, finished, ruining
+
+EXCITEMENT/HYPE → +12 to +16
+  amazing, insane, incredible, game-changer, mind-blowing, best, secret,
+  hack, trick, revealed, exposed, truth, perfect, ultimate, powerful
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #2: SPECIFICITY DEPTH (+0 to +15) - COUNT THE LAYERS
+═══════════════════════════════════════════════════════════════════════════════
+How many LAYERS of meaning does this phrase have?
+More layers = clearer intent = more actionable for creators.
+
+Count the elements present:
+• Base Topic (youtube algorithm, content creation) = Layer 1
+• + Mechanism Question (how, why, what, when) = +1 layer
+• + Action/Verb (favor, work, change, rank, decide, boost) = +1 layer
+• + Outcome/Measurement (views, subscribers, recommend, show) = +1 layer
+• + Context (2025, beginners, shorts, monetization) = +1 layer
+
+SCORING:
+• 2 layers → +6 to +8
+• 3 layers → +10 to +13
+• 4+ layers → +14 to +15
+
+Example: "what does the youtube algorithm favor"
+→ Topic(algorithm) + Mechanism(what does) + Action(favor) = 3 layers → +12
+
+Example: "how youtube algorithm recommends videos 2025"
+→ Topic + Mechanism + Action(recommends) + Outcome(videos) + Context(2025) = 5 layers → +15
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #3: CURIOSITY & DISCOVERY (+0 to +18)
+═══════════════════════════════════════════════════════════════════════════════
+Phrases that promise INSIGHT or UNDERSTANDING score high.
+
+DISCOVERY VERBS (viewer will learn something actionable) → +14 to +18
+  favor, prefer, prioritize, reward, want, like, decide, determine,
+  rank, choose, push, boost, recommend, show, promote, suppress, hide
+
+"what does X favor/prefer/reward" → +16 to +18
+"how does X decide/determine/rank" → +15 to +17
+"why does X recommend/show/push" → +14 to +16
+
+UNDERSTANDING QUESTIONS → +10 to +14
+"why does X" → +12 to +14
+"how does X work" → +11 to +13
+"what is X" → +10 to +12
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #4: NATURAL LANGUAGE FLOW (+0 to +10)
+═══════════════════════════════════════════════════════════════════════════════
+Does this read like something a real person would type or say?
+
+STRONG NATURAL FLOW → +8 to +10
+• Full conversational questions: "why does the algorithm hate me"
+• Complete thoughts with articles: "the", "my", "your", "a"
+• Reads like speech: "is the youtube algorithm actually broken"
+
+MODERATE FLOW → +4 to +7
+• Clear but abbreviated: "youtube algorithm tips 2025"
+• Missing articles but understandable: "fix youtube algorithm"
+
+WEAK/ROBOTIC → +0
+• Keyword stuffing: "algorithm youtube tips 2025 best"
+• Unnatural order: "youtube for algorithm beginners"
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #5: VIEWER INTENT CLARITY (+0 to +12)
+═══════════════════════════════════════════════════════════════════════════════
+How clearly can we understand what the viewer wants?
+
+CRYSTAL CLEAR → +10 to +12
+  The viewer's goal is unmistakable.
+  "how to fix youtube algorithm" - wants a solution
+  "why youtube algorithm hates small channels" - wants validation
+
+CLEAR → +6 to +9
+  Good understanding of goal.
+  "youtube algorithm tips" - wants advice
+
+VAGUE → +0 to +5
+  General interest only.
+  "youtube algorithm" - just browsing
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #6: QUESTION FORMAT (+2 to +4) - SMALL BONUS
+═══════════════════════════════════════════════════════════════════════════════
+• Direct question (how, why, what, when, who) → +3 to +4
+• Implied question (is X, does X, can X) → +2 to +3
+
+═══════════════════════════════════════════════════════════════════════════════
+BONUS #7: SPECIFICITY MARKERS (+2 to +5)
+═══════════════════════════════════════════════════════════════════════════════
+• Year (2024, 2025) → +3
+• Audience (beginners, kids, small channels) → +4
+• Platform specificity (shorts, live, monetization) → +3
+
+═══════════════════════════════════════════════════════════════════════════════
 PENALTIES
-───────────────────────────────
-Apply these score reductions:
-• Unnatural word order → -5 to -10
-• Redundant/repeated words → -5 to -8
-• 2+ connectors (and, with, plus, in, for, using) → -6
-• Phrase length > 9 words → additional -4
-• Both connector AND length penalties → -10 total (cap)
+═══════════════════════════════════════════════════════════════════════════════
+• Person/channel names without context → -15
+• News events (arrested, dies, killed) → -20
+• Non-English or mixed language → -12
+• Incomplete fragments ("youtube algorithm in") → -10
+• Single generic word → cap at 45
 
-───────────────────────────────
-GUIDELINES
-───────────────────────────────
-• NEVER output 99 or 100
-• Maximum score is 98
-• Be harsh on generic phrases - they should score 40-60, not 70+
-• Reserve 90+ for truly exceptional, specific, analytical phrases
-• Output JSON: { "scores": [90, 45, 72, 38, ...] }
+═══════════════════════════════════════════════════════════════════════════════
+SCORING EXAMPLES - MULTIPLE PATHS TO EXCELLENCE
+═══════════════════════════════════════════════════════════════════════════════
 
-───────────────────────────────
-EXAMPLES
-───────────────────────────────
-• "Halloween costume" → 45 (generic)
-• "Halloween candy-cane witch costume" → 85 (specific)
-• "Why garden soil loses nutrients over time" → 92 (analytical, specific)
-• "Fix broken sprinkler system in spring" → 78 (problem-solving but common)
-• "youtube" → 12 (too generic)
-• "content creation" → 38 (broad category)
-• "content creation tips for beginners 2025" → 76 (decent specificity)
-• "why my youtube videos get no views" → 88 (emotional, analytical, specific)
+PATH 1 - EMOTIONAL PUNCH (High scores from emotion):
+• "youtube algorithm sucks" → 65 + 17(frustration) + 6(complete) = 88
+• "youtube algorithm is trash" → 65 + 17(frustration) + 8(natural) = 90
+• "is the youtube algorithm broken" → 65 + 15(fear) + 10(natural) + 3(question) = 93
 
-Example output for 5 phrases: { "scores": [45, 85, 92, 78, 12] }`;
+PATH 2 - DEEP SPECIFICITY (High scores from layers + discovery):
+• "what does the youtube algorithm favor" → 65 + 12(3 layers) + 14(discovery) + 3(question) = 94
+• "how does youtube algorithm decide what to recommend" → 65 + 15(4 layers) + 16(discovery) = 96
+• "why does the algorithm push certain videos" → 65 + 13(3 layers) + 15(discovery) + 4(question) = 97 (cap)
+
+PATH 3 - CLEAR INTENT + NATURAL LANGUAGE:
+• "how to make the algorithm love your channel" → 65 + 8(2 layers) + 12(excitement) + 10(natural) + 4(question) = 97 (cap)
+• "why is my youtube algorithm so bad" → 65 + 10(2 layers) + 12(frustration) + 9(natural) + 3(question) = 97 (cap)
+
+MODERATE SCORES (70-84):
+• "youtube algorithm explained" → 65 + 6(2 layers) + 6(intent) = 77
+• "youtube algorithm tips 2025" → 65 + 6(2 layers) + 8(intent) + 3(year) = 82
+• "new youtube algorithm update" → 65 + 6(2 layers) + 6(intent) = 77
+
+LOW SCORES (below 60):
+• "youtube algorithm" → 65 + 0(1 layer only, vague) - 8 = 57
+• "algorithm" → single word → 42
+• "YouTube Algorithm Manoj Dey" → 65 - 15(name) = 50, low intent → 40
+• "youtube algorithm in hindi" → 65 - 12(non-English) = 53
+
+═══════════════════════════════════════════════════════════════════════════════
+FINAL CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+Before outputting scores, verify:
+✓ Did 10-14% score 90+? If not, boost top phrases (emotional OR specific).
+✓ Did emotional phrases AND discovery phrases both get high scores?
+✓ Did you count layers for specificity bonus?
+✓ Did natural language phrases get their bonus?
+✓ Maximum score is 97. Never output 98, 99, or 100.
+
+Output format: {"scores": [88, 57, 94, 40, ...]}`;
 
 // =============================================================================
 // HELPERS
@@ -163,43 +280,84 @@ ${numberedPhrases}`;
 
 /**
  * Parse the GPT response and extract scores
+ * Returns null for missing scores if count doesn't match (resilient mode)
  */
 export function parseTopicScoreResponse(
   content: string,
   expectedCount: number
-): number[] {
+): (number | null)[] {
   try {
     const parsed = JSON.parse(content);
     
-    // Handle { "scores": [...] } format
-    const scores = parsed.scores || parsed;
+    // Handle multiple response formats:
+    // 1. Bare array: [90, 45, 72, ...]
+    // 2. Object with "scores" key: { "scores": [...] }
+    // 3. Object with any array value: { "results": [...] } or { "values": [...] }
+    let scores: unknown;
+    
+    if (Array.isArray(parsed)) {
+      scores = parsed;
+    } else if (typeof parsed === 'object' && parsed !== null) {
+      // Try common key names first
+      scores = parsed.scores || parsed.results || parsed.values || parsed.data;
+      
+      // If still not found, look for any array property
+      if (!Array.isArray(scores)) {
+        const arrayValue = Object.values(parsed).find(v => Array.isArray(v));
+        if (arrayValue) {
+          scores = arrayValue;
+        }
+      }
+    }
     
     if (!Array.isArray(scores)) {
+      console.error('[TopicScoring] Unexpected response format:', JSON.stringify(parsed).slice(0, 200));
       throw new Error('Response is not an array');
     }
     
+    // Log warning if count doesn't match but continue with what we have
     if (scores.length !== expectedCount) {
-      throw new Error(`Expected ${expectedCount} scores, got ${scores.length}`);
+      console.warn(`[TopicScoring] Count mismatch: expected ${expectedCount}, got ${scores.length}. Using available scores.`);
     }
     
-    // Validate and clamp each score
-    const validatedScores = scores.map((score, idx) => {
-      if (typeof score !== 'number') {
-        console.warn(`Score at index ${idx} is not a number: ${score}`);
-        return 50; // Default to middle score
+    // Validate and clamp each score, padding with nulls if needed
+    const validatedScores: (number | null)[] = [];
+    for (let idx = 0; idx < expectedCount; idx++) {
+      if (idx < scores.length) {
+        const score = scores[idx];
+        if (typeof score === 'number') {
+          // Clamp to 0-98 (never 99 or 100)
+          validatedScores.push(Math.max(0, Math.min(98, Math.round(score))));
+        } else {
+          console.warn(`[TopicScoring] Score at index ${idx} is not a number: ${score}`);
+          validatedScores.push(null);
+        }
+      } else {
+        // Pad with null for missing scores
+        validatedScores.push(null);
       }
-      // Clamp to 0-98 (never 99 or 100)
-      return Math.max(0, Math.min(98, Math.round(score)));
-    });
+    }
     
     return validatedScores;
   } catch (error) {
     // Try to extract array from malformed response
     const arrayMatch = content.match(/\[[\d,\s]+\]/);
     if (arrayMatch) {
-      const scores = JSON.parse(arrayMatch[0]);
-      if (Array.isArray(scores) && scores.length === expectedCount) {
-        return scores.map((s: number) => Math.max(0, Math.min(98, Math.round(s))));
+      try {
+        const scores = JSON.parse(arrayMatch[0]);
+        if (Array.isArray(scores)) {
+          const result: (number | null)[] = [];
+          for (let idx = 0; idx < expectedCount; idx++) {
+            if (idx < scores.length && typeof scores[idx] === 'number') {
+              result.push(Math.max(0, Math.min(98, Math.round(scores[idx]))));
+            } else {
+              result.push(null);
+            }
+          }
+          return result;
+        }
+      } catch {
+        // Fall through to throw
       }
     }
     throw new Error(`Failed to parse response: ${error}`);

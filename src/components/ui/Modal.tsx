@@ -35,7 +35,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
@@ -76,10 +76,12 @@ export function ModalButton({
   children,
   onClick,
   variant = "secondary",
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   variant?: "primary" | "secondary" | "danger";
+  disabled?: boolean;
 }) {
   const base = "px-5 py-2.5 rounded-lg font-semibold text-sm transition-all";
   const variants = {
@@ -92,7 +94,11 @@ export function ModalButton({
   };
 
   return (
-    <button onClick={onClick} className={`${base} ${variants[variant]}`}>
+    <button 
+      onClick={onClick} 
+      className={`${base} ${variants[variant]} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      disabled={disabled}
+    >
       {children}
     </button>
   );

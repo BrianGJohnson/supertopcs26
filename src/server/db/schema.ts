@@ -135,6 +135,9 @@ export const seed_analysis = pgTable('seed_analysis', {
   competition: integer('competition'),
   overall_score: integer('overall_score'),
   
+  // Visibility state (for Refine page bulk hide)
+  is_hidden: boolean('is_hidden').default(false),
+  
   // LTV (Long-Term Views) - measures Top 10 alignment
   // Hidden on Page 2, boosts Popularity, badge on Page 3 for score >= 50
   ltv_score: integer('ltv_score').default(0),

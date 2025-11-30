@@ -140,7 +140,7 @@ GUIDELINES
 • Maximum score is 98
 • Be harsh on generic phrases - they should score 40-60, not 70+
 • Reserve 90+ for truly exceptional, specific, analytical phrases
-• Always output a bare JSON array: [90, 45, 72, 38, ...]
+• Always output JSON: {"scores": [90, 45, 72, 38, ...]}
 
 ───────────────────────────────
 EXAMPLES
@@ -154,7 +154,7 @@ EXAMPLES
 • "content creation tips for beginners 2025" → 76 (decent specificity)
 • "why my youtube videos get no views" → 88 (emotional, analytical, specific)
 
-Example output for 5 phrases: [45, 85, 92, 78, 12]
+Example output for 5 phrases: {"scores": [45, 85, 92, 78, 12]}
 ```
 
 ---

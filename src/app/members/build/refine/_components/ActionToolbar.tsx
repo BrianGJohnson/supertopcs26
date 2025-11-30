@@ -2,16 +2,24 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { IconPlayerPlay, IconWand, IconTrash, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconTarget } from "@tabler/icons-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { IconPlayerPlay, IconWand, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconCoin, IconSelector, IconStar, IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@tabler/icons-react";
+import { listSessions, createSession } from "@/hooks/useSessions";
+import { addSeeds } from "@/hooks/useSeedPhrases";
+import { Modal, ModalButton } from "@/components/ui/Modal";
+import type { Session } from "@/types/database";
 
 interface ActionToolbarProps {
   selectedCount: number;
+  totalCount: number;
+  starredCount: number;
+  sessionName?: string;
   onRunTopicScoring: () => void;
   onRunFitScoring?: () => void;
   onRunPnCScoring?: () => void;
   onAutoPick: () => void;
-  onDeleteSelected: () => void;
   onContinue: () => void;
+  onJumpToTitle: () => void;
   canContinue: boolean;
   isScoring?: boolean;
   scoringProgress?: { current: number; total: number };
@@ -20,7 +28,7 @@ interface ActionToolbarProps {
 type AnalysisOption = {
   id: "topic" | "fit" | "pnc";
   label: string;
-  description: string;
+  tokenCost: number;
   icon: React.ReactNode;
   enabled: boolean;
   action: () => void;
@@ -28,39 +36,58 @@ type AnalysisOption = {
 
 export function ActionToolbar({
   selectedCount,
+  totalCount,
+  starredCount,
+  sessionName = "Session",
   onRunTopicScoring,
   onRunFitScoring,
   onRunPnCScoring,
   onAutoPick,
-  onDeleteSelected,
   onContinue,
+  onJumpToTitle,
   canContinue,
   isScoring = false,
   scoringProgress,
 }: ActionToolbarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentSessionId = searchParams.get("session_id");
+  
+  // Jump to Title is enabled when 1+ phrases are starred
+  const canJumpToTitle = starredCount >= 1;
+  
+  // Analysis dropdown state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
   
-  // Track if component is mounted (for portal)
+  // Session dropdown state
+  const [isSessionDropdownOpen, setIsSessionDropdownOpen] = useState(false);
+  const [sessionDropdownPosition, setSessionDropdownPosition] = useState({ top: 0, left: 0 });
+  const [showSwitchList, setShowSwitchList] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [seedPhraseInput, setSeedPhraseInput] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const sessionButtonRef = useRef<HTMLButtonElement>(null);
+  const sessionDropdownRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     setIsMounted(true);
   }, []);
   
-  // Update dropdown position when opened
   useEffect(() => {
     if (isDropdownOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setDropdownPosition({
-        top: rect.bottom + 8, // 8px gap below button
+        top: rect.bottom + 8,
         left: rect.left,
       });
     }
   }, [isDropdownOpen]);
   
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
@@ -77,7 +104,6 @@ export function ActionToolbar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   
-  // Close dropdown on scroll
   useEffect(() => {
     if (isDropdownOpen) {
       const handleScroll = () => setIsDropdownOpen(false);
@@ -86,11 +112,97 @@ export function ActionToolbar({
     }
   }, [isDropdownOpen]);
   
+  // Session dropdown position
+  useEffect(() => {
+    if (isSessionDropdownOpen && sessionButtonRef.current) {
+      const rect = sessionButtonRef.current.getBoundingClientRect();
+      setSessionDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+      });
+    }
+  }, [isSessionDropdownOpen]);
+  
+  // Session dropdown click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        sessionDropdownRef.current && 
+        !sessionDropdownRef.current.contains(target) &&
+        sessionButtonRef.current &&
+        !sessionButtonRef.current.contains(target)
+      ) {
+        setIsSessionDropdownOpen(false);
+        setShowSwitchList(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  
+  // Session handlers
+  const handleNewSessionClick = () => {
+    setIsSessionDropdownOpen(false);
+    setShowSwitchList(false);
+    setIsNewSessionModalOpen(true);
+  };
+  
+  const handleCreateSession = async () => {
+    if (!seedPhraseInput.trim()) return;
+    
+    setIsCreating(true);
+    try {
+      const name = seedPhraseInput.trim();
+      const newSession = await createSession(name, name);
+      
+      await addSeeds(newSession.id, [
+        { phrase: name, generationMethod: "seed" },
+      ]);
+      
+      router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodeURIComponent(name)}`);
+      setIsNewSessionModalOpen(false);
+      setSeedPhraseInput("");
+    } catch (error) {
+      console.error("Failed to create session:", error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+  
+  const handleSwitchSessionClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!showSwitchList) {
+      try {
+        const list = await listSessions();
+        setSessions(list);
+      } catch (error) {
+        console.error("Failed to list sessions", error);
+      }
+    }
+    setShowSwitchList(!showSwitchList);
+  };
+  
+  const handleSelectSession = (sessionId: string) => {
+    router.push(`/members/build/refine?session_id=${sessionId}`);
+    setIsSessionDropdownOpen(false);
+    setShowSwitchList(false);
+  };
+  
+  const handleManageSessions = () => {
+    router.push("/members/sessions");
+    setIsSessionDropdownOpen(false);
+    setShowSwitchList(false);
+  };
+  
+  const displaySessions = sessions.slice(0, 10);
+  const hasMoreSessions = sessions.length > 10;
+  
   const analysisOptions: AnalysisOption[] = [
     {
       id: "topic",
       label: "1. Topic Strength",
-      description: "Score phrase specificity and depth",
+      tokenCost: 100,
       icon: <IconChartBar className="w-4 h-4" />,
       enabled: true,
       action: () => {
@@ -100,10 +212,10 @@ export function ActionToolbar({
     },
     {
       id: "fit",
-      label: "2. Audience Fit",
-      description: "Match to channel niche",
+      label: "2. A. Fit",
+      tokenCost: 100,
       icon: <IconUsers className="w-4 h-4" />,
-      enabled: false, // Coming soon
+      enabled: false,
       action: () => {
         onRunFitScoring?.();
         setIsDropdownOpen(false);
@@ -111,10 +223,10 @@ export function ActionToolbar({
     },
     {
       id: "pnc",
-      label: "3. Popularity & Competition",
-      description: "Search volume analysis",
+      label: "3. P & C",
+      tokenCost: 100,
       icon: <IconFlame className="w-4 h-4" />,
-      enabled: false, // Coming soon
+      enabled: false,
       action: () => {
         onRunPnCScoring?.();
         setIsDropdownOpen(false);
@@ -122,11 +234,10 @@ export function ActionToolbar({
     },
   ];
   
-  // Dropdown menu rendered via portal
   const dropdownMenu = isDropdownOpen && !isScoring && isMounted && createPortal(
     <div 
       ref={dropdownRef}
-      className="fixed w-64 bg-[#1a1a2e] border border-white/15 rounded-xl shadow-2xl"
+      className="fixed w-72 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl"
       style={{
         top: dropdownPosition.top,
         left: dropdownPosition.left,
@@ -138,7 +249,7 @@ export function ActionToolbar({
           <button
             key={option.id}
             className={`
-              w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors
+              w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left transition-colors
               ${option.enabled
                 ? "hover:bg-white/5 cursor-pointer"
                 : "opacity-40 cursor-not-allowed"
@@ -147,22 +258,20 @@ export function ActionToolbar({
             onClick={option.enabled ? option.action : undefined}
             disabled={!option.enabled}
           >
-            <div className={`
-              p-1.5 rounded-md
-              ${option.enabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/40"}
-            `}>
-              {option.icon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className={`text-sm font-medium ${option.enabled ? "text-white" : "text-white/40"}`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`
+                p-1.5 rounded-md
+                ${option.enabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/40"}
+              `}>
+                {option.icon}
+              </div>
+              <span className={`text-sm font-medium ${option.enabled ? "text-white" : "text-white/40"}`}>
                 {option.label}
-                {!option.enabled && (
-                  <span className="ml-2 text-xs text-white/30">(coming soon)</span>
-                )}
-              </div>
-              <div className="text-xs text-white/40 mt-0.5">
-                {option.description}
-              </div>
+              </span>
+            </div>
+            <div className={`flex items-center gap-1.5 ${option.enabled ? "text-white/70" : "text-white/40"}`}>
+              <IconCoin className="w-4 h-4" />
+              <span className="text-sm font-medium">{option.tokenCost}</span>
             </div>
           </button>
         ))}
@@ -172,91 +281,244 @@ export function ActionToolbar({
   );
   
   return (
-    <div className="flex items-center justify-between p-4 bg-surface/40 backdrop-blur-md border border-white/10 rounded-xl">
-      {/* Left side: Analysis actions */}
-      <div className="flex items-center gap-3">
-        {/* Run Analysis Dropdown */}
-        <div className="relative">
-          <button 
-            ref={buttonRef}
-            className={`
-              flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
-              ${isScoring
-                ? "bg-white/10 border border-white/20 text-white/70 cursor-wait"
-                : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
-              }
-            `}
-            onClick={() => !isScoring && setIsDropdownOpen(!isDropdownOpen)}
-            disabled={isScoring}
-          >
-            {isScoring ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span className="text-sm font-medium">
-                  {scoringProgress 
-                    ? `Scoring ${scoringProgress.current}/${scoringProgress.total}...`
-                    : "Scoring..."
-                  }
-                </span>
-              </>
-            ) : (
-              <>
-                <IconPlayerPlay className="w-4 h-4" />
-                <span className="text-sm font-medium">Run Analysis</span>
-                <span className="text-xs text-white/40">▾</span>
-              </>
-            )}
-          </button>
-          
-          {/* Dropdown rendered via portal */}
-          {dropdownMenu}
-        </div>
-        
-        {/* Auto-Pick - placeholder */}
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      {/* Run Analysis Dropdown */}
+      <div className="relative">
         <button 
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-          onClick={onAutoPick}
-          disabled
-        >
-          <IconWand className="w-4 h-4" />
-          <span className="text-sm font-medium">Auto-Pick</span>
-          <span className="text-xs text-white/40">▾</span>
-        </button>
-        
-        {/* Delete Selected */}
-        <button 
+          ref={buttonRef}
           className={`
-            flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
-            ${selectedCount > 0 
-              ? "bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30" 
-              : "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+            h-12 flex items-center gap-2 px-5 rounded-lg transition-colors
+            ${isScoring
+              ? "bg-white/10 border border-white/20 text-white/70 cursor-wait"
+              : "bg-white/5 border border-white/5 text-white/70 hover:bg-white/10 hover:text-white"
             }
           `}
-          onClick={onDeleteSelected}
-          disabled={selectedCount === 0}
+          onClick={() => !isScoring && setIsDropdownOpen(!isDropdownOpen)}
+          disabled={isScoring}
         >
-          <IconTrash className="w-4 h-4" />
-          <span className="text-sm font-medium">
-            {selectedCount > 0 ? `Delete (${selectedCount})` : "Delete"}
-          </span>
+          {isScoring ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="text-sm whitespace-nowrap">
+                {scoringProgress 
+                  ? `Scoring ${scoringProgress.current}/${scoringProgress.total}...`
+                  : "Scoring..."
+                }
+              </span>
+            </>
+          ) : (
+            <>
+              <IconPlayerPlay className="w-4 h-4" />
+              <span className="text-sm whitespace-nowrap">Run Analysis</span>
+              <IconSelector className="w-3.5 h-3.5 text-white/40" />
+            </>
+          )}
+        </button>
+        {dropdownMenu}
+      </div>
+      
+      {/* Jump to Title Button - Active when 1+ phrases are starred, subdued style */}
+      <button 
+        className={`
+          h-12 flex items-center gap-2 px-5 rounded-lg text-sm whitespace-nowrap transition-colors
+          ${canJumpToTitle 
+            ? "bg-white/10 border border-white/20 text-white hover:bg-white/15 cursor-pointer" 
+            : "bg-white/5 border border-white/5 text-white/40 cursor-not-allowed"
+          }
+        `}
+        onClick={canJumpToTitle ? onJumpToTitle : undefined}
+        disabled={!canJumpToTitle}
+        title={canJumpToTitle ? "Jump directly to Title page" : "Star at least 1 phrase to enable"}
+      >
+        <span>Jump</span>
+        <IconArrowRight className="w-4 h-4" />
+        <span>Title</span>
+      </button>
+      
+      {/* Session Dropdown */}
+      <div className="relative">
+        <button 
+          ref={sessionButtonRef}
+          className="h-12 flex items-center gap-2 px-5 bg-white/5 border border-white/5 rounded-lg text-white/70 text-sm whitespace-nowrap hover:bg-white/10 hover:text-white transition-colors"
+          onClick={() => setIsSessionDropdownOpen(!isSessionDropdownOpen)}
+        >
+          <span className="truncate max-w-[140px]">{sessionName}</span>
+          <IconSelector className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
         </button>
       </div>
       
-      {/* Right side: Continue */}
+      {/* Session Dropdown Menu - Portal */}
+      {isMounted && isSessionDropdownOpen && createPortal(
+        <div 
+          ref={sessionDropdownRef}
+          className="fixed z-[9999]"
+          style={{ top: sessionDropdownPosition.top, left: sessionDropdownPosition.left }}
+        >
+          <div className="w-72 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100">
+            <div className="p-1 space-y-1">
+              <button
+                onClick={handleNewSessionClick}
+                className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors"
+              >
+                <IconPlus size={18} className="text-blue-400" />
+                New Session
+              </button>
+
+              <button
+                onClick={handleSwitchSessionClick}
+                className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors justify-between group"
+              >
+                <div className="flex items-center gap-3">
+                  <IconArrowsExchange size={18} className="text-green-400" />
+                  Switch Session
+                </div>
+                <svg
+                  className="w-4 h-4 text-white/40 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <div className="h-px bg-white/10 my-1 mx-2" />
+
+              <button
+                onClick={handleManageSessions}
+                className="w-full px-4 py-3 text-left text-sm text-white/90 hover:bg-white/5 rounded-lg flex items-center gap-3 transition-colors"
+              >
+                <IconSettingsCog size={18} className="text-gray-400" />
+                Manage Sessions
+              </button>
+            </div>
+          </div>
+          
+          {/* Switch Session Flyout */}
+          {showSwitchList && (
+            <div 
+              className="absolute top-0 left-[18.5rem] w-64 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl animate-in fade-in slide-in-from-left-2 duration-100"
+            >
+              <div className="py-2 max-h-80 overflow-y-auto custom-scrollbar">
+                {sessions.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-white/40 text-center">Loading...</div>
+                ) : displaySessions.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-white/40 text-center">No sessions yet</div>
+                ) : (
+                  <>
+                    {displaySessions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSelectSession(s.id)}
+                        className={`w-full px-4 py-3 text-left text-sm hover:bg-white/5 flex items-center justify-between transition-colors ${s.id === currentSessionId ? 'text-white bg-white/5' : 'text-white/70'}`}
+                      >
+                        <span className="truncate pr-2">{s.name}</span>
+                        {s.id === currentSessionId && <IconCheck size={14} className="text-green-400 flex-shrink-0" />}
+                      </button>
+                    ))}
+                    {hasMoreSessions && (
+                      <button
+                        onClick={handleManageSessions}
+                        className="w-full px-4 py-3 text-left text-sm text-[#6B9BD1] hover:bg-white/5 transition-colors border-t border-white/10 mt-2"
+                      >
+                        View all {sessions.length} sessions →
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+      
+      {/* Auto-Pick Button */}
+      <button 
+        className="h-12 flex items-center gap-2 px-5 bg-white/5 border border-white/5 rounded-lg text-white/70 text-sm whitespace-nowrap hover:bg-white/10 hover:text-white transition-colors"
+        onClick={onAutoPick}
+      >
+        <IconStar className="w-4 h-4" />
+        <span>Auto-Pick</span>
+        <IconSelector className="w-3.5 h-3.5 text-white/40" />
+      </button>
+      
+      {/* Spacer */}
+      <div className="flex-1" />
+      
+      {/* Topics Count */}
+      <div className="h-12 flex items-center px-5 bg-white/5 border border-white/5 rounded-lg whitespace-nowrap">
+        <span className="text-white/70 text-sm">{totalCount} Topics</span>
+      </div>
+      
+      {/* Selection Status / Continue */}
       <button 
         className={`
-          flex items-center gap-2 px-5 py-2 rounded-lg font-medium transition-colors
+          h-12 flex items-center gap-2 px-5 rounded-lg transition-colors whitespace-nowrap
           ${canContinue 
             ? "bg-primary text-white hover:bg-primary/90" 
-            : "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+            : "bg-white/5 border border-white/5 text-white/50"
           }
         `}
         onClick={onContinue}
         disabled={!canContinue}
       >
-        <span className="text-sm">Continue to Super</span>
+        <span className="text-sm">
+          {starredCount >= 10 
+            ? "Continue to Super" 
+            : `Select ${10 - starredCount} more`
+          }
+        </span>
         <IconArrowRight className="w-4 h-4" />
       </button>
+      
+      {/* New Session Modal */}
+      <Modal
+        isOpen={isNewSessionModalOpen}
+        onClose={() => {
+          setIsNewSessionModalOpen(false);
+          setSeedPhraseInput("");
+        }}
+        title="Create New Session"
+        footer={
+          <>
+            <ModalButton
+              variant="secondary"
+              onClick={() => {
+                setIsNewSessionModalOpen(false);
+                setSeedPhraseInput("");
+              }}
+            >
+              Cancel
+            </ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={handleCreateSession}
+            >
+              {isCreating ? "Creating..." : "+ Create Session"}
+            </ModalButton>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-[1.125rem] leading-relaxed">
+            Add a two word phrase that describes the type of topics you're interested in. Example: <span className="text-white/80">poodle grooming</span>.
+          </p>
+          <input
+            type="text"
+            value={seedPhraseInput}
+            onChange={(e) => setSeedPhraseInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && seedPhraseInput.trim()) {
+                handleCreateSession();
+              }
+            }}
+            placeholder="Enter seed phrase..."
+            className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg text-base text-white placeholder-white/30 focus:outline-none focus:border-[#6B9BD1]/50 focus:ring-1 focus:ring-[#6B9BD1]/30 transition-all"
+            autoFocus
+          />
+        </div>
+      </Modal>
     </div>
   );
 }
