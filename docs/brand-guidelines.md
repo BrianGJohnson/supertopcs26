@@ -1,10 +1,9 @@
 ================================================================================
-SUPER TOPICS BUILDER — BRAND FOUNDATIONS REPORT v1.1
+SUPER TOPICS — BRAND FOUNDATIONS REPORT v1.2
 ================================================================================
 
-This document defines the visual system for the Super Topics Builder UI as of
-November 29, 2025. All values are extracted from the current implementation
-and should be used as the source of truth for Page 2 and future pages.
+This document defines the visual system for Super Topics as of December 1, 2025.
+For UI component patterns and code examples, see: brand-ui-components-guide.md
 
 ================================================================================
 SECTION 1: GLOBAL VISUAL IDENTITY
@@ -18,65 +17,77 @@ CORE AESTHETIC
 
 GLOBAL COLOR TOKENS
 - Background (page):           #0B1220
-- Surface (cards):             #161c27
-- Primary (accent):            #7A5CFA (purple-violet) — USE SPARINGLY
-- Accent (secondary):          #3CCFB1 (teal-cyan)
-- Electric Blue (default):     #6B9BD1 — PREFERRED FOR UI ELEMENTS
+- Surface (cards):             #1A1E24
+- Primary Green:               #2BD899 — PRIMARY CTA COLOR
+- Primary Purple:              #7A5CFA — HERO GRADIENTS, MONETIZATION PILLAR
+- Trending Orange:             #F59E0B — TRENDING PILLAR, WARNINGS
+- Electric Blue:               #6B9BD1 — FORM FOCUS, SECONDARY INTERACTIONS
+- Cyan:                        #00D4FF — PERSONALIZATION ACCENTS
 - Text Primary:                #E7ECF5
 - Text Secondary:              #A6B0C2
 
 COLOR USAGE GUIDELINES
+
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ELECTRIC BLUE (#6B9BD1) — DEFAULT CHOICE                                    │
+│ PRIMARY GREEN (#2BD899) — MAIN ACTION COLOR                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Use for:                                                                    │
-│ - Modal success/info indicators                                             │
-│ - Toast action links ("View Results →")                                     │
-│ - Interactive elements in modals                                            │
-│ - Checkmarks and completion indicators                                      │
+│ - Primary CTA buttons ("Continue", "Save", "Complete Setup")                │
+│ - Evergreen pillar cards and chips                                          │
+│ - Success states and confirmations                                          │
+│ - Progress completion indicators                                            │
+│                                                                             │
+│ This is the primary action color throughout the app.                        │
+│ Gradient: from-[#2BD899] to-[#25C78A]                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ELECTRIC BLUE (#6B9BD1) — SECONDARY/UTILITY COLOR                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Use for:                                                                    │
+│ - Form input focus states                                                   │
 │ - Secondary buttons and links                                               │
-│ - Progress indicators in dialogs                                            │
+│ - Modal interactive elements                                                │
+│ - Toast action links                                                        │
+│ - Information indicators                                                    │
 │                                                                             │
-│ This is the workhorse brand color for UI interactions.                      │
+│ This is the workhorse color for form interactions and utility UI.           │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ PURPLE (#7A5CFA) — USE SPARINGLY                                            │
+│ PURPLE (#7A5CFA) — PREMIUM/BRAND MOMENTS                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Reserved for:                                                               │
+│ Use for:                                                                    │
 │ - Hero gradients and headline accents                                       │
-│ - Primary CTA buttons (e.g., "Expand Topic")                                │
+│ - Monetization pillar cards and chips                                       │
 │ - Ambient background glows                                                  │
-│ - Brand moments that need to feel premium/special                           │
+│ - AI/premium feature indicators                                             │
 │                                                                             │
-│ Do NOT use purple for:                                                      │
-│ - Modals, toasts, or utility dialogs                                        │
-│ - Secondary UI elements                                                     │
-│ - Repetitive interface patterns                                             │
-│                                                                             │
-│ Purple should feel like a reward, not wallpaper.                            │
+│ Purple should feel special—use it for brand moments, not everywhere.        │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ GREEN — DO NOT USE FOR UI ACCENTS                                           │
+│ TRENDING ORANGE (#F59E0B) — TRENDING/TIMELY CONTENT                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Green is RESERVED for the tag hierarchy system only:                        │
-│ - A-Z source tags (#4DD68A)                                                 │
-│ - Prefix source tags (#39C7D8 teal-green)                                   │
-│ - Child source tags (#D4E882 yellow-green)                                  │
+│ Use for:                                                                    │
+│ - Trending pillar cards and chips                                           │
+│ - Warning states (non-critical)                                             │
+│ - Time-sensitive indicators                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BUILDER MODULE: TAG HIERARCHY COLORS (CONTEXT-SPECIFIC)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ These colors are used ONLY in the Builder topic research flow:              │
 │                                                                             │
-│ Do NOT use green for:                                                       │
-│ - Toast success indicators (use gray #8A95A5 instead)                       │
-│ - Modal checkmarks or confirmation icons                                    │
-│ - Buttons or interactive elements                                           │
-│ - Status badges outside of topic sources                                    │
+│ - Seed Tag:    #E85C4A (red-orange) — Starting point, most competitive      │
+│ - Top 10:      #FF8A3D (orange) — Competitive but doable                    │
+│ - Child:       #D4E882 (yellow-green) — Opportunity zone begins             │
+│ - A-Z:         #4DD68A (green) — Great opportunity                          │
+│ - Prefix:      #39C7D8 (teal) — Great opportunity, question-based           │
 │                                                                             │
-│ For success/completion indicators, use:                                     │
-│ - Subdued gray: #8A95A5                                                     │
-│ - Electric blue: #6B9BD1                                                    │
-│ - Charcoal variants: #2E3338 to #1E2228                                     │
-│                                                                             │
-│ This prevents green from losing its special meaning in the tag hierarchy.   │
+│ This traffic-light system guides creators toward less competitive topics.   │
+│ These colors should not be used outside the Builder tag context.            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 BORDER RADIUS SCALE
@@ -671,33 +682,33 @@ FORBIDDEN MODIFICATIONS
 SECTION 12: QUICK REFERENCE — KEY VALUES
 ================================================================================
 
-COLORS
+COLORS (CANONICAL)
 - Background:        #0B1220
-- Surface:           #161c27
-- Primary:           #7A5CFA
-- Accent:            #3CCFB1
-- Midnight Blue:     #1A2754
-- Electric Blue:     #6B9BD1
-- Top 10 Orange:     #CC7A3D / #FF8A3D (button variant)
-- Child Yellow:      #B8CC75 / #D4E882 (button variant)
-- A–Z Emerald:       #45B87A / #4DD68A (button variant)
-- Prefix Teal:       #35AABC / #39C7D8 (button variant)
+- Surface:           #1A1E24
+- Primary Green:     #2BD899 (main CTA, Evergreen pillar, success)
+- Primary Purple:    #7A5CFA (hero gradients, Monetization pillar)
+- Trending Orange:   #F59E0B (Trending pillar, warnings)
+- Electric Blue:     #6B9BD1 (form focus, secondary interactions)
+- Cyan:              #00D4FF (personalization accents)
+- Midnight Blue:     #1A2754 (active states, steppers)
+
+BUILDER TAG COLORS (Context-Specific)
+- Seed:              #E85C4A (red-orange)
+- Top 10:            #FF8A3D (orange)
+- Child:             #D4E882 (yellow-green)
+- A–Z:               #4DD68A (green)
+- Prefix:            #39C7D8 (teal)
 
 GRAPHITE GRADIENT (PILLS & BUTTONS)
 - From: #2E3338
 - To:   #1E2228
 
-COMMON OPACITIES
-- Card backgrounds:     40%
-- Border (default):     10%
-- Border (hover):       20%
-- Table header text:    86%
-- Table body text:      86%
-- Session button text:  82%
-- Topic Sources label:  68%
-- Footer text:          49%
-- Inactive pill text:   70%
-- Inactive pill border: 35%
+TEXT OPACITIES
+- Headings:          100%
+- Body text:         80% or 70%
+- Secondary text:    60%
+- Muted/helper:      50%
+- Subtle/disabled:   40%
 
 FONT SIZES
 - Hero headline:        3.4rem / 4.2rem

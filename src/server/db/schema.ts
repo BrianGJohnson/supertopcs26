@@ -60,9 +60,28 @@ export const channels = pgTable('channels', {
   
   // Goals (from onboarding step 2)
   goals: jsonb('goals'), // ["growth", "adsense", "sell_products"]
+  motivations: jsonb('motivations'), // Same as goals, alternate name
+  primary_motivation: text('primary_motivation'), // Their #1 goal
   
-  // Content pillars (from onboarding step 3)
-  content_pillars: jsonb('content_pillars'), // ["AI Tools", "No-Code Builds", "Cursor Tips"]
+  // Monetization (from onboarding step 3)
+  monetization_methods: jsonb('monetization_methods'), // ["adsense", "affiliates", "products"] - ordered by priority
+  monetization_priority: jsonb('monetization_priority'), // Priority order of methods
+  primary_monetization: text('primary_monetization'), // First item in monetization_methods
+  monetization_details: jsonb('monetization_details'), // { adsense_status, affiliate_products, products_description }
+  products_description: text('products_description'), // What they sell
+  affiliate_products: text('affiliate_products'), // What affiliate products they promote
+  adsense_status: text('adsense_status'), // monetized, not_yet, etc.
+  sponsorship_niche: text('sponsorship_niche'), // Brands they want to work with
+  has_channel: boolean('has_channel'), // Whether they have an existing YouTube channel
+  
+  // Niche (from onboarding step 4)
+  topic_ideas: jsonb('topic_ideas'), // Initial topic ideas they entered
+  
+  // Content pillars (from onboarding step 5 - AI generated)
+  content_pillars: jsonb('content_pillars'), // ["AI Tools", "No-Code Builds", "Cursor Tips"] - legacy
+  pillar_strategy: jsonb('pillar_strategy'), // Full pillar data: { evergreen: {...}, trending: {...}, monetization: {...} }
+  niche_demand_score: integer('niche_demand_score'), // 1-10 from GPT validation
+  niche_validated: boolean('niche_validated'), // Whether GPT has validated their niche
   
   // Audience details (from onboarding step 4)
   audience_who: text('audience_who'), // "Developers wanting to speed up coding"

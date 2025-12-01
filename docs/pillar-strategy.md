@@ -170,10 +170,10 @@ If someone's primary motivation is "fun", we shouldn't push aggressive monetizat
 
 ---
 
-## Step 3: How Do You Want To Make Money? (Existing Step 2, Enhanced)
+## Step 3: What's Your Main Money Focus? (Enhanced)
 
 ### Purpose
-Understand their monetization strategy AND whether they have an existing channel.
+Understand their monetization strategy AND whether they have an existing channel. **This data is CRITICAL for GPT-5 mini to generate personalized monetization pillars.**
 
 ### UI Design (Already Built - Great Card Sizing)
 
@@ -184,27 +184,42 @@ Keep the existing large card layout:
 - Sponsorships
 - Not Sure Yet
 
-**Enhancement**: Move "Do you have a channel?" question to this step (currently at end of Step 2).
+**Key UX**: Users can select ANY number of options. First selection = primary focus. Order matters for priority.
 
-### Follow-Up Questions
+### Follow-Up Questions (Expand When Selected)
 
 Based on monetization selection:
-- **YouTube Ads**: "Are you currently monetized?" (Yes / Working towards it / Not yet)
-- **Sell Products**: "What do you sell or plan to sell?"
-- **Affiliate**: "What kind of products do you promote?"
-- **Sponsorships**: "What's your niche for attracting sponsors?"
+- **YouTube Ads**: "What's your current AdSense status?" (Dropdown)
+- **Sell Products**: "What do you sell or plan to sell?" (Text input - CRITICAL for GPT!)
+- **Affiliate**: "What types of products would you promote?" (Text input - CRITICAL for GPT!)
+- **Sponsorships**: "What brands align with your channel?" (Text input)
 
-### Data Captured
+### Data Captured (ALL MUST BE SAVED!)
 
-| Field | Type | Required | Example |
-|-------|------|----------|---------|
-| `monetization_methods` | array | Yes (1+) | ["sell_products", "affiliate"] |
-| `primary_monetization` | text | Yes | "sell_products" (first selection) |
-| `has_channel` | boolean | Yes | true |
-| `channel_url` | text | If has_channel | "youtube.com/@..." |
-| `monetization_details` | object | Varies | { productsDescription: "..." } |
+| Field | Type | Required | Example | Used By GPT |
+|-------|------|----------|---------|-------------|
+| `monetization_methods` | array | Yes (1+) | ["products", "affiliate"] | ✅ Yes |
+| `monetization_priority` | array | Yes | ["products", "affiliate"] (ordered) | ✅ Yes |
+| `products_description` | text | If selected | "my own youtube tool called SuperTopics that helps youtubers identify topics" | ✅ **CRITICAL** |
+| `affiliate_products` | text | If selected | "Software products, products that Youtubers would buy" | ✅ **CRITICAL** |
+| `adsense_status` | text | If selected | "earning" / "just_started" / "not_eligible" | ✅ Yes |
+| `sponsorship_niche` | text | If selected | "Tech companies, creator tools" | ✅ Yes |
+| `has_channel` | boolean | Yes | true | ✅ Yes |
+| `channel_url` | text | If has_channel | "youtube.com/@..." | For future use |
 
-**Status**: ✅ Already built with great card sizing
+### Why This Data Matters
+
+When GPT-5 mini generates the Monetization pillar in Step 5, it needs to know:
+
+**If user sells products:**
+> "Since you're selling **SuperTopics, a YouTube topic research tool**, these are the exact phrases your ideal customers search for..."
+
+**If user does affiliate:**
+> "Since you promote **software and tools for YouTubers**, these topics attract viewers who are actively shopping..."
+
+Without this specific data, the monetization pillar would be generic and useless.
+
+**Status**: ⚠️ UI built, but save functionality needs to be connected!
 
 ---
 
@@ -269,136 +284,303 @@ Capture their niche and 3 example topic ideas they care about.
 ## Step 5: Pillars & Purpose (NEW - AI-Generated)
 
 ### Purpose
-Transform all onboarding data into a persistent pillar map with actionable seed phrases.
+Transform all onboarding data into a persistent pillar map with actionable seed phrases. This is a **teaching moment** where we validate their niche AND set up their content strategy.
 
-### AI Generation
+### Progressive Reveal (Single Page, Multiple Sections)
+
+The page reveals information progressively as the user digests each section:
+
+1. **Section 1: Niche Validation** - First thing they see
+2. **Section 2: Strategy Introduction** - After they click "Continue"
+3. **Section 3: Evergreen Pillar** - With selectable seed phrases
+4. **Section 4: Trending Pillar** - With topic categories to watch
+5. **Section 5: Monetization Pillar** - With product-specific seed phrases
+
+### Single GPT-5 Mini Call
+
+**When**: When user lands on Step 5, we call GPT-5 mini ONCE with all saved onboarding data.
+
+**Model Config** (same as refine page):
+```typescript
+const MODEL_CONFIG = {
+  model: "gpt-5-mini",
+  temperature: 1,
+  top_p: 1,
+  max_completion_tokens: 2500,
+  reasoning_effort: "minimal",
+  response_format: { type: "json_object" },
+};
+```
 
 **Input to GPT-5 mini:**
-- Motivations (why creating content)
-- Monetization methods + details
-- Products/services they sell (if applicable)
-- Niche description
-- 3 example topics
+- From Step 2: Motivations (why creating content)
+- From Step 3: Monetization methods + details + priority order
+- From Step 3: Products/services they sell (CRITICAL for monetization pillar)
+- From Step 3: Has channel + channel URL
+- From Step 4: Niche description
+- From Step 4: 3 example topics they care about
 
-**Prompt:**
+**System Prompt:**
 
 ```
-Based on this YouTube creator's profile, generate their 3 Strategic Content Pillars:
+You are helping a YouTube creator understand their niche and build a content strategy.
 
+Your job is to:
+1. VALIDATE their niche - Score demand 1-10 and give honest, encouraging feedback
+2. GENERATE three content pillars with specific seed phrases
+
+IMPORTANT RULES FOR SEED PHRASES:
+- ALL seed phrases must be exactly 2 words
+- Evergreen seeds: Search-driven phrases viewers type into YouTube (e.g., "youtube basics", "thumbnail design")
+- Trending seeds: Topic CATEGORIES to watch for timely content (e.g., "algorithm updates", "creator news")
+- Monetization seeds: Phrases directly related to their products/services that buyers would search
+
+The creator wants to make money. Their monetization pillar should be highly specific to what they sell or promote.
+
+Return valid JSON only.
+```
+
+**User Prompt:**
+
+```
 CREATOR PROFILE:
-- Primary motivation: ${motivation}
-- Monetization: ${monetizationMethod}
-- Products/Services: ${productsDescription || "N/A"}
+- Primary motivation: ${primaryMotivation}
+- All motivations: ${motivations.join(", ")}
+- Primary revenue focus: ${primaryMonetization}
+- All revenue methods: ${monetizationMethods.join(", ")}
+- Product/Service details: ${productsDescription || "N/A"}
+- Affiliate focus: ${affiliateProducts || "N/A"}
+- Has existing channel: ${hasChannel}
 - Niche: ${niche}
 - Topics they mentioned: ${topics.join(", ")}
 
-Generate:
-1. MONETIZATION PILLAR
-   - Label: Short human-friendly name
-   - Description: One sentence on why this matters
-   - Example seed phrases: 3-5 two-word phrases for video ideas
+Generate their niche validation and 3 strategic pillars.
+```
 
-2. TRENDING PILLAR  
-   - Label: Topics likely to have spikes in their niche
-   - Description: One sentence on why this matters
-   - Example seed phrases: 3-5 two-word phrases for timely content
+**Expected Response:**
 
-3. EVERGREEN PILLAR
-   - Label: Durable, search-driven topics
-   - Description: One sentence on why this matters
-   - Example seed phrases: 3-5 two-word phrases for ranking content
-
-Return as JSON:
+```json
 {
-  "monetization": { "label": "", "description": "", "seeds": [] },
-  "trending": { "label": "", "description": "", "seeds": [] },
-  "evergreen": { "label": "", "description": "", "seeds": [] }
+  "nicheValidation": {
+    "nicheName": "YouTube Education",
+    "demandScore": 8,
+    "demandLabel": "Strong",
+    "summary": "This is a proven niche with consistent viewer demand. Creators like vidIQ, Think Media, and Channel Makers have built large audiences here.",
+    "topChannels": ["vidIQ", "Think Media", "Channel Makers"]
+  },
+  "pillars": {
+    "evergreen": {
+      "label": "YouTube Fundamentals",
+      "teachingMoment": "These topics get searched every single day. New creators are always looking for the basics. This content compounds over time and keeps getting views for years.",
+      "seeds": ["youtube basics", "channel setup", "video editing", "thumbnail design", "content planning", "filming tips", "audio quality", "lighting setup"]
+    },
+    "trending": {
+      "label": "Creator News & Updates",
+      "teachingMoment": "When YouTube announces changes or big creators make news, viewers search for reactions and explanations. These videos spike fast but require you to move quickly.",
+      "seeds": ["algorithm updates", "youtube news", "creator drama", "new features", "platform changes", "monetization news"]
+    },
+    "monetization": {
+      "label": "SuperTopics & Topic Research",
+      "teachingMoment": "Since you're selling SuperTopics, a YouTube topic research tool, these are the exact phrases your ideal customers are searching for. Videos on these topics attract viewers who are ready to invest in their channel.",
+      "seeds": ["topic research", "find ideas", "niche selection", "keyword strategy", "video planning", "content ideas", "what to upload", "video topics"]
+    }
+  }
 }
 ```
 
-### UI Design
+### Seed Phrase Requirements
+
+| Pillar | Seed Type | Count | Example |
+|--------|-----------|-------|---------|
+| **Evergreen** | 2-word search phrases viewers type | 5-8 | "youtube basics", "thumbnail design" |
+| **Trending** | 2-word topic categories to monitor | 4-6 | "algorithm updates", "creator news" |
+| **Monetization** | 2-word phrases related to their product/service | 5-8 | "topic research", "find ideas" |
+
+### User Interaction: Seed Selection
+
+For **Evergreen** and **Monetization** pillars:
+- Seeds are displayed as clickable chips
+- User clicks seeds to add them to their "basket" (saved pillars)
+- These become quick-start options in Builder later
+
+For **Trending** pillar:
+- Seeds are topic CATEGORIES, not specific phrases
+- User understands these are areas to watch
+- When they're ready to make a trending video, they check the Trending module OR ask GPT for current ideas
+
+### UI Design: Progressive Reveal
+
+**Section 1: Niche Validation (First View)**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   ✨ Your Strategic Pillars                                                 │
+│                        🎯 Your Channel Direction                            │
 │                                                                             │
-│   Based on your goals and niche, here's your personalized content strategy. │
+│                        "YouTube Education"                                  │
 │                                                                             │
-│   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  💰 MAKE MONEY                                                      │  │
-│   │                                                                     │  │
-│   │  "YouTube Coaching Offers"                                          │  │
-│   │  Videos that promote your courses and coaching directly             │  │
-│   │                                                                     │  │
-│   │  Seed ideas:                                                        │  │
-│   │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐       │  │
-│   │  │ YouTube    │ │ Channel    │ │ Content    │ │ Growth     │       │  │
-│   │  │ Coaching   │ │ Review     │ │ Strategy   │ │ Consulting │       │  │
-│   │  └────────────┘ └────────────┘ └────────────┘ └────────────┘       │  │
-│   └─────────────────────────────────────────────────────────────────────┘  │
+│                  Demand: 8/10 ████████░░ Strong                             │
 │                                                                             │
-│   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  🚀 RIDE TRENDS                                                     │  │
-│   │                                                                     │  │
-│   │  "YouTube Updates & News"                                           │  │
-│   │  Timely content that rides algorithm waves and gets discovered      │  │
-│   │                                                                     │  │
-│   │  Seed ideas:                                                        │  │
-│   │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐       │  │
-│   │  │ YouTube    │ │ MrBeast    │ │ Algorithm  │ │ Creator    │       │  │
-│   │  │ Updates    │ │ Analysis   │ │ Changes    │ │ News       │       │  │
-│   │  └────────────┘ └────────────┘ └────────────┘ └────────────┘       │  │
-│   └─────────────────────────────────────────────────────────────────────┘  │
+│   "This is a proven niche with consistent viewer demand. Creators like      │
+│    vidIQ, Think Media, and Channel Makers have built large audiences here." │
 │                                                                             │
-│   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  🌲 BUILD EVERGREEN VIEWS                                           │  │
-│   │                                                                     │  │
-│   │  "YouTube Basics & Foundations"                                     │  │
-│   │  Durable content that ranks in search and compounds over time       │  │
-│   │                                                                     │  │
-│   │  Seed ideas:                                                        │  │
-│   │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐       │  │
-│   │  │ How to     │ │ YouTube    │ │ Gear       │ │ Beginner   │       │  │
-│   │  │ Start      │ │ Basics     │ │ Setup      │ │ Guide      │       │  │
-│   │  └────────────┘ └────────────┘ └────────────┘ └────────────┘       │  │
-│   └─────────────────────────────────────────────────────────────────────┘  │
+│                      [See Your Content Strategy →]                          │
 │                                                                             │
-│   ─────────────────────────────────────────────────────────────────────    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Section 2: Strategy Introduction (After Click)**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   [ Save These Pillars To My Channel Plan ]                                │
+│                    📊 Your Personalized Content Strategy                    │
+│                                                                             │
+│   The most successful YouTubers don't make random videos.                   │
+│   They balance THREE types of content:                                      │
+│                                                                             │
+│   🌲 Evergreen    Videos that get views for months or years                 │
+│   🚀 Trending     Videos that spike when news breaks                        │
+│   💰 Monetization Videos that drive revenue for your business               │
+│                                                                             │
+│   We've built your personalized pillars based on your goals.                │
+│   Click the seed phrases you want to save to your account.                  │
+│                                                                             │
+│                         [Show My Pillars →]                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Section 3: Evergreen Pillar**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   🌲 EVERGREEN: YouTube Fundamentals                                        │
+│                                                                             │
+│   "These topics get searched every single day. New creators are always      │
+│    looking for the basics. This content compounds over time."               │
+│                                                                             │
+│   Click to add to your saved seeds:                                         │
+│                                                                             │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│   │ ✓ youtube    │ │   channel    │ │ ✓ video      │ │   thumbnail  │      │
+│   │   basics     │ │   setup      │ │   editing    │ │   design     │      │
+│   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│   │   content    │ │   filming    │ │   audio      │ │   lighting   │      │
+│   │   planning   │ │   tips       │ │   quality    │ │   setup      │      │
+│   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
+│                                                                             │
+│   Selected: 2 seeds                              [Continue to Trending →]   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Section 4: Trending Pillar**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   🚀 TRENDING: Creator News & Updates                                       │
+│                                                                             │
+│   "When YouTube announces changes or big creators make news, viewers        │
+│    search for reactions. These videos spike fast but require quick action." │
+│                                                                             │
+│   These are TOPIC CATEGORIES to watch. When news breaks, check our          │
+│   Trending module or come back here for fresh ideas.                        │
+│                                                                             │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│   │  algorithm   │ │   youtube    │ │   creator    │ │    new       │      │
+│   │  updates     │ │   news       │ │   drama      │ │   features   │      │
+│   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
+│   ┌──────────────┐ ┌──────────────┐                                        │
+│   │  platform    │ │ monetization │                                        │
+│   │  changes     │ │   news       │                                        │
+│   └──────────────┘ └──────────────┘                                        │
+│                                                                             │
+│   💡 Trending topics change fast. We'll help you catch waves in real-time. │
+│                                                                             │
+│                                          [Continue to Monetization →]       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Section 5: Monetization Pillar**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   💰 MONETIZATION: SuperTopics & Topic Research                             │
+│                                                                             │
+│   "Since you're selling SuperTopics, a YouTube topic research tool,         │
+│    these are the exact phrases your ideal customers search for.             │
+│    Videos on these topics attract viewers ready to invest."                 │
+│                                                                             │
+│   Click to add to your saved seeds:                                         │
+│                                                                             │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│   │ ✓ topic      │ │ ✓ find       │ │   niche      │ │   keyword    │      │
+│   │   research   │ │   ideas      │ │   selection  │ │   strategy   │      │
+│   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐      │
+│   │   video      │ │   content    │ │   what to    │ │   video      │      │
+│   │   planning   │ │   ideas      │ │   upload     │ │   topics     │      │
+│   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘      │
+│                                                                             │
+│   Selected: 2 seeds                                                         │
+│                                                                             │
+│                              [Save Pillars & Continue →]                    │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### UX Notes
-- **Quick step** - User just reviews and confirms
-- **Editable** - They can click to edit pillar labels if desired
-- **Seed chips are clickable** - Later in Builder, clicking a chip pre-fills Step 1
+- **Progressive reveal** - User sees one section at a time, clicks to reveal more
+- **Teaching moments** - Each pillar explains WHY this matters (education + setup)
+- **Selectable seeds** - Evergreen and Monetization seeds are clickable to add to basket
+- **Trending is different** - Trending shows categories, not clickable seeds (because trends change)
+- **Seed chips are clickable** - Later in Builder, clicking a saved seed pre-fills Step 1
 
 ### Data Captured & Persisted
 
 ```typescript
 interface PillarStrategy {
-  monetization: {
-    label: string;          // "YouTube Coaching Offers"
-    description: string;    // "Videos that promote your courses..."
-    seeds: string[];        // ["YouTube Coaching", "Channel Review", ...]
-  };
-  trending: {
-    label: string;
-    description: string;
-    seeds: string[];
+  nicheValidation: {
+    nicheName: string;        // "YouTube Education"
+    demandScore: number;      // 8
+    demandLabel: string;      // "Strong"
+    summary: string;          // GPT's friendly summary
+    topChannels: string[];    // ["vidIQ", "Think Media"]
   };
   evergreen: {
-    label: string;
-    description: string;
-    seeds: string[];
+    label: string;            // "YouTube Fundamentals"
+    teachingMoment: string;   // Why this pillar matters
+    seeds: string[];          // All suggested seeds (5-8)
+    selectedSeeds: string[];  // Seeds user clicked to save
+  };
+  trending: {
+    label: string;            // "Creator News & Updates"
+    teachingMoment: string;   // Why this pillar matters  
+    seeds: string[];          // Topic categories (4-6)
+  };
+  monetization: {
+    label: string;            // "SuperTopics & Topic Research"
+    teachingMoment: string;   // Why this pillar matters (references their product!)
+    seeds: string[];          // All suggested seeds (5-8)
+    selectedSeeds: string[];  // Seeds user clicked to save
   };
   createdAt: string;
   lastUpdated: string;
 }
 ```
+
+### What Gets Saved to Database
+
+After Step 5, we save to the `channels` table:
+- `pillar_strategy` (JSONB) - The full PillarStrategy object above
+- `niche_validated` (boolean) - True once they've seen the validation
+- `niche_demand_score` (integer) - 1-10 score for quick reference
 
 ---
 
@@ -741,4 +923,5 @@ The Pillar Strategy transforms SuperTopics from "a topic research tool" into **"
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 | 2025-11-30 | Initial specification |
-| 0.2 | 2025-12-01 | **Major update**: Reorganized as 6-step onboarding flow. Added Step 2 (Motivations). Added Step 5 (AI-generated Pillars & Purpose). Added Builder Step 0 entry screen. Added Pillar Progress module specification. Renamed pillars to Monetization/Trending/Evergreen. |
+| 0.2 | 2025-12-01 | Reorganized as 6-step onboarding flow. Added Step 2 (Motivations). Added Step 5 (AI-generated Pillars & Purpose). Added Builder Step 0 entry screen. Added Pillar Progress module specification. |
+| 0.3 | 2025-12-01 | **Major refinement**: Step 5 now uses progressive reveal (single page, multiple sections). Added detailed GPT-5 mini prompt and expected response. Clarified seed phrase requirements (2 words, specific to pillar type). Added seed selection UX (click to add to basket). Clarified that Step 3 data is CRITICAL for personalized monetization pillar. Added teaching moments to each pillar reveal. |

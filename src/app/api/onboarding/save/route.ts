@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createAuthenticatedSupabase } from "@/lib/supabase-server";
 
 /**
  * Save onboarding progress after each step
@@ -7,15 +7,22 @@ import { supabase } from "@/lib/supabase";
  * 
  * Body:
  * {
- *   step: number (1-4),
+ *   step: number (1-6),
  *   data: { ... step-specific data }
  * }
+ * 
+ * Step 1: Welcome (no data)
+ * Step 2: Goals/Motivations
+ * Step 3: Money Focus (monetization methods, details, channel info)
+ * Step 4: Niche & Topics
+ * Step 5: Pillars (AI-generated, saved after review)
+ * Step 6: Audience
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Get current user from auth header
+    const { supabase, userId } = await createAuthenticatedSupabase(request);
+    if (!userId || !supabase) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -24,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const { step, data } = await request.json();
 
-    if (!step || step < 1 || step > 4) {
+    if (!step || step < 1 || step > 6) {
       return NextResponse.json(
         { error: "Invalid step" },
         { status: 400 }
@@ -35,7 +42,7 @@ export async function POST(request: NextRequest) {
     let { data: channel, error: channelError } = await supabase
       .from("channels")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("is_default", true)
       .single();
 
@@ -44,7 +51,7 @@ export async function POST(request: NextRequest) {
       const { data: newChannel, error: createError } = await supabase
         .from("channels")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           name: "My Channel",
           is_default: true,
           onboarding_step: 1,
@@ -69,23 +76,48 @@ export async function POST(request: NextRequest) {
     };
 
     switch (step) {
+      case 1:
+        // Welcome - no data to save, just mark step complete
+        break;
+
       case 2:
-        // Goals & Channel
-        if (data.goals) updateData.goals = data.goals;
-        if (data.channelUrl) updateData.youtube_channel_url = data.channelUrl;
+        // Goals/Motivations
+        if (data.motivations) updateData.motivations = data.motivations;
+        if (data.primaryMotivation) updateData.primary_motivation = data.primaryMotivation;
         break;
 
       case 3:
-        // Niche & Pillars
-        if (data.niche) updateData.niche = data.niche;
-        if (data.nicheScore) updateData.niche_score = data.nicheScore;
-        if (data.pillars) updateData.content_pillars = data.pillars;
-        if (data.nicheAnalysis) updateData.niche_analysis = data.nicheAnalysis;
+        // Money Focus - CRITICAL data for GPT pillar generation
+        if (data.monetizationMethods) updateData.monetization_methods = data.monetizationMethods;
+        if (data.monetizationPriority) updateData.monetization_priority = data.monetizationPriority;
+        if (data.productsDescription) updateData.products_description = data.productsDescription;
+        if (data.affiliateProducts) updateData.affiliate_products = data.affiliateProducts;
+        if (data.adsenseStatus) updateData.adsense_status = data.adsenseStatus;
+        if (data.sponsorshipNiche) updateData.sponsorship_niche = data.sponsorshipNiche;
+        if (typeof data.hasChannel === 'boolean') updateData.has_channel = data.hasChannel;
+        if (data.channelUrl) updateData.youtube_channel_url = data.channelUrl;
         break;
 
       case 4:
+        // Niche & Topics
+        if (data.niche) updateData.niche = data.niche;
+        if (data.topicIdeas) updateData.topic_ideas = data.topicIdeas;
+        break;
+
+      case 5:
+        // Pillars (AI-generated, saved after user reviews with selected sub-niches)
+        if (data.pillar_strategy) updateData.pillar_strategy = data.pillar_strategy;
+        if (data.pillarStrategy) updateData.pillar_strategy = data.pillarStrategy; // Support both cases
+        if (data.niche_demand_score) updateData.niche_demand_score = data.niche_demand_score;
+        if (data.nicheDemandScore) updateData.niche_demand_score = data.nicheDemandScore; // Support both cases
+        if (data.niche_validated !== undefined) updateData.niche_validated = data.niche_validated;
+        else updateData.niche_validated = true;
+        break;
+
+      case 6:
         // Audience
-        if (data.audienceWho) updateData.audience_who = data.audienceWho;
+        if (data.audienceWhoHelp) updateData.audience_who = data.audienceWhoHelp;
+        if (data.audienceWho) updateData.audience_who = data.audienceWho; // Legacy support
         if (data.audienceStruggle) updateData.audience_struggle = data.audienceStruggle;
         if (data.audienceGoal) updateData.audience_goal = data.audienceGoal;
         if (data.audienceExpertise) updateData.audience_expertise = data.audienceExpertise;
@@ -126,11 +158,11 @@ export async function POST(request: NextRequest) {
  * Get current onboarding progress
  * GET /api/onboarding/save
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Get current user from auth header
+    const { supabase, userId } = await createAuthenticatedSupabase(request);
+    if (!userId || !supabase) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -141,7 +173,7 @@ export async function GET() {
     const { data: channel, error: channelError } = await supabase
       .from("channels")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("is_default", true)
       .single();
 
@@ -158,11 +190,26 @@ export async function GET() {
       onboardingStep: channel.onboarding_step || 1,
       onboardingCompleted: !!channel.onboarding_completed_at,
       data: {
-        goals: channel.goals,
+        // Step 2: Motivations
+        motivations: channel.motivations,
+        primaryMotivation: channel.primary_motivation,
+        // Step 3: Money Focus
+        monetizationMethods: channel.monetization_methods,
+        monetizationPriority: channel.monetization_priority,
+        productsDescription: channel.products_description,
+        affiliateProducts: channel.affiliate_products,
+        adsenseStatus: channel.adsense_status,
+        sponsorshipNiche: channel.sponsorship_niche,
+        hasChannel: channel.has_channel,
         channelUrl: channel.youtube_channel_url,
+        // Step 4: Niche & Topics
         niche: channel.niche,
-        nicheScore: channel.niche_score,
-        pillars: channel.content_pillars,
+        topicIdeas: channel.topic_ideas,
+        // Step 5: Pillars
+        pillarStrategy: channel.pillar_strategy,
+        nicheDemandScore: channel.niche_demand_score,
+        nicheValidated: channel.niche_validated,
+        // Step 6: Audience
         audienceWho: channel.audience_who,
         audienceStruggle: channel.audience_struggle,
         audienceGoal: channel.audience_goal,

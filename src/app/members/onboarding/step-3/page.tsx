@@ -10,8 +10,10 @@ import {
   IconQuestionMark,
   IconBrandYoutube,
   IconChevronDown,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
+import { authFetch } from "@/lib/supabase";
 
 /**
  * Step 3: Money (How do you want to make money?)
@@ -121,8 +123,7 @@ export default function OnboardingStep3() {
   const [selections, setSelections] = useState<MonetizationSelection[]>([]);
   const [hasChannel, setHasChannel] = useState<boolean | null>(null);
   const [channelUrl, setChannelUrl] = useState("");
-
-  const MAX_SELECTIONS = 2;
+  const [isSaving, setIsSaving] = useState(false);
 
   const isSelected = (optionId: string) => 
     selections.some(s => s.id === optionId);
@@ -139,9 +140,6 @@ export default function OnboardingStep3() {
     setSelections(prev => {
       if (prev.some(s => s.id === optionId)) {
         return prev.filter(s => s.id !== optionId);
-      }
-      if (prev.length >= MAX_SELECTIONS) {
-        return prev;
       }
       return [...prev, { id: optionId, details: "" }];
     });
@@ -168,10 +166,54 @@ export default function OnboardingStep3() {
     hasChannel !== null && 
     (hasChannel === false || channelUrl.trim().length > 0);
 
-  const handleContinue = () => {
-    // TODO: Save selections with details, hasChannel, channelUrl to state/database
-    console.log("Monetization data:", { selections, hasChannel, channelUrl });
-    router.push("/members/onboarding/step-4");
+  const handleContinue = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      // Build the data object for saving
+      const monetizationMethods = selections.map(s => s.id);
+      const monetizationPriority = [...monetizationMethods]; // Same order = priority
+
+      // Extract specific details based on selection
+      const productsSelection = selections.find(s => s.id === "products");
+      const affiliateSelection = selections.find(s => s.id === "affiliate");
+      const adsenseSelection = selections.find(s => s.id === "adsense");
+      const sponsorshipSelection = selections.find(s => s.id === "sponsorships");
+
+      const saveData = {
+        monetizationMethods,
+        monetizationPriority,
+        productsDescription: productsSelection?.details || null,
+        affiliateProducts: affiliateSelection?.details || null,
+        adsenseStatus: adsenseSelection?.details || null,
+        sponsorshipNiche: sponsorshipSelection?.details || null,
+        hasChannel: hasChannel,
+        channelUrl: hasChannel ? channelUrl : null,
+      };
+
+      const response = await authFetch("/api/onboarding/save", {
+        method: "POST",
+        body: JSON.stringify({
+          step: 3,
+          data: saveData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Save API error:", response.status, errorData);
+        throw new Error(errorData.error || "Failed to save");
+      }
+
+      router.push("/members/onboarding/step-4");
+    } catch (error) {
+      console.error("Error saving monetization data:", error);
+      // Still navigate for now, but log the error
+      router.push("/members/onboarding/step-4");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBack = () => {
@@ -183,9 +225,9 @@ export default function OnboardingStep3() {
       currentStep={3}
       completedSteps={[1, 2]}
       icon={IconCash}
-      heroLine1="How Will You"
-      heroLine2="Make Money?"
-      heroDescription="Select up to two. We'll ask a quick follow-up to personalize your recommendations."
+      heroLine1="What's Your Main"
+      heroLine2="Money Focus?"
+      heroDescription="Select all that apply—your first choice is your top priority."
     >
       {/* Monetization Cards - Vertical Stack */}
       <div className="space-y-4 max-w-xl mx-auto">
@@ -204,27 +246,24 @@ export default function OnboardingStep3() {
                 className={`
                   w-full group relative flex items-center gap-5 p-5 text-left
                   transition-all duration-300 ease-out
-                  ${hasFollowUp ? "rounded-t-2xl" : "rounded-2xl"}
-                  ${selected
-                    ? "border-2 border-b-0 scale-[1.01]"
-                    : "border hover:scale-[1.01]"
-                  }
+                  ${hasFollowUp ? "rounded-t-2xl border-2 border-b-0" : "rounded-2xl border-2"}
+                  ${selected ? "scale-[1.01]" : "hover:scale-[1.01]"}
                 `}
                 style={{
                   backgroundColor: selected ? option.hoverBg : option.bgColor,
-                  borderColor: selected ? option.color : `${option.color}70`,
+                  borderColor: selected ? option.color : `${option.color}40`,
                   boxShadow: selected && !hasFollowUp ? `0 4px 24px ${option.color}25` : undefined,
                 }}
                 onMouseEnter={(e) => {
                   if (!selected) {
                     e.currentTarget.style.backgroundColor = option.hoverBg;
-                    e.currentTarget.style.borderColor = `${option.color}99`;
+                    e.currentTarget.style.borderColor = `${option.color}70`;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!selected) {
                     e.currentTarget.style.backgroundColor = option.bgColor;
-                    e.currentTarget.style.borderColor = `${option.color}70`;
+                    e.currentTarget.style.borderColor = `${option.color}40`;
                   }
                 }}
               >
@@ -260,11 +299,11 @@ export default function OnboardingStep3() {
               {/* Follow-up Input - Expands when selected */}
               {hasFollowUp && option.followUp && (
                 <div 
-                  className="animate-in slide-in-from-top-2 duration-300 rounded-b-2xl border-2 border-t-0 p-5 pt-4"
+                  className="animate-in slide-in-from-top-2 duration-300 rounded-b-2xl border-2 border-t-0 p-5 pt-4 -mt-[2px]"
                   style={{ 
                     borderColor: option.color,
-                    backgroundColor: `${option.color}10`,
-                    boxShadow: `0 4px 24px ${option.color}25`,
+                    backgroundColor: `${option.color}08`,
+                    boxShadow: `0 4px 24px ${option.color}20`,
                   }}
                 >
                   <label className="block text-sm font-medium text-white/80 mb-3">
@@ -401,25 +440,34 @@ export default function OnboardingStep3() {
         <div className="flex flex-col items-center gap-4 pt-10 animate-in fade-in slide-in-from-top-4 duration-300">
           <button
             onClick={handleContinue}
-            disabled={!canContinue}
+            disabled={!canContinue || isSaving}
             className={`
               inline-flex items-center gap-2 px-10 py-4 rounded-xl font-semibold text-lg
               transition-all duration-200
-              ${canContinue
+              ${canContinue && !isSaving
                 ? "bg-gradient-to-b from-[#2BD899] to-[#25C78A] text-[#0B1220] shadow-[0_4px_20px_rgba(43,216,153,0.3)] hover:shadow-[0_4px_30px_rgba(43,216,153,0.4)]"
                 : "bg-white/10 text-white/40 cursor-not-allowed"
               }
             `}
           >
-            Continue
-            <svg 
-              className="w-5 h-5" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
+            {isSaving ? (
+              <>
+                <IconLoader2 size={20} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                Continue
+                <svg 
+                  className="w-5 h-5" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </>
+            )}
           </button>
           
           {!allDetailsComplete && (

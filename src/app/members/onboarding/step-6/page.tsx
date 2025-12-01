@@ -2,61 +2,103 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconUsers, IconCheck } from "@tabler/icons-react";
+import { IconUsers, IconCheck, IconSparkles, IconSeedling, IconBook, IconTrophy } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
+import { authFetch } from "@/lib/supabase";
 
 /**
  * Step 6: Audience
  * 
- * Purpose: Define who their ideal viewer is with specificity.
- * This powers Audience Fit scoring throughout the app.
+ * Purpose: Define who their ideal viewer is.
+ * Simplified to reduce friction - new creators don't know their audience yet.
+ * Focus on WHO THEY WANT TO HELP, not analytics they don't have.
+ * 
+ * Multi-select expertise: pick 2 adjacent levels (beginner+intermediate OR intermediate+advanced)
+ * 
+ * NO GPT call - just saving data.
  */
 
 const EXPERTISE_OPTIONS = [
-  {
-    id: "beginner",
-    label: "Beginners",
-    description: "Just getting started, need foundational content",
-  },
-  {
-    id: "intermediate",
-    label: "Intermediate",
-    description: "Know the basics, want to level up",
-  },
-  {
-    id: "advanced",
-    label: "Advanced",
-    description: "Experienced, looking for edge cases and pro tips",
-  },
-  {
-    id: "mixed",
-    label: "Mixed",
-    description: "All skill levels watch my content",
-  },
+  { id: "beginner", label: "Beginners", description: "Just getting started", icon: IconSeedling, color: "#2BD899", bgGlow: "rgba(43, 216, 153, 0.12)" },
+  { id: "intermediate", label: "Intermediate", description: "Know the basics", icon: IconBook, color: "#FBBF24", bgGlow: "rgba(251, 191, 36, 0.12)" },
+  { id: "advanced", label: "Advanced", description: "Want deeper insights", icon: IconTrophy, color: "#7A5CFA", bgGlow: "rgba(122, 92, 250, 0.12)" },
 ];
 
 export default function OnboardingStep6() {
   const router = useRouter();
-  const [audienceWho, setAudienceWho] = useState("");
-  const [audienceStruggle, setAudienceStruggle] = useState("");
-  const [audienceGoal, setAudienceGoal] = useState("");
-  const [expertise, setExpertise] = useState("");
+  const [whoHelp, setWhoHelp] = useState("");
+  const [struggle, setStruggle] = useState("");
+  const [goal, setGoal] = useState("");
+  const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
 
-  // Generate preview text
-  const previewText = audienceWho && audienceStruggle && audienceGoal
-    ? `${audienceWho} who are ${audienceStruggle.toLowerCase()}. They want to ${audienceGoal.toLowerCase()}.`
-    : "";
+  // Toggle expertise selection (max 2, must be adjacent)
+  const toggleExpertise = (id: string) => {
+    setSelectedExpertise(prev => {
+      if (prev.includes(id)) {
+        // Deselect
+        return prev.filter(e => e !== id);
+      } else if (prev.length < 2) {
+        // Add if under limit
+        const newSelection = [...prev, id];
+        // Check if adjacent (beginner+intermediate or intermediate+advanced)
+        const sorted = newSelection.sort((a, b) => {
+          const order = ["beginner", "intermediate", "advanced"];
+          return order.indexOf(a) - order.indexOf(b);
+        });
+        if (sorted.length === 2) {
+          const first = EXPERTISE_OPTIONS.findIndex(o => o.id === sorted[0]);
+          const second = EXPERTISE_OPTIONS.findIndex(o => o.id === sorted[1]);
+          if (second - first !== 1) {
+            // Not adjacent, replace with just this one
+            return [id];
+          }
+        }
+        return newSelection;
+      } else {
+        // Already 2 selected, replace with just this one
+        return [id];
+      }
+    });
+  };
 
+  // Need core 3 + at least 1 expertise selected
   const canContinue = 
-    audienceWho.trim().length > 5 && 
-    audienceStruggle.trim().length > 5 && 
-    audienceGoal.trim().length > 5 && 
-    expertise.length > 0;
+    whoHelp.trim().length > 3 &&
+    struggle.trim().length > 3 && 
+    goal.trim().length > 3 && 
+    selectedExpertise.length > 0;
 
-  const handleComplete = () => {
-    // TODO: Save audience data and complete onboarding
-    // Redirect to dashboard or builder
-    router.push("/members/dashboard");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleComplete = async () => {
+    setIsSaving(true);
+    try {
+      const response = await authFetch("/api/onboarding/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: 6,
+          data: {
+            audienceWhoHelp: whoHelp,
+            audienceStruggle: struggle,
+            audienceGoal: goal,
+            audienceExpertise: selectedExpertise,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Save failed:", error);
+        throw new Error(error.message || "Failed to save");
+      }
+
+      router.push("/members/dashboard");
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBack = () => {
@@ -68,128 +110,160 @@ export default function OnboardingStep6() {
       currentStep={6}
       completedSteps={[1, 2, 3, 4, 5]}
       icon={IconUsers}
-      heroLine1="Who Is Your"
-      heroLine2="Ideal Viewer?"
-      heroDescription="The more specific you are, the better we can match topics to YOUR audience."
+      heroLine1="Who Do You"
+      heroLine2="Want To Help?"
+      heroDescription="Think about the person you're making videos for."
     >
-      <div className="space-y-8 max-w-2xl mx-auto">
-        {/* Audience Builder Inputs */}
-        <div className="space-y-6">
-          <p className="text-center text-white/60">
-            Complete these sentences to describe your ideal viewer:
-          </p>
+      <div className="space-y-10 max-w-2xl mx-auto">
+        {/* Who Do You Want To Help */}
+        <div className="space-y-4 text-center">
+          <h3 className="text-2xl font-bold text-white">
+            Describe Your Ideal Viewer
+          </h3>
 
-          {/* Who are they? */}
-          <div className="space-y-2">
-            <label className="block text-lg font-medium text-white">
-              My viewers are...
-            </label>
-            <input
-              type="text"
-              value={audienceWho}
-              onChange={(e) => setAudienceWho(e.target.value)}
-              placeholder="e.g., Small YouTubers with under 1,000 subscribers"
-              className="
-                w-full px-5 py-4 rounded-xl text-lg
-                bg-white/[0.06] border-2 border-white/20
-                text-white placeholder:text-white/30
-                focus:outline-none focus:border-[#4A90D9]/60 focus:ring-2 focus:ring-[#4A90D9]/20
-                transition-all
-              "
-            />
-          </div>
-
-          {/* What's their struggle? */}
-          <div className="space-y-2">
-            <label className="block text-lg font-medium text-white">
-              ...who are...
-            </label>
-            <input
-              type="text"
-              value={audienceStruggle}
-              onChange={(e) => setAudienceStruggle(e.target.value)}
-              placeholder="e.g., Struggling to get views and grow their channel"
-              className="
-                w-full px-5 py-4 rounded-xl text-lg
-                bg-white/[0.06] border-2 border-white/20
-                text-white placeholder:text-white/30
-                focus:outline-none focus:border-[#4A90D9]/60 focus:ring-2 focus:ring-[#4A90D9]/20
-                transition-all
-              "
-            />
-          </div>
-
-          {/* What do they want? */}
-          <div className="space-y-2">
-            <label className="block text-lg font-medium text-white">
-              They want to...
-            </label>
-            <input
-              type="text"
-              value={audienceGoal}
-              onChange={(e) => setAudienceGoal(e.target.value)}
-              placeholder="e.g., Understand how the algorithm works and get discovered"
-              className="
-                w-full px-5 py-4 rounded-xl text-lg
-                bg-white/[0.06] border-2 border-white/20
-                text-white placeholder:text-white/30
-                focus:outline-none focus:border-[#4A90D9]/60 focus:ring-2 focus:ring-[#4A90D9]/20
-                transition-all
-              "
-            />
-          </div>
+          <input
+            type="text"
+            value={whoHelp}
+            onChange={(e) => setWhoHelp(e.target.value)}
+            placeholder="e.g., Busy parents who want to cook healthy meals"
+            className="
+              w-full px-6 py-5 rounded-xl text-xl text-center
+              bg-white/[0.06] border-2 border-white/20
+              text-white placeholder:text-white/30
+              focus:outline-none focus:border-[#7A5CFA]/60 focus:ring-2 focus:ring-[#7A5CFA]/20
+              transition-all
+            "
+          />
         </div>
-
-        {/* Preview */}
-        {previewText && (
-          <div className="p-5 rounded-xl bg-white/[0.04] border border-white/10">
-            <p className="text-sm text-white/50 mb-2">Preview of your audience description:</p>
-            <p className="text-white leading-relaxed">"{previewText}"</p>
-          </div>
-        )}
 
         {/* Divider */}
         <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-        {/* Expertise Level */}
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold text-white text-center">
-            What's Their Expertise Level?
+        {/* Their Problem & Dream */}
+        <div className="space-y-5 text-center">
+          <h3 className="text-2xl font-bold text-white">
+            Their Problem & Dream
           </h3>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-4">
+            <div className="relative">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 font-medium text-lg">
+                1.
+              </span>
+              <input
+                type="text"
+                value={struggle}
+                onChange={(e) => setStruggle(e.target.value)}
+                placeholder="They're struggling with..."
+                className="
+                  w-full pl-12 pr-5 py-4 rounded-xl text-lg
+                  bg-white/[0.06] border-2 border-white/20
+                  text-white placeholder:text-white/30
+                  focus:outline-none focus:border-[#7A5CFA]/60 focus:ring-2 focus:ring-[#7A5CFA]/20
+                  transition-all
+                "
+              />
+            </div>
+
+            <div className="relative">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30 font-medium text-lg">
+                2.
+              </span>
+              <input
+                type="text"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                placeholder="They want to..."
+                className="
+                  w-full pl-12 pr-5 py-4 rounded-xl text-lg
+                  bg-white/[0.06] border-2 border-white/20
+                  text-white placeholder:text-white/30
+                  focus:outline-none focus:border-[#7A5CFA]/60 focus:ring-2 focus:ring-[#7A5CFA]/20
+                  transition-all
+                "
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+        {/* Expertise Level - 2x2 Grid with Colors */}
+        <div className="space-y-5 text-center">
+          <div>
+            <h3 className="text-2xl font-bold text-white mb-2">
+              Their Experience Level
+            </h3>
+            <p className="text-lg text-white/50">
+              Choose up to 2 adjacent levels
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {EXPERTISE_OPTIONS.map((option) => {
-              const isSelected = expertise === option.id;
+              const isSelected = selectedExpertise.includes(option.id);
+              const IconComponent = option.icon;
               
               return (
                 <button
                   key={option.id}
-                  onClick={() => setExpertise(option.id)}
+                  onClick={() => toggleExpertise(option.id)}
                   className={`
-                    relative flex flex-col items-start p-4 rounded-xl text-left transition-all
+                    relative flex flex-col items-center p-8 rounded-2xl text-center transition-all
                     ${isSelected
-                      ? "bg-[#4A90D9]/15 border-2 border-[#4A90D9]/50"
-                      : "bg-black/30 border border-white/10 hover:bg-white/[0.04] hover:border-white/20"
+                      ? `border-2`
+                      : "border-2 border-white/20 hover:border-white/30"
                     }
                   `}
+                  style={{
+                    backgroundColor: isSelected ? `${option.color}15` : option.bgGlow,
+                    borderColor: isSelected ? `${option.color}60` : undefined,
+                  }}
                 >
-                  {/* Selected indicator */}
                   {isSelected && (
-                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#4A90D9] flex items-center justify-center">
-                      <IconCheck size={12} className="text-white" stroke={3} />
+                    <div 
+                      className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: option.color }}
+                    >
+                      <IconCheck size={16} className="text-white" stroke={3} />
                     </div>
                   )}
 
-                  <span className={`font-semibold ${isSelected ? "text-white" : "text-white/80"}`}>
+                  <div 
+                    className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+                    style={{ 
+                      backgroundColor: isSelected ? `${option.color}30` : `${option.color}15`,
+                    }}
+                  >
+                    <IconComponent 
+                      size={28} 
+                      style={{ color: option.color }}
+                    />
+                  </div>
+
+                  <span 
+                    className="font-bold text-2xl mb-1"
+                    style={{ color: isSelected ? "white" : "rgba(255,255,255,0.8)" }}
+                  >
                     {option.label}
                   </span>
-                  <span className="text-sm text-white/50 mt-1">
+                  <span className="text-lg text-white/50">
                     {option.description}
                   </span>
                 </button>
               );
             })}
           </div>
+
+          {selectedExpertise.length > 0 && (
+            <p className="text-white/40 text-base">
+              {selectedExpertise.length === 1 
+                ? "You can select one more adjacent level" 
+                : `Selected: ${selectedExpertise.map(id => EXPERTISE_OPTIONS.find(o => o.id === id)?.label).join(" + ")}`
+              }
+            </p>
+          )}
         </div>
       </div>
 
@@ -197,35 +271,19 @@ export default function OnboardingStep6() {
       <div className="flex flex-col items-center gap-4 pt-10">
         <button
           onClick={handleComplete}
-          disabled={!canContinue}
+          disabled={!canContinue || isSaving}
           className={`
             inline-flex items-center gap-2 px-10 py-4 rounded-xl font-semibold text-lg
             transition-all duration-200
-            ${canContinue
+            ${canContinue && !isSaving
               ? "bg-gradient-to-b from-[#2BD899] to-[#25C78A] text-[#0B1220] shadow-[0_4px_20px_rgba(43,216,153,0.3)] hover:shadow-[0_4px_30px_rgba(43,216,153,0.4)]"
               : "bg-white/10 text-white/40 cursor-not-allowed"
             }
           `}
         >
-          Complete Setup
-          <svg 
-            className="w-5 h-5" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-          </svg>
+          {isSaving ? "Saving..." : "Complete Setup"}
+          <IconSparkles size={20} />
         </button>
-        
-        {!canContinue && (
-          <p className="text-sm text-white/40">
-            {!audienceWho.trim() ? "Describe who your viewers are" :
-             !audienceStruggle.trim() ? "Describe their main struggle" :
-             !audienceGoal.trim() ? "Describe what they want to achieve" :
-             "Select an expertise level"}
-          </p>
-        )}
 
         <button
           onClick={handleBack}

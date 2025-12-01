@@ -10,6 +10,10 @@ copy, UI text, descriptions, or any user-facing content.
 SECTION 1: CORE PHILOSOPHY
 ================================================================================
 
+THE HOOK:
+We don't just find topics. We find SuperTopics.
+That's the promise. That's what makes us different.
+
 WHAT WE ARE:
 Super Topics is a tool that helps YouTube creators discover topics their 
 viewers actually want to watch. It's about understanding audience interest,
@@ -28,6 +32,12 @@ Super Topics focuses on: "What does my audience want to watch?"
 CORE MODULE NAME:
 The central methodology is called "Built for the Viewer" — every feature
 should serve this philosophy.
+
+KEY PHRASES TO USE:
+- "Not just topics. SuperTopics."
+- "Topics your audience is already watching"
+- "What your viewers actually want"
+- "Uncover the topics that connect"
 
 ================================================================================
 SECTION 2: TERMINOLOGY — NEVER USE vs ALWAYS USE
@@ -154,21 +164,31 @@ SECTION 6: THE "WHY" — TALKING POINTS
 
 When explaining Super Topics, emphasize:
 
-1. VIEWER-FIRST APPROACH
+1. THE SUPERTOPICS HOOK
+   "We don't just find topics. We find SuperTopics — the ones your audience
+   is already watching."
+
+2. VIEWER-FIRST APPROACH
    "We help you find topics viewers are actively looking for — so you're
    creating content people actually want to watch."
 
-2. BEYOND BASIC KEYWORDS
-   "Most tools just give you a list of keywords with numbers. We help you
-   understand the landscape of what your audience cares about."
+3. BEYOND BASIC TOOLS
+   "Most tools give you a list of keywords with numbers. We help you
+   understand what your audience actually wants to see."
 
-3. PERSONALIZED DISCOVERY
-   "Your Super Topics are unique to you — based on your niche, your
+4. PERSONALIZED DISCOVERY
+   "Your SuperTopics are unique to you — based on your niche, your
    exploration, and your creative direction."
 
-4. NOT ABOUT GAMING THE SYSTEM
+5. NOT ABOUT GAMING THE SYSTEM
    "YouTube rewards videos that viewers love. We help you find those topics
    from the start, so the algorithm works WITH you, not against you."
+
+LANGUAGE REMINDERS:
+- Say "watching" not "searching for"
+- Say "topics" not "keywords"
+- Say "viewer interest" not "search volume"
+- Use "SuperTopics" as the product hook
 
 ================================================================================
 SECTION 7: EXAMPLES IN CONTEXT

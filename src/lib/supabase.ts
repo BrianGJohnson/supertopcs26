@@ -20,3 +20,24 @@ export async function getCurrentUserId(): Promise<string> {
   }
   return user.id;
 }
+
+/**
+ * Make an authenticated API request
+ * Adds the Supabase access token to the Authorization header
+ */
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session?.access_token) {
+    throw new Error('Not authenticated');
+  }
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+}

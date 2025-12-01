@@ -10,6 +10,7 @@ import {
   IconPalette,
 } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
+import { authFetch } from "@/lib/supabase";
 
 /**
  * Step 2: Goals (Pick Your Top Two Goals)
@@ -84,9 +85,21 @@ export default function OnboardingStep2() {
 
   const canContinue = selectedGoals.length > 0;
 
-  const handleContinue = () => {
-    // TODO: Save selectedGoals to state/database
-    // First selection = primary motivation
+  const handleContinue = async () => {
+    try {
+      await authFetch("/api/onboarding/save", {
+        method: "POST",
+        body: JSON.stringify({
+          step: 2,
+          data: {
+            motivations: selectedGoals,
+            primaryMotivation: selectedGoals[0] || null,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving goals:", error);
+    }
     router.push("/members/onboarding/step-3");
   };
 

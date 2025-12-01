@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconBulb } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
+import { authFetch } from "@/lib/supabase";
 
 /**
  * Step 4: Niche & Topics
@@ -27,8 +28,21 @@ export default function OnboardingStep4() {
   const filledTopics = topics.filter(t => t.trim().length > 0);
   const canContinue = niche.trim().length >= 2 && filledTopics.length >= 1;
 
-  const handleContinue = () => {
-    // TODO: Save niche and topics to state/database
+  const handleContinue = async () => {
+    try {
+      await authFetch("/api/onboarding/save", {
+        method: "POST",
+        body: JSON.stringify({
+          step: 4,
+          data: {
+            niche: niche.trim(),
+            topicIdeas: filledTopics,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving niche:", error);
+    }
     router.push("/members/onboarding/step-5");
   };
 
@@ -61,7 +75,7 @@ export default function OnboardingStep4() {
             type="text"
             value={niche}
             onChange={(e) => setNiche(e.target.value)}
-            placeholder="e.g., YouTube Education, Vibe Coding, Budget Travel"
+            placeholder="e.g., Home Cooking, Tech Reviews, Fitness Tips"
             className="
               w-full px-6 py-5 rounded-xl text-xl text-center
               bg-white/[0.06] border-2 border-white/20
@@ -98,9 +112,9 @@ export default function OnboardingStep4() {
                   value={topic}
                   onChange={(e) => handleTopicChange(index, e.target.value)}
                   placeholder={
-                    index === 0 ? "e.g., Algorithm tips and growth strategies" :
-                    index === 1 ? "e.g., AI tools for content creators" :
-                    "e.g., YouTube Shorts strategy"
+                    index === 0 ? "Your most popular topic or series idea" :
+                    index === 1 ? "A topic you're excited to explore" :
+                    "Another angle or theme you cover"
                   }
                   className="
                     w-full pl-12 pr-5 py-4 rounded-xl text-lg
