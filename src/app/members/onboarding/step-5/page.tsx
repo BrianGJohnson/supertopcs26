@@ -12,6 +12,10 @@ import {
   IconCheck,
   IconChevronRight,
   IconTargetArrow,
+  IconFlame,
+  IconConfetti,
+  IconRocket,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
 import { authFetch } from "@/lib/supabase";
@@ -19,12 +23,18 @@ import { authFetch } from "@/lib/supabase";
 /**
  * Step 5: Pillars & Purpose
  * 
+ * OPTION B Implementation:
+ * - No numeric demand bars (removed for clarity)
+ * - Selectable cards with "Proven Demand" badges (demand >= 7)
+ * - Large, readable text throughout (text-xl minimum for content)
+ * - GPT incorporates user's topic ideas from Step 4
+ * 
  * Progressive reveal:
  * 1. Niche Validation (first view)
  * 2. Strategy Introduction
- * 3. Evergreen Pillar with selectable seeds
+ * 3. Evergreen Pillar with selectable sub-niches
  * 4. Trending Pillar (view only)
- * 5. Monetization Pillar with selectable seeds
+ * 5. Monetization Pillar with selectable sub-niches
  */
 
 interface NicheValidation {
@@ -35,10 +45,15 @@ interface NicheValidation {
   topChannels: string[];
 }
 
+interface SubNiche {
+  name: string;
+  demand: number;
+}
+
 interface Pillar {
   label: string;
   teachingMoment: string;
-  subNiches: string[];
+  subNiches: SubNiche[];
 }
 
 interface PillarsData {
@@ -88,19 +103,19 @@ export default function OnboardingStep5() {
     fetchPillars();
   }, []);
 
-  const toggleEvergreenSeed = (seed: string) => {
+  const toggleEvergreenSeed = (subNiche: SubNiche) => {
     setSelectedEvergreen(prev => 
-      prev.includes(seed) 
-        ? prev.filter(s => s !== seed)
-        : [...prev, seed]
+      prev.includes(subNiche.name) 
+        ? prev.filter(s => s !== subNiche.name)
+        : [...prev, subNiche.name]
     );
   };
 
-  const toggleMonetizationSeed = (seed: string) => {
+  const toggleMonetizationSeed = (subNiche: SubNiche) => {
     setSelectedMonetization(prev => 
-      prev.includes(seed) 
-        ? prev.filter(s => s !== seed)
-        : [...prev, seed]
+      prev.includes(subNiche.name) 
+        ? prev.filter(s => s !== subNiche.name)
+        : [...prev, subNiche.name]
     );
   };
 
@@ -146,10 +161,18 @@ export default function OnboardingStep5() {
         throw new Error("Failed to save");
       }
 
-      router.push("/members/onboarding/step-6");
+      // Show celebration screen for 5 seconds before redirecting
+      setCurrentSection("complete");
+      setTimeout(() => {
+        router.push("/members/onboarding/step-6");
+      }, 5000);
     } catch (error) {
       console.error("Error saving pillars:", error);
-      router.push("/members/onboarding/step-6");
+      // Still show celebration even on error, as we want to continue
+      setCurrentSection("complete");
+      setTimeout(() => {
+        router.push("/members/onboarding/step-6");
+      }, 5000);
     } finally {
       setIsSaving(false);
     }
@@ -159,57 +182,152 @@ export default function OnboardingStep5() {
     router.push("/members/onboarding/step-4");
   };
 
+  // Utility to get demand color based on score (still used for niche validation display)
   const getDemandColor = (score: number) => {
-    if (score >= 7) return "#2BD899";
-    if (score >= 5) return "#F59E0B";
-    return "#EF4444";
+    if (score >= 7) return "#2BD899"; // Green - high demand
+    if (score >= 5) return "#F59E0B"; // Orange - medium demand
+    return "#EF4444"; // Red - low demand
   };
 
-  // Animated progress bar component
-  const AnimatedProgressBar = ({ score }: { score: number }) => {
-    const [animatedScore, setAnimatedScore] = useState(0);
-    
-    useEffect(() => {
-      // Animate from 0 to score over 1.5 seconds
-      const duration = 1500;
-      const steps = 60;
-      const increment = score / steps;
-      let current = 0;
-      
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= score) {
-          setAnimatedScore(score);
-          clearInterval(timer);
-        } else {
-          setAnimatedScore(current);
-        }
-      }, duration / steps);
-      
-      return () => clearInterval(timer);
-    }, [score]);
-
-    const filled = Math.round(animatedScore);
-    
+  // Simple demand display for niche validation section (non-interactive)
+  const NicheDemandDisplay = ({ score }: { score: number }) => {
     return (
-      <div className="flex gap-1.5">
+      <div className="flex gap-2 justify-center">
         {Array.from({ length: 10 }).map((_, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ 
-              opacity: i < filled ? 1 : 0.2, 
+              opacity: i < score ? 1 : 0.2, 
               scale: 1,
-              backgroundColor: i < filled ? getDemandColor(score) : "#374151"
+              backgroundColor: i < score ? getDemandColor(score) : "#374151"
             }}
             transition={{ 
               duration: 0.3, 
               delay: i * 0.1,
               ease: "easeOut"
             }}
-            className="h-3.5 w-7 rounded-sm"
+            className="h-4 w-8 rounded"
           />
         ))}
+      </div>
+    );
+  };
+
+  // Sub-niche card component with clear checkbox affordance and "Proven Demand" badge
+  // Option B: No numeric bars - just visual "Proven Demand" badge for high demand topics
+  interface SubNicheCardProps {
+    subNiche: { name: string; demand: number };
+    isSelected: boolean;
+    onToggle: () => void;
+    color: string;
+  }
+  
+  const SubNicheCard = ({ subNiche, isSelected, onToggle, color }: SubNicheCardProps) => {
+    const highDemand = subNiche.demand >= 7;
+    
+    return (
+      <button
+        onClick={onToggle}
+        className={`
+          w-full p-5 rounded-2xl text-left transition-all duration-200
+          ${isSelected 
+            ? `bg-[${color}]/20 border-2 shadow-lg` 
+            : "bg-white/[0.04] border-2 border-white/10 hover:border-white/30 hover:bg-white/[0.06]"
+          }
+        `}
+        style={{
+          borderColor: isSelected ? color : undefined,
+          boxShadow: isSelected ? `0 0 20px ${color}30` : undefined,
+        }}
+      >
+        <div className="flex items-center justify-between">
+          {/* Left side: Checkbox + Name */}
+          <div className="flex items-center gap-4">
+            {/* Checkbox circle */}
+            <div 
+              className={`
+                w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all
+                ${isSelected 
+                  ? "border-transparent" 
+                  : "border-white/30"
+                }
+              `}
+              style={{
+                backgroundColor: isSelected ? color : "transparent",
+              }}
+            >
+              {isSelected && <IconCheck size={16} className="text-[#0B1220]" />}
+            </div>
+            
+            {/* Name - LARGE TEXT per brand guidelines (minimum text-xl) */}
+            <span 
+              className={`text-xl font-semibold transition-colors ${isSelected ? "" : "text-white"}`}
+              style={{ color: isSelected ? color : undefined }}
+            >
+              {subNiche.name}
+            </span>
+          </div>
+          
+          {/* Right side: Proven Demand badge (only for demand >= 7) */}
+          {highDemand && (
+            <div 
+              className="flex items-center gap-2 px-4 py-2 rounded-full"
+              style={{ backgroundColor: `${color}20` }}
+            >
+              <IconFlame size={18} style={{ color }} />
+              <span 
+                className="text-base font-medium"
+                style={{ color }}
+              >
+                Proven Demand
+              </span>
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  // View-only sub-niche card (for Trending section which is not selectable)
+  interface ViewOnlyCardProps {
+    subNiche: { name: string; demand: number };
+    color: string;
+  }
+  
+  const ViewOnlyCard = ({ subNiche, color }: ViewOnlyCardProps) => {
+    const highDemand = subNiche.demand >= 7;
+    
+    return (
+      <div
+        className="w-full p-5 rounded-2xl bg-white/[0.04] border-2"
+        style={{ borderColor: `${color}40` }}
+      >
+        <div className="flex items-center justify-between">
+          {/* Name - LARGE TEXT */}
+          <span 
+            className="text-xl font-semibold"
+            style={{ color }}
+          >
+            {subNiche.name}
+          </span>
+          
+          {/* Proven Demand badge */}
+          {highDemand && (
+            <div 
+              className="flex items-center gap-2 px-4 py-2 rounded-full"
+              style={{ backgroundColor: `${color}20` }}
+            >
+              <IconFlame size={18} style={{ color }} />
+              <span 
+                className="text-base font-medium"
+                style={{ color }}
+              >
+                Proven Demand
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -331,7 +449,7 @@ export default function OnboardingStep5() {
               </motion.span>
             </div>
             <div className="flex justify-center">
-              <AnimatedProgressBar score={nicheValidation.demandScore} />
+              <NicheDemandDisplay score={nicheValidation.demandScore} />
             </div>
           </motion.div>
 
@@ -499,10 +617,15 @@ export default function OnboardingStep5() {
         heroDescription=""
       >
         <div className="max-w-3xl mx-auto space-y-8">
-          {/* Instruction - prominent above card */}
-          <p className="text-xl text-white/70 text-center">
-            Choose 3-5 sub-niches to focus on:
-          </p>
+          {/* Instruction - large text per brand guidelines */}
+          <div className="text-center space-y-3">
+            <p className="text-2xl font-medium text-white/80">
+              Choose 3-5 sub-niches to focus on
+            </p>
+            <p className="text-lg text-white/50">
+              Topics with 🔥 <span className="text-[#2BD899]">Proven Demand</span> tend to get more views
+            </p>
+          </div>
 
           {/* Pillar Card */}
           <div className="p-8 rounded-2xl bg-[#2BD899]/10 border-2 border-[#2BD899]/40">
@@ -511,40 +634,30 @@ export default function OnboardingStep5() {
                 <IconLeaf size={28} className="text-[#2BD899]" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">{evergreen.label}</h3>
+                <h3 className="text-2xl font-bold text-white">{evergreen.label}</h3>
               </div>
             </div>
             
-            <p className="text-lg text-white/70 leading-relaxed mb-6">
+            <p className="text-xl text-white/70 leading-relaxed mb-6">
               {evergreen.teachingMoment}
             </p>
 
-            {/* Selectable Sub-Niches */}
-            <div className="flex flex-wrap gap-2">
-              {evergreen.subNiches.map((subNiche, i) => {
-                const isSelected = selectedEvergreen.includes(subNiche);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => toggleEvergreenSeed(subNiche)}
-                    className={`
-                      px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${isSelected 
-                        ? "bg-[#2BD899] text-[#0B1220] shadow-lg" 
-                        : "bg-[#2BD899]/15 border border-[#2BD899]/30 text-[#2BD899] hover:bg-[#2BD899]/25"
-                      }
-                    `}
-                  >
-                    {isSelected && <IconCheck size={14} className="inline mr-1" />}
-                    {subNiche}
-                  </button>
-                );
-              })}
+            {/* Selectable Sub-Niches with SubNicheCard */}
+            <div className="space-y-4">
+              {evergreen.subNiches.map((subNiche, i) => (
+                <SubNicheCard
+                  key={i}
+                  subNiche={subNiche}
+                  isSelected={selectedEvergreen.includes(subNiche.name)}
+                  onToggle={() => toggleEvergreenSeed(subNiche)}
+                  color="#2BD899"
+                />
+              ))}
             </div>
           </div>
 
-          {/* Selected Count */}
-          <p className="text-center text-white/50">
+          {/* Selected Count - larger text */}
+          <p className="text-center text-lg text-white/50">
             {selectedEvergreen.length} sub-niche{selectedEvergreen.length !== 1 ? "s" : ""} selected
           </p>
 
@@ -565,7 +678,7 @@ export default function OnboardingStep5() {
 
             <button
               onClick={() => setCurrentSection("strategy")}
-              className="text-white/40 hover:text-white/60 text-sm"
+              className="text-white/50 hover:text-white/70 text-base"
             >
               ← Back
             </button>
@@ -588,10 +701,15 @@ export default function OnboardingStep5() {
         heroDescription=""
       >
         <div className="max-w-3xl mx-auto space-y-8">
-          {/* Instruction - prominent above card */}
-          <p className="text-xl text-white/70 text-center">
-            Trending themes to watch in your space:
-          </p>
+          {/* Instruction - large text per brand guidelines */}
+          <div className="text-center space-y-3">
+            <p className="text-2xl font-medium text-white/80">
+              Trending themes to watch in your space
+            </p>
+            <p className="text-lg text-white/50">
+              Topics with 🔥 <span className="text-[#F59E0B]">Proven Demand</span> are hot right now
+            </p>
+          </div>
 
           {/* Pillar Card */}
           <div className="p-8 rounded-2xl bg-[#F59E0B]/10 border-2 border-[#F59E0B]/40">
@@ -600,30 +718,29 @@ export default function OnboardingStep5() {
                 <IconTrendingUp size={28} className="text-[#F59E0B]" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">{trending.label}</h3>
+                <h3 className="text-2xl font-bold text-white">{trending.label}</h3>
               </div>
             </div>
             
-            <p className="text-lg text-white/70 leading-relaxed mb-6">
+            <p className="text-xl text-white/70 leading-relaxed mb-6">
               {trending.teachingMoment}
             </p>
 
-            {/* Trending Themes (not selectable) */}
-            <div className="flex flex-wrap gap-2">
+            {/* Trending Themes with ViewOnlyCard (view only) */}
+            <div className="space-y-4">
               {trending.subNiches.map((theme, i) => (
-                <span
+                <ViewOnlyCard
                   key={i}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[#F59E0B]"
-                >
-                  {theme}
-                </span>
+                  subNiche={theme}
+                  color="#F59E0B"
+                />
               ))}
             </div>
           </div>
 
-          {/* Info Note */}
-          <div className="p-4 rounded-xl bg-white/[0.04] border border-white/10 text-center">
-            <p className="text-white/60 text-sm">
+          {/* Info Note - larger text */}
+          <div className="p-5 rounded-xl bg-white/[0.04] border border-white/10 text-center">
+            <p className="text-white/60 text-lg">
               💡 <span className="text-[#F59E0B]">Niche Pulse</span> and <span className="text-[#F59E0B]">Just Born Topics</span> are coming soon—<br />
               modules designed to surface real-time trending data in your space.
             </p>
@@ -646,7 +763,7 @@ export default function OnboardingStep5() {
 
             <button
               onClick={() => setCurrentSection("evergreen")}
-              className="text-white/40 hover:text-white/60 text-sm"
+              className="text-white/50 hover:text-white/70 text-base"
             >
               ← Back
             </button>
@@ -669,10 +786,15 @@ export default function OnboardingStep5() {
         heroDescription=""
       >
         <div className="max-w-3xl mx-auto space-y-8">
-          {/* Instruction - prominent above card (consistent with Evergreen) */}
-          <p className="text-xl text-white/70 text-center">
-            Choose 3-5 content themes to focus on:
-          </p>
+          {/* Instruction - large text per brand guidelines */}
+          <div className="text-center space-y-3">
+            <p className="text-2xl font-medium text-white/80">
+              Choose 3-5 content themes to focus on
+            </p>
+            <p className="text-lg text-white/50">
+              Topics with 🔥 <span className="text-[#9B7DFF]">Proven Demand</span> tend to get more views
+            </p>
+          </div>
 
           {/* Pillar Card */}
           <div className="p-8 rounded-2xl bg-[#9B7DFF]/10 border-2 border-[#9B7DFF]/40">
@@ -681,40 +803,30 @@ export default function OnboardingStep5() {
                 <IconCash size={28} className="text-[#9B7DFF]" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">{monetization.label}</h3>
+                <h3 className="text-2xl font-bold text-white">{monetization.label}</h3>
               </div>
             </div>
             
-            <p className="text-lg text-white/60 leading-relaxed mb-6">
+            <p className="text-xl text-white/70 leading-relaxed mb-6">
               {monetization.teachingMoment}
             </p>
 
-            {/* Selectable Sub-Niches */}
-            <div className="flex flex-wrap gap-2">
-              {monetization.subNiches.map((subNiche, i) => {
-                const isSelected = selectedMonetization.includes(subNiche);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => toggleMonetizationSeed(subNiche)}
-                    className={`
-                      px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${isSelected 
-                        ? "bg-[#A78BFA] text-[#0B1220] shadow-lg" 
-                        : "bg-[#A78BFA]/20 border border-[#A78BFA]/50 text-[#C4B5FD] hover:bg-[#A78BFA]/30"
-                      }
-                    `}
-                  >
-                    {isSelected && <IconCheck size={14} className="inline mr-1" />}
-                    {subNiche}
-                  </button>
-                );
-              })}
+            {/* Selectable Sub-Niches with SubNicheCard */}
+            <div className="space-y-4">
+              {monetization.subNiches.map((subNiche, i) => (
+                <SubNicheCard
+                  key={i}
+                  subNiche={subNiche}
+                  isSelected={selectedMonetization.includes(subNiche.name)}
+                  onToggle={() => toggleMonetizationSeed(subNiche)}
+                  color="#9B7DFF"
+                />
+              ))}
             </div>
           </div>
 
-          {/* Selected Count */}
-          <p className="text-center text-white/50">
+          {/* Selected Count - larger text */}
+          <p className="text-center text-lg text-white/50">
             {selectedMonetization.length} sub-niche{selectedMonetization.length !== 1 ? "s" : ""} selected
           </p>
 
@@ -747,11 +859,93 @@ export default function OnboardingStep5() {
 
             <button
               onClick={() => setCurrentSection("trending")}
-              className="text-white/40 hover:text-white/60 text-sm"
+              className="text-white/50 hover:text-white/70 text-base"
             >
               ← Back
             </button>
           </div>
+        </div>
+      </OnboardingPageLayout>
+    );
+  }
+
+  // Section 6: Celebration / Completion
+  if (currentSection === "complete") {
+    return (
+      <OnboardingPageLayout
+        currentStep={5}
+        completedSteps={[1, 2, 3, 4, 5]}
+        icon={IconSparkles}
+        heroLine1="You're"
+        heroLine2="All Set!"
+        heroDescription=""
+      >
+        <div className="max-w-2xl mx-auto text-center space-y-10">
+          {/* Animated Confetti Icon */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 200, 
+              damping: 15,
+              delay: 0.2 
+            }}
+            className="flex justify-center"
+          >
+            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#2BD899] via-[#7A5CFA] to-[#F59E0B] flex items-center justify-center shadow-[0_0_60px_rgba(43,216,153,0.4)]">
+              <IconConfetti size={56} className="text-white" />
+            </div>
+          </motion.div>
+
+          {/* Main Message */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="space-y-4"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-white">
+              Fantastic Work! 🎉
+            </h2>
+            <p className="text-2xl text-[#2BD899] font-medium">
+              Let&apos;s find you some SuperTopics.
+            </p>
+          </motion.div>
+
+          {/* Redirect Notice */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <div className="flex items-center gap-3 text-white/50">
+              <IconRocket size={24} className="text-[#2BD899] animate-bounce" />
+              <span className="text-lg">Taking you to your dashboard...</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-64 h-2 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 5, ease: "linear" }}
+                className="h-full bg-gradient-to-r from-[#2BD899] to-[#7A5CFA] rounded-full"
+              />
+            </div>
+          </motion.div>
+
+          {/* Skip button */}
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2 }}
+            onClick={() => router.push("/members/onboarding/step-6")}
+            className="text-white/40 hover:text-white/60 text-base transition-colors"
+          >
+            Skip to dashboard →
+          </motion.button>
         </div>
       </OnboardingPageLayout>
     );

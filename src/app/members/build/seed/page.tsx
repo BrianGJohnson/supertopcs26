@@ -74,7 +74,7 @@ function SeedPageContent() {
           line2="Video Package"
           description="Enter your topic and click Expand to discover what viewers want to watch. We'll find the best opportunities for your channel."
         />
-        <BuilderStepper activeStep={1} />
+        <BuilderStepper activeStep={2} />
         <SeedCard 
           onPhrasesAdded={onPhrasesAdded} 
           sourceCounts={sourceCounts}

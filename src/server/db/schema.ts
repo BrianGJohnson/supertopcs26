@@ -74,8 +74,11 @@ export const channels = pgTable('channels', {
   sponsorship_niche: text('sponsorship_niche'), // Brands they want to work with
   has_channel: boolean('has_channel'), // Whether they have an existing YouTube channel
   
-  // Niche (from onboarding step 4)
+  // Niche & Content Style (from onboarding step 4)
   topic_ideas: jsonb('topic_ideas'), // Initial topic ideas they entered
+  content_style: integer('content_style'), // 1-7 scale: 1=Scholar, 7=Performer
+  content_style_name: text('content_style_name'), // "The Scholar", "The Teacher", etc.
+  video_formats: jsonb('video_formats'), // ["tutorials", "reviews", "vlogs"] - formats they create
   
   // Content pillars (from onboarding step 5 - AI generated)
   content_pillars: jsonb('content_pillars'), // ["AI Tools", "No-Code Builds", "Cursor Tips"] - legacy

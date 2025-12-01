@@ -19,7 +19,7 @@ export default function PackagePage() {
           line2="Video Package"
           description="Combine topic, title, and thumbnail thinking into one strategy."
         />
-        <BuilderStepper activeStep={5} />
+        <BuilderStepper activeStep={6} />
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">

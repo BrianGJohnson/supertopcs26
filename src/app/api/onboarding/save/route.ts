@@ -99,8 +99,11 @@ export async function POST(request: NextRequest) {
         break;
 
       case 4:
-        // Niche & Topics
+        // Niche, Content Style & Topics
         if (data.niche) updateData.niche = data.niche;
+        if (data.contentStyle) updateData.content_style = data.contentStyle;
+        if (data.contentStyleName) updateData.content_style_name = data.contentStyleName;
+        if (data.videoFormats) updateData.video_formats = data.videoFormats;
         if (data.topicIdeas) updateData.topic_ideas = data.topicIdeas;
         break;
 

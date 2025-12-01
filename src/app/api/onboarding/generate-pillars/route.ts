@@ -249,10 +249,17 @@ These themes help them build an audience while figuring out their monetization s
     }
 
     // Build the user prompt with all context
+    const topicIdeasText = data.topic_ideas && data.topic_ideas.length > 0
+      ? `- Topics they want to cover: ${data.topic_ideas.filter(t => t && t.trim()).join(", ")}`
+      : "";
+
     const userPrompt = `CREATOR PROFILE:
 - Niche: ${data.niche}
 - Primary motivation: ${data.primary_motivation || "Not specified"}
 - Has existing channel: ${data.has_channel ? "Yes" : "No"}
+${topicIdeasText}
+
+IMPORTANT: If they provided specific topics they want to cover, your sub-niches should INCLUDE and REFLECT those topics. Don't ignore what they told you!
 
 MONETIZATION:
 ${monetizationContext}
@@ -263,6 +270,11 @@ INSTRUCTIONS:
 3. Generate SUB-NICHES (broad topic areas, NOT keywords!)
 
 Remember: Sub-niches are BROAD. "AI Tools" is a sub-niche containing hundreds of videos. "Best AI tools for thumbnails" is a topic (too specific).
+
+IMPORTANT: For each sub-niche, you MUST provide a demand score (1-10) indicating search demand and view potential.
+- 8-10: High demand, proven audience interest, likely to drive significant views
+- 5-7: Moderate demand, solid interest, reliable view potential  
+- 1-4: Lower demand, niche audience, may require more effort to get views
 
 Return JSON:
 {
@@ -277,17 +289,27 @@ Return JSON:
     "evergreen": {
       "label": "Evergreen Growth",
       "teachingMoment": "1-2 sentences on why foundational content matters",
-      "subNiches": ["Sub Niche 1", "Sub Niche 2", "Sub Niche 3", "Sub Niche 4", "Sub Niche 5"]
+      "subNiches": [
+        { "name": "Sub Niche 1", "demand": 8 },
+        { "name": "Sub Niche 2", "demand": 7 },
+        { "name": "Sub Niche 3", "demand": 6 }
+      ]
     },
     "trending": {
       "label": "Trending Now", 
       "teachingMoment": "1-2 sentences on why timely content matters",
-      "subNiches": ["Trend Theme 1", "Trend Theme 2", "Trend Theme 3", "Trend Theme 4"]
+      "subNiches": [
+        { "name": "Trend Theme 1", "demand": 9 },
+        { "name": "Trend Theme 2", "demand": 7 }
+      ]
     },
     "monetization": {
-      "label": "Based on their monetization choice - if products/affiliate: 'Your [Product Type] Content', if not sure: 'Monetization Exploration'",
-      "teachingMoment": "If products/affiliate: explain how this content teaches skills their product helps with. If not sure: explain how these themes help them discover their path while building audience.",
-      "subNiches": ["5-6 themes DIRECTLY from their product description OR exploratory themes if unsure"]
+      "label": "Based on their monetization choice",
+      "teachingMoment": "Explain how this content helps them.",
+      "subNiches": [
+        { "name": "Theme 1", "demand": 7 },
+        { "name": "Theme 2", "demand": 6 }
+      ]
     }
   }
 }`;
@@ -329,6 +351,25 @@ Return JSON:
       return `${firstTwo} ${HARDCODED_SENTENCE_3}`;
     };
 
+    // Helper to normalize sub-niches (handles both old string format and new object format)
+    const normalizeSubNiches = (subNiches: unknown[]): { name: string; demand: number }[] => {
+      if (!Array.isArray(subNiches)) return [];
+      return subNiches.map((item) => {
+        if (typeof item === 'string') {
+          // Old format: just a string - assign a default demand score
+          return { name: item, demand: 6 };
+        } else if (typeof item === 'object' && item !== null) {
+          // New format: { name, demand }
+          const obj = item as { name?: string; demand?: number };
+          return {
+            name: obj.name || 'Unknown',
+            demand: Math.min(10, Math.max(1, Math.round(obj.demand || 6))),
+          };
+        }
+        return { name: 'Unknown', demand: 6 };
+      });
+    };
+
     // Validate and normalize the response
     const normalizedResponse = {
       nicheValidation: {
@@ -342,17 +383,17 @@ Return JSON:
         evergreen: {
           label: pillarsData.pillars?.evergreen?.label || "Evergreen Growth",
           teachingMoment: pillarsData.pillars?.evergreen?.teachingMoment || "Evergreen content gets views for years and builds your foundation.",
-          subNiches: (pillarsData.pillars?.evergreen?.subNiches || pillarsData.pillars?.evergreen?.seeds || []).slice(0, 8),
+          subNiches: normalizeSubNiches(pillarsData.pillars?.evergreen?.subNiches || pillarsData.pillars?.evergreen?.seeds || []).slice(0, 8),
         },
         trending: {
           label: pillarsData.pillars?.trending?.label || "Trending Now",
           teachingMoment: pillarsData.pillars?.trending?.teachingMoment || "Trending content helps you get discovered by new viewers.",
-          subNiches: (pillarsData.pillars?.trending?.subNiches || pillarsData.pillars?.trending?.seeds || []).slice(0, 6),
+          subNiches: normalizeSubNiches(pillarsData.pillars?.trending?.subNiches || pillarsData.pillars?.trending?.seeds || []).slice(0, 6),
         },
         monetization: {
           label: pillarsData.pillars?.monetization?.label || "Product-Adjacent Content",
           teachingMoment: pillarsData.pillars?.monetization?.teachingMoment || "Create valuable content around topics where you can naturally mention your product or service. Value first—always.",
-          subNiches: (pillarsData.pillars?.monetization?.subNiches || pillarsData.pillars?.monetization?.seeds || []).slice(0, 6),
+          subNiches: normalizeSubNiches(pillarsData.pillars?.monetization?.subNiches || pillarsData.pillars?.monetization?.seeds || []).slice(0, 6),
         },
       },
     };

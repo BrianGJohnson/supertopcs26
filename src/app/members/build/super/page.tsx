@@ -19,7 +19,7 @@ export default function SuperPage() {
           line2="Super Topics"
           description="Identify the strongest themes for growth using early signals."
         />
-        <BuilderStepper activeStep={3} />
+        <BuilderStepper activeStep={4} />
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">

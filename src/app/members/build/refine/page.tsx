@@ -48,7 +48,7 @@ export default function RefinePage() {
         
         {/* Progress Stepper */}
         <div className="mb-14">
-          <BuilderStepper activeStep={2} />
+          <BuilderStepper activeStep={3} />
         </div>
 
         {/* Main Content */}

@@ -19,7 +19,7 @@ export default function TitlePage() {
           line2="That Perform"
           description="Use emotional triggers and clarity to generate high-click titles."
         />
-        <BuilderStepper activeStep={4} />
+        <BuilderStepper activeStep={5} />
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">
