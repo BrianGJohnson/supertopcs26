@@ -12,7 +12,7 @@ import { IconProps } from "@tabler/icons-react";
  * 
  * SPACING VALUES (LOCKED):
  * - Container: mt-[-22px]
- * - Icon wrapper: mb-[-38px]
+ * - Icon wrapper: mb-[-20px]
  * - Icon size: 100px
  * - h1 leading: 1.22
  * - Line 2 span: mt-0, pb-[0.15em]
@@ -52,7 +52,7 @@ export function HeroModule({ icon: Icon, line1, line2, description }: HeroModule
   return (
     <div className="text-center flex flex-col items-center gap-0 mt-[-22px]">
       {/* Icon Container - LOCKED SPACING */}
-      <div className="relative mb-[-38px]">
+      <div className="relative mb-[-20px]">
         {/* Ambient glow behind icon */}
         <div className="absolute -inset-6 bg-primary/8 blur-2xl rounded-full"></div>
         {/* Icon wrapper with fixed dimensions */}

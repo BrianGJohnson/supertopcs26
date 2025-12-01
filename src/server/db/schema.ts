@@ -45,12 +45,33 @@ export const channels = pgTable('channels', {
   // Channel identity
   name: text('name').notNull(),
   youtube_channel_id: text('youtube_channel_id'), // e.g., "UCxxxxxx" (optional)
+  youtube_channel_url: text('youtube_channel_url'), // Full URL from onboarding
   thumbnail_url: text('thumbnail_url'),
   
   // Channel context (used for AI scoring)
   niche: text('niche'), // e.g., "Tech Reviews", "Cooking", "Gaming"
+  niche_score: integer('niche_score'), // 1-10 demand score from GPT analysis
   target_audience: text('target_audience'), // e.g., "Beginners learning to code"
   channel_description: text('channel_description'),
+  
+  // Onboarding data
+  onboarding_step: integer('onboarding_step'), // 1-4, null = not started
+  onboarding_completed_at: timestamp('onboarding_completed_at'),
+  
+  // Goals (from onboarding step 2)
+  goals: jsonb('goals'), // ["growth", "adsense", "sell_products"]
+  
+  // Content pillars (from onboarding step 3)
+  content_pillars: jsonb('content_pillars'), // ["AI Tools", "No-Code Builds", "Cursor Tips"]
+  
+  // Audience details (from onboarding step 4)
+  audience_who: text('audience_who'), // "Developers wanting to speed up coding"
+  audience_struggle: text('audience_struggle'), // "Spending too much time on boilerplate"
+  audience_goal: text('audience_goal'), // "Ship projects faster"
+  audience_expertise: text('audience_expertise'), // "beginner", "intermediate", "advanced"
+  
+  // GPT analysis cache (from onboarding step 3)
+  niche_analysis: jsonb('niche_analysis'), // Full GPT response for reference
   
   // Stats (can be synced from YouTube API later)
   subscriber_count: integer('subscriber_count'),
