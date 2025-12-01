@@ -280,6 +280,29 @@ export const super_topics = pgTable('super_topics', {
   promoted_at: timestamp('promoted_at').defaultNow(), // When it became a Super Topic
 });
 
+// ------------------------------------------------------------
+// SEED_PHRASES - AI-generated 2-word seed phrases per sub-niche
+// Cached forever - one-time generation, then free to use
+// ------------------------------------------------------------
+export const seed_phrases = pgTable('seed_phrases', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user_id: uuid('user_id').notNull(), // References auth.users(id)
+  
+  // Context
+  pillar: text('pillar').notNull(), // 'evergreen', 'trending', 'monetization'
+  sub_niche: text('sub_niche').notNull(), // e.g., "AI Tools", "Thumbnail Design"
+  
+  // The 75 generated phrases
+  phrases: jsonb('phrases').notNull().default([]), // ["ai thumbnails", "chatgpt scripts", ...]
+  
+  // Tracking which phrases user has already selected
+  used_phrases: jsonb('used_phrases').notNull().default([]), // Phrases they've clicked on
+  
+  // Timestamps
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
 // ============================================================
 // TYPE EXPORTS - Use these in your app code
 // ============================================================
@@ -300,3 +323,6 @@ export type NewSeedAnalysis = typeof seed_analysis.$inferInsert;
 
 export type SuperTopic = typeof super_topics.$inferSelect;
 export type NewSuperTopic = typeof super_topics.$inferInsert;
+
+export type SeedPhrase = typeof seed_phrases.$inferSelect;
+export type NewSeedPhrase = typeof seed_phrases.$inferInsert;

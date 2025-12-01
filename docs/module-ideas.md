@@ -10,6 +10,42 @@ This document tracks future module ideas, their purpose, and implementation note
 
 ---
 
+## 🔴 PRIORITY: Fundamentals First
+
+Before building new modules, these fundamentals must work:
+
+### 1. Dashboard Onboarding Gate
+**Status**: 📋 Needs Design  
+**Priority**: 🔴 HIGH  
+
+**Problem**: Users who haven't completed onboarding can access modules that won't work without their data (pillars, niche, audience).
+
+**Solution** (Light Touch - No Redirects):
+- Dashboard shows modules as locked/grayed if `onboarding_completed_at` is null
+- Clear message: "Complete onboarding to unlock all features"
+- Prominent "Continue Onboarding" button that takes them to their current step
+- Individual pages (like Target) show fallback "Complete Onboarding" message if data missing
+- NO middleware guards or redirects (keeps auth simple)
+
+### 2. Built for the Viewer - Target Page
+**Status**: ✅ Created, needs testing  
+**Priority**: 🔴 HIGH  
+
+- Step 1 of 7-step Builder flow
+- Shows 3 pillar cards (Evergreen, Trending, Monetization)
+- Pulls sub-niches from user's saved pillar_strategy
+- Fixed: Now correctly reads from API response
+
+### 3. Member Dashboard
+**Status**: 📋 Needs Work  
+**Priority**: 🔴 HIGH  
+
+- Entry point after login
+- Shows available modules (locked if onboarding incomplete)
+- Quick stats/overview
+
+---
+
 ## Core Module: Built for the Viewer
 
 **Status**: 🔨 In Development  
