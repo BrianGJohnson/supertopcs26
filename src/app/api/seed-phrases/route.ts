@@ -7,23 +7,23 @@ const openai = new OpenAI({
 });
 
 // GPT-5-mini config for seed phrase generation
+// Matches working config from topic-scoring.ts
 const MODEL_CONFIG = {
-  model: "gpt-4o-mini",
+  model: "gpt-5-mini",
   temperature: 1,
-  max_tokens: 2000,
+  top_p: 1,
+  max_completion_tokens: 2500,
+  reasoning_effort: "minimal" as const,
   response_format: { type: "json_object" as const },
 } as const;
 
-const SYSTEM_PROMPT = `You are a YouTube topic expert. Generate diverse 2-word seed phrases that viewers would search for.
+const SYSTEM_PROMPT = `You find YouTube search phrases. Return 2-word phrases viewers actually type into YouTube.
 
 RULES:
-1. Exactly 2 words per phrase
-2. No prefixes like "how to", "best", "top"
-3. Just the core topic seed
-4. Diverse across the subject area
-5. Phrases viewers actually type into YouTube search
-
-Return JSON: { "phrases": ["phrase one", "phrase two", ...] }`;
+- Exactly 2 words per phrase
+- No prefixes (how to, best, top, what is)
+- Real searches people type, not academic concepts
+- Return JSON: { "strict": [...], "broad": [...] }`;
 
 /**
  * GET: Fetch cached phrases or generate new ones
@@ -156,22 +156,32 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Generate 75 diverse 2-word seed phrases using GPT
+ * Generate up to 100 diverse 2-word seed phrases using GPT
+ * ~50 strict (honor both words) + ~50 broad (popular related concepts)
+ * With safety rails: stop early if quality drops
  */
 async function generatePhrases(subNiche: string): Promise<string[]> {
-  const userPrompt = `Generate 75 diverse 2-word YouTube search phrases for the topic: "${subNiche}"
+  const userPrompt = `Topic: "${subNiche}"
 
-These are seed phrases that will be expanded into full video topics later.
-Make them diverse across the subject - different angles, subtopics, and variations.
+PART 1: STRICT (aim for 50, minimum 20)
+Branch "${subNiche}" into 4-7 directions.
+Each direction must honor BOTH words in the topic.
+Find 7-12 phrases per branch.
 
-Example for "AI Tools":
-- "ai thumbnails"
-- "chatgpt scripts"  
-- "midjourney prompts"
-- "voice cloning"
-- "video editing"
+IMPORTANT: Stop adding phrases when you start reaching for obscure topics.
+If the niche is narrow, 20-30 strong phrases beats 50 weak ones.
+Only include phrases viewers actually search on YouTube.
 
-Return exactly 75 phrases as JSON.`;
+PART 2: BROAD (aim for 50, minimum 20)
+Find the most popular related concepts and searches.
+These can drift from the exact words but should be relevant.
+Focus on high-volume, trending, or evergreen searches.
+
+IMPORTANT: Stop if concepts become too tangential or unpopular.
+Quality matters more than hitting 50.
+
+Return JSON: { "strict": [...], "broad": [...] }
+Minimum 20 per category. Maximum 50 per category.`;
 
   const completion = await openai.chat.completions.create({
     ...MODEL_CONFIG,
@@ -187,17 +197,23 @@ Return exactly 75 phrases as JSON.`;
   }
 
   const parsed = JSON.parse(content);
-  const phrases = parsed.phrases || [];
+  
+  // Combine strict and broad phrases
+  const strictPhrases = parsed.strict || [];
+  const broadPhrases = parsed.broad || [];
+  const allPhrases = [...strictPhrases, ...broadPhrases];
 
   // Validate and clean phrases
-  const cleaned = phrases
+  const cleaned = allPhrases
     .filter((p: unknown): p is string => typeof p === "string")
     .map((p: string) => p.toLowerCase().trim())
     .filter((p: string) => {
       const words = p.split(/\s+/);
       return words.length >= 2 && words.length <= 3; // Allow 2-3 words
-    })
-    .slice(0, 75); // Ensure max 75
+    });
 
-  return cleaned;
+  // Remove duplicates (no max limit - let GPT decide quantity)
+  const unique = [...new Set(cleaned)];
+
+  return unique;
 }

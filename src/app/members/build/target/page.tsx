@@ -336,7 +336,7 @@ export default function TargetPage() {
                 {isLoadingPhrases ? (
                   <div className="flex items-center justify-center py-12">
                     <IconLoader2 size={32} className="animate-spin text-[#2BD899]" />
-                    <span className="ml-3 text-white/60 text-[1.125rem]">Generating phrases...</span>
+                    <span className="ml-3 text-white/60 text-[1.125rem]">Gathering seed topics...</span>
                   </div>
                 ) : (
                   <>
