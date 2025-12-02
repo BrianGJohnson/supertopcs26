@@ -17,17 +17,17 @@ const MODEL_CONFIG = {
   response_format: { type: "json_object" as const },
 } as const;
 
-const SYSTEM_PROMPT = `You find YouTube search phrases. Return 2-word phrases viewers actually type into YouTube.
+const SYSTEM_PROMPT = `You find YouTube search phrases for creators. Return 2-word phrases viewers actually type into YouTube.
 
 RULES:
 - Exactly 2 words per phrase
 - No prefixes (how to, best, top, what is)
-- Real searches people type, not academic concepts
-- Return JSON: { "strict": [...], "broad": [...] }`;
+- Real searches people type, not corporate jargon
+- Skip outdated tools or old versions
+- Return JSON: { "strict": [...], "related": [...] }`;
 
 /**
  * GET: Fetch cached phrases or generate new ones
- * POST: Generate new phrases (forces regeneration)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -66,8 +66,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // No cache - generate new phrases
-    const phrases = await generatePhrases(subNiche);
+    // Fetch user's channel data for context
+    const { data: channel } = await supabase
+      .from("channels")
+      .select("niche, niche_summary, monetization_primary")
+      .eq("user_id", userId)
+      .single();
+
+    // No cache - generate new phrases with user context
+    const phrases = await generatePhrases(subNiche, {
+      niche: channel?.niche || "",
+      nicheSummary: channel?.niche_summary || "",
+      monetization: channel?.monetization_primary || "",
+    });
 
     // Save to database
     const { error: insertError } = await supabase
@@ -156,32 +167,51 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Generate up to 100 diverse 2-word seed phrases using GPT
- * ~50 strict (honor both words) + ~50 broad (popular related concepts)
- * With safety rails: stop early if quality drops
+ * Generate up to 40 high-quality seed phrases using GPT
+ * Up to 20 strict + up to 20 related (stops early if reaching)
+ * Personalized with user context
  */
-async function generatePhrases(subNiche: string): Promise<string[]> {
+interface UserContext {
+  niche: string;
+  nicheSummary: string;
+  monetization: string;
+}
+
+async function generatePhrases(subNiche: string, context: UserContext): Promise<string[]> {
   const userPrompt = `Topic: "${subNiche}"
 
-PART 1: STRICT (aim for 50, minimum 20)
-Branch "${subNiche}" into 4-7 directions.
-Each direction must honor BOTH words in the topic.
-Find 7-12 phrases per branch.
+CREATOR CONTEXT:
+- This is a YouTuber, not a corporation
+- Their channel niche: ${context.niche || "YouTube creator"}
+- About them: ${context.nicheSummary || "A content creator making videos"}
+- How they earn: ${context.monetization || "content creation"}
 
-IMPORTANT: Stop adding phrases when you start reaching for obscure topics.
-If the niche is narrow, 20-30 strong phrases beats 50 weak ones.
-Only include phrases viewers actually search on YouTube.
+STEP 1: IDENTIFY ANCHOR WORDS
+Based on the creator context above, identify 2-3 single-word ANCHORS that define this creator.
+Examples for a YouTube thumbnail creator: "youtube", "thumbnail", "video"
+Examples for a cooking channel: "recipe", "cooking", "food"
+These are the core words that keep phrases relevant to the creator.
 
-PART 2: BROAD (aim for 50, minimum 20)
-Find the most popular related concepts and searches.
-These can drift from the exact words but should be relevant.
-Focus on high-volume, trending, or evergreen searches.
+PART 1: STRICT (up to 20 phrases)
+Generate the MOST POPULAR 2-word YouTube search phrases that contain words from "${subNiche}".
+These should be phrases a YouTuber would actually search for.
+Stop early if you're reaching for weak phrases. Quality over quantity.
 
-IMPORTANT: Stop if concepts become too tangential or unpopular.
-Quality matters more than hitting 50.
+PART 2: RELATED (up to 20 phrases)
+Generate 2-word YouTube search phrases this creator would also search for.
+IMPORTANT: Every phrase MUST contain at least one of your anchor words.
+If the topic is "Thumbnail Design", don't return "Edge Blur" - return "Thumbnail Blur" or "YouTube Blur".
+Keep it grounded to the creator's world with anchor words.
 
-Return JSON: { "strict": [...], "broad": [...] }
-Minimum 20 per category. Maximum 50 per category.`;
+RULES:
+- Exactly 2 words per phrase
+- Only popular, high-volume searches
+- Recent and trending (2024-2025)
+- Skip old tool versions (use current names)
+- No generic design/tech terms without an anchor word
+- Stop early if quality drops
+
+Return JSON: { "anchors": [...], "strict": [...], "related": [...] }`;
 
   const completion = await openai.chat.completions.create({
     ...MODEL_CONFIG,
@@ -198,10 +228,10 @@ Minimum 20 per category. Maximum 50 per category.`;
 
   const parsed = JSON.parse(content);
   
-  // Combine strict and broad phrases
+  // Combine strict and related phrases (handle both "broad" and "related" keys for compatibility)
   const strictPhrases = parsed.strict || [];
-  const broadPhrases = parsed.broad || [];
-  const allPhrases = [...strictPhrases, ...broadPhrases];
+  const relatedPhrases = parsed.related || parsed.broad || [];
+  const allPhrases = [...strictPhrases, ...relatedPhrases];
 
   // Validate and clean phrases
   const cleaned = allPhrases
@@ -209,7 +239,24 @@ Minimum 20 per category. Maximum 50 per category.`;
     .map((p: string) => p.toLowerCase().trim())
     .filter((p: string) => {
       const words = p.split(/\s+/);
-      return words.length >= 2 && words.length <= 3; // Allow 2-3 words
+      
+      // Must be 2-3 words
+      if (words.length < 2 || words.length > 3) return false;
+      
+      // Filter out weird compound words (e.g., "facelesssafety", "channelsuccess")
+      // Real phrases have spaces between words
+      const hasWeirdCompound = words.some(word => 
+        word.length > 12 && !word.includes("-")
+      );
+      if (hasWeirdCompound) return false;
+      
+      // Filter out repeated words (e.g., "faceless facelessness")
+      const hasRepeatedRoot = words.length >= 2 && 
+        words[0].length > 4 && 
+        words[1].startsWith(words[0].slice(0, 5));
+      if (hasRepeatedRoot) return false;
+      
+      return true;
     });
 
   // Remove duplicates (no max limit - let GPT decide quantity)
