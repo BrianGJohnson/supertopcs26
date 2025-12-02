@@ -10,6 +10,7 @@ import { IconSeedling } from "@tabler/icons-react";
 import { SeedCard } from "./_components/SeedCard";
 import { Step1Card } from "./_components/Step1Card";
 import { TopicsTable } from "./_components/TopicsTable";
+import { ViewerLandscapeModal } from "@/components/ui/ViewerLandscapeModal";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
 import type { Seed } from "@/types/database";
 
@@ -23,6 +24,10 @@ function SeedPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [isExpanding, setIsExpanding] = useState(false);
+  
+  // ViewerLandscapeModal state
+  const [landscapeModalOpen, setLandscapeModalOpen] = useState(false);
+  const [selectedPhrase, setSelectedPhrase] = useState<string>("");
   
   // Fetch all seeds for the session - SINGLE fetch used by all components
   const fetchSeeds = useCallback(async () => {
@@ -52,6 +57,12 @@ function SeedPageContent() {
   const onPhrasesAdded = useCallback(() => {
     fetchSeeds();
   }, [fetchSeeds]);
+  
+  // Handler for clicking a phrase in the table
+  const handlePhraseClick = useCallback((phrase: string) => {
+    setSelectedPhrase(phrase);
+    setLandscapeModalOpen(true);
+  }, []);
   
   // Derived data for components
   const sourceCounts = {
@@ -93,6 +104,15 @@ function SeedPageContent() {
           seeds={seeds}
           isLoading={isLoading}
           maxRows={15}
+          onPhraseClick={handlePhraseClick}
+        />
+        
+        {/* Viewer Landscape Modal */}
+        <ViewerLandscapeModal
+          isOpen={landscapeModalOpen}
+          onClose={() => setLandscapeModalOpen(false)}
+          seed={selectedPhrase}
+          onPass={() => setLandscapeModalOpen(false)}
         />
 
         {/* Footer */}

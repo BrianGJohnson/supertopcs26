@@ -269,6 +269,74 @@ export function RefinePageContent() {
     }
   }, [sessionId, isScoring, phrases, filterState]);
   
+  // Audience Fit Scoring Handler
+  const handleRunAudienceFitScoring = useCallback(async () => {
+    if (!sessionId || isScoring) return;
+    
+    // Get visible phrase IDs - only score what's currently shown
+    const nonHidden = phrases.filter(p => !p.isRejected && !p.isHidden);
+    const visible = nonHidden.filter(p => {
+      const scores: PhraseScores = { topic: p.topic, fit: p.fit, pop: p.pop, comp: p.comp, spread: p.spread };
+      return phraseMatchesFilter(p.phrase, filterState, scores);
+    });
+    const visibleIds = visible.map(p => p.id);
+    
+    if (visibleIds.length === 0) {
+      console.log("[RefinePageContent] No visible phrases to score");
+      return;
+    }
+    
+    setIsScoring(true);
+    setScoringProgress({ current: 0, total: visibleIds.length });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+    
+    try {
+      console.log(`[RefinePageContent] Starting Audience Fit scoring for ${visibleIds.length} visible phrases`);
+      
+      const response = await fetch(`/api/sessions/${sessionId}/score-audience-fit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seedIds: visibleIds }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      console.log(`[RefinePageContent] Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Audience Fit scoring failed");
+      }
+      
+      const result = await response.json();
+      
+      console.log(`[RefinePageContent] Audience Fit scoring complete:`, result.distribution);
+      
+      // Update local state with new scores
+      const scoreMap = new Map<string, number>();
+      result.results.forEach((r: { seedId: string; score: number }) => {
+        scoreMap.set(r.seedId, r.score);
+      });
+      
+      setPhrases(prev => prev.map(p => ({
+        ...p,
+        fit: scoreMap.get(p.id) ?? p.fit,
+      })));
+      
+      console.log(`[RefinePageContent] Updated ${result.totalScored} phrases with Audience Fit scores`);
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("[RefinePageContent] Audience Fit scoring failed:", error);
+      // TODO: Show error toast
+    } finally {
+      setIsScoring(false);
+      setScoringProgress(undefined);
+    }
+  }, [sessionId, isScoring, phrases, filterState]);
+  
   const handleAutoPick = useCallback(() => {
     // TODO: Implement auto-pick logic
     console.log("Auto-Pick clicked");
@@ -399,6 +467,19 @@ export function RefinePageContent() {
   const starredCount = starredPhrases.length;
   const canContinue = starredCount >= 10; // Require at least 10 starred phrases
   
+  // Check if Topic Strength scoring is complete for all visible phrases
+  // A. Fit only becomes available when ALL visible phrases have topic scores
+  const topicStrengthComplete = useMemo(() => {
+    if (visiblePhrases.length === 0) return false;
+    return visiblePhrases.every(p => p.topic !== null);
+  }, [visiblePhrases]);
+  
+  // Check if Audience Fit scoring is complete (for P&C - future)
+  const audienceFitComplete = useMemo(() => {
+    if (visiblePhrases.length === 0) return false;
+    return visiblePhrases.every(p => p.fit !== null);
+  }, [visiblePhrases]);
+  
   // Build score data for threshold calculation
   const scoreData = useMemo(() => {
     const data = {
@@ -502,12 +583,15 @@ export function RefinePageContent() {
           starredCount={starredCount}
           sessionName={sessionName}
           onRunTopicScoring={handleRunTopicScoring}
+          onRunFitScoring={handleRunAudienceFitScoring}
           onAutoPick={handleAutoPick}
           onContinue={handleContinue}
           onJumpToTitle={handleJumpToTitle}
           canContinue={canContinue}
           isScoring={isScoring}
           scoringProgress={scoringProgress}
+          topicStrengthComplete={topicStrengthComplete}
+          audienceFitComplete={audienceFitComplete}
         />
       </div>
       

@@ -20,6 +20,9 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { authFetch } from "@/lib/supabase";
+import { createSession } from "@/hooks/useSessions";
+import { addSeeds } from "@/hooks/useSeedPhrases";
+import { ViewerLandscapeModal } from "@/components/ui/ViewerLandscapeModal";
 
 /**
  * Step 1: Target - Pillar Selection
@@ -69,6 +72,10 @@ export default function TargetPage() {
   const [usedPhrases, setUsedPhrases] = useState<string[]>([]);
   const [isLoadingPhrases, setIsLoadingPhrases] = useState(false);
   const [phraseIndex, setPhraseIndex] = useState(0);
+  
+  // Viewer Landscape modal state
+  const [landscapeModalOpen, setLandscapeModalOpen] = useState(false);
+  const [selectedPhrase, setSelectedPhrase] = useState<string | null>(null);
 
   // Fetch pillar strategy from the user's channel data
   useEffect(() => {
@@ -147,8 +154,14 @@ export default function TargetPage() {
     }
   };
 
-  // Select a phrase and navigate to seed
-  const handleSelectPhrase = async (phrase: string) => {
+  // Select a phrase - open Viewer Landscape modal for analysis
+  const handleSelectPhrase = (phrase: string) => {
+    setSelectedPhrase(phrase);
+    setLandscapeModalOpen(true);
+  };
+
+  // Create session after user confirms in Viewer Landscape modal
+  const handleCreateSessionFromLandscape = async (phrase: string) => {
     // Mark phrase as used
     if (selectedPillar && selectedSubNiche) {
       try {
@@ -166,16 +179,57 @@ export default function TargetPage() {
       }
     }
     
-    // Navigate to seed page
-    const encodedSeed = encodeURIComponent(phrase);
-    router.push(`/members/build/seed?seed=${encodedSeed}&pillar=${selectedPillar}`);
+    // Create a new session with the phrase as the name
+    try {
+      const newSession = await createSession(phrase, phrase);
+      
+      // Save the seed phrase to seeds table
+      await addSeeds(newSession.id, [
+        {
+          phrase: phrase,
+          generationMethod: "seed",
+        },
+      ]);
+      
+      // Navigate to seed page with session_id
+      router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodeURIComponent(phrase)}&pillar=${selectedPillar}`);
+    } catch (err) {
+      console.error("Error creating session:", err);
+      // Fallback: navigate without session (existing behavior, though it won't work properly)
+      const encodedSeed = encodeURIComponent(phrase);
+      router.push(`/members/build/seed?seed=${encodedSeed}&pillar=${selectedPillar}`);
+    }
+  };
+
+  // Handle "Pass" in landscape modal - close and go back to phrase list
+  const handlePassPhrase = () => {
+    setLandscapeModalOpen(false);
+    setSelectedPhrase(null);
   };
 
   // Navigate to seed page with optional pre-filled seed (legacy - now uses modal)
-  const handleSelectSubNiche = (subNiche: string) => {
-    // Encode the sub-niche for URL
-    const encodedSeed = encodeURIComponent(subNiche.toLowerCase());
-    router.push(`/members/build/seed?seed=${encodedSeed}&pillar=${selectedPillar}`);
+  const handleSelectSubNiche = async (subNiche: string) => {
+    // Create a new session with the sub-niche as the name
+    try {
+      const newSession = await createSession(subNiche, subNiche);
+      
+      // Save the seed phrase to seeds table
+      await addSeeds(newSession.id, [
+        {
+          phrase: subNiche,
+          generationMethod: "seed",
+        },
+      ]);
+      
+      // Encode the sub-niche for URL
+      const encodedSeed = encodeURIComponent(subNiche.toLowerCase());
+      router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodedSeed}&pillar=${selectedPillar}`);
+    } catch (err) {
+      console.error("Error creating session:", err);
+      // Fallback
+      const encodedSeed = encodeURIComponent(subNiche.toLowerCase());
+      router.push(`/members/build/seed?seed=${encodedSeed}&pillar=${selectedPillar}`);
+    }
   };
 
   // Skip to seed page with no pre-fill
@@ -386,6 +440,17 @@ export default function TargetPage() {
                 )}
               </div>
             </Modal>
+
+            {/* Viewer Landscape Modal - shows when phrase is clicked */}
+            {selectedPhrase && (
+              <ViewerLandscapeModal
+                isOpen={landscapeModalOpen}
+                onClose={handlePassPhrase}
+                seed={selectedPhrase}
+                onCreateSession={handleCreateSessionFromLandscape}
+                onPass={handlePassPhrase}
+              />
+            )}
 
             {/* Back + Own Idea buttons */}
             <div className="flex flex-col items-center gap-4 pt-4">

@@ -38,9 +38,10 @@ interface TopicsTableProps {
   seeds: Seed[];
   isLoading: boolean;
   maxRows?: number;
+  onPhraseClick?: (phrase: string) => void;
 }
 
-export function TopicsTable({ seeds, isLoading, maxRows = 15 }: TopicsTableProps) {
+export function TopicsTable({ seeds, isLoading, maxRows = 15, onPhraseClick }: TopicsTableProps) {
   // Track which seed IDs we've already shown (for animation purposes)
   const shownSeedIds = useRef<Set<string>>(new Set());
   
@@ -88,7 +89,8 @@ export function TopicsTable({ seeds, isLoading, maxRows = 15 }: TopicsTableProps
               return (
                 <tr 
                   key={seed.id} 
-                  className={`hover:bg-white/[0.04] transition-colors group ${isNew ? "animate-in fade-in duration-300" : ""}`}
+                  className={`hover:bg-white/[0.04] transition-colors group cursor-pointer ${isNew ? "animate-in fade-in duration-300" : ""}`}
+                  onClick={() => onPhraseClick?.(seed.phrase)}
                 >
                   <td className="px-8 py-5 text-white/[0.86] group-hover:text-white transition-colors">
                     {toTitleCase(seed.phrase)}

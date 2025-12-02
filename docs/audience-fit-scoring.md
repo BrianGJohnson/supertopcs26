@@ -409,13 +409,15 @@ This rewards phrases containing words the creator frequently uses in their video
 
 ---
 
-## Files (Planned)
+## Files (Implemented)
 
 | File | Purpose |
 |------|---------|
-| `/src/lib/audience-fit-scoring.ts` | GPT integration, prompt building |
+| `/src/lib/audience-fit-scoring.ts` | GPT integration, prompt building, 7 content archetypes |
 | `/src/app/api/sessions/[sessionId]/score-audience-fit/route.ts` | API endpoint |
-| `/src/app/members/build/refine/_components/ActionToolbar.tsx` | UI trigger |
+| `/src/app/members/build/refine/_components/ActionToolbar.tsx` | UI trigger (enabled when Topic Strength complete) |
+| `/src/app/members/build/refine/_components/RefinePageContent.tsx` | Scoring handler, completion tracking |
+| `/supabase/migrations/20241202_add_audience_fit_column.sql` | Database migration |
 | `/docs/audience-fit-scoring.md` | This documentation |
 
 ---
@@ -449,3 +451,4 @@ The phrase's inherent quality doesn't change. Its fit for a specific audience do
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1 (Draft) | 2025-11-30 | Initial documentation |
+| 1.0 | 2025-12-02 | Full implementation - lib, API, UI integration |

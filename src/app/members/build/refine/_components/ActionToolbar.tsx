@@ -23,6 +23,10 @@ interface ActionToolbarProps {
   canContinue: boolean;
   isScoring?: boolean;
   scoringProgress?: { current: number; total: number };
+  // Topic Strength completion status - enables A. Fit
+  topicStrengthComplete?: boolean;
+  // Audience Fit completion status - enables P&C (future)
+  audienceFitComplete?: boolean;
 }
 
 type AnalysisOption = {
@@ -48,6 +52,8 @@ export function ActionToolbar({
   canContinue,
   isScoring = false,
   scoringProgress,
+  topicStrengthComplete = false,
+  audienceFitComplete = false,
 }: ActionToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -215,7 +221,7 @@ export function ActionToolbar({
       label: "2. A. Fit",
       tokenCost: 100,
       icon: <IconUsers className="w-4 h-4" />,
-      enabled: false,
+      enabled: topicStrengthComplete && !!onRunFitScoring,
       action: () => {
         onRunFitScoring?.();
         setIsDropdownOpen(false);
@@ -226,7 +232,7 @@ export function ActionToolbar({
       label: "3. P & C",
       tokenCost: 100,
       icon: <IconFlame className="w-4 h-4" />,
-      enabled: false,
+      enabled: audienceFitComplete && !!onRunPnCScoring,
       action: () => {
         onRunPnCScoring?.();
         setIsDropdownOpen(false);

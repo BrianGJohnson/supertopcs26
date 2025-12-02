@@ -6,6 +6,7 @@ import { IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@table
 import { createSession, listSessions, getSessionById } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { Modal, ModalButton } from "@/components/ui/Modal";
+import { ViewerLandscapeModal } from "@/components/ui/ViewerLandscapeModal";
 import type { Session } from "@/types/database";
 
 interface SessionMenuProps {
@@ -23,8 +24,32 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [seedPhraseInput, setSeedPhraseInput] = useState("");
+  const [isLandscapeModalOpen, setIsLandscapeModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-open landscape modal after user stops typing (debounced)
+  useEffect(() => {
+    // Clear previous timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Only trigger if input modal is open and has enough text
+    if (isNewSessionModalOpen && seedPhraseInput.trim().length >= 3) {
+      debounceRef.current = setTimeout(() => {
+        setIsNewSessionModalOpen(false);
+        setIsLandscapeModalOpen(true);
+      }, 2000); // 2 second debounce - gives time to finish typing
+    }
+    
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [seedPhraseInput, isNewSessionModalOpen]);
 
   // Fetch current session on mount or when session_id changes
   useEffect(() => {
@@ -60,12 +85,11 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
     setIsNewSessionModalOpen(true);
   };
 
-  const handleCreateSession = async () => {
-    if (!seedPhraseInput.trim()) return;
-    
+  // Called from ViewerLandscapeModal when user confirms they want to create
+  const handleCreateSession = async (seed: string) => {
     setIsCreating(true);
     try {
-      const name = seedPhraseInput.trim();
+      const name = seed.trim();
       const newSession = await createSession(name, name);
       
       // Save the seed phrase to seeds table
@@ -78,7 +102,7 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
       
       // Redirect with seed param for autofill
       router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodeURIComponent(name)}`);
-      setIsNewSessionModalOpen(false);
+      setIsLandscapeModalOpen(false);
       setSeedPhraseInput("");
     } catch (error) {
       // Handle both Error objects and Supabase error objects
@@ -94,6 +118,12 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  // Called when user clicks "Pass" in the landscape modal - go back to input
+  const handlePassOnSeed = () => {
+    setIsLandscapeModalOpen(false);
+    setIsNewSessionModalOpen(true);
   };
 
   const handleSwitchSessionClick = async (e: React.MouseEvent) => {
@@ -223,7 +253,7 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
         </div>
       )}
 
-      {/* New Session Modal */}
+      {/* New Session Modal - type phrase, auto-opens landscape modal */}
       <Modal
         isOpen={isNewSessionModalOpen}
         onClose={() => {
@@ -231,25 +261,6 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
           setSeedPhraseInput("");
         }}
         title="Create New Session"
-        footer={
-          <>
-            <ModalButton
-              variant="secondary"
-              onClick={() => {
-                setIsNewSessionModalOpen(false);
-                setSeedPhraseInput("");
-              }}
-            >
-              Cancel
-            </ModalButton>
-            <ModalButton
-              variant="primary"
-              onClick={handleCreateSession}
-            >
-              {isCreating ? "Creating..." : "+ Create Session"}
-            </ModalButton>
-          </>
-        }
       >
         <div className="space-y-4">
           <p className="text-white/60 text-[1.125rem] leading-relaxed">
@@ -259,17 +270,36 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
             type="text"
             value={seedPhraseInput}
             onChange={(e) => setSeedPhraseInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && seedPhraseInput.trim()) {
-                handleCreateSession();
-              }
-            }}
             placeholder="Enter seed phrase..."
             className="w-full px-4 py-3 bg-white/10 border border-white/10 rounded-lg text-base text-white placeholder-white/30 focus:outline-none focus:border-[#6B9BD1]/50 focus:ring-1 focus:ring-[#6B9BD1]/30 transition-all"
             autoFocus
           />
+          {seedPhraseInput.trim().length > 0 && seedPhraseInput.trim().length < 3 && (
+            <p className="text-white/40 text-sm">Type at least 3 characters...</p>
+          )}
+          {seedPhraseInput.trim().length >= 3 && (
+            <div className="flex items-center gap-2 text-white/40 text-sm">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Analyzing demand...</span>
+            </div>
+          )}
         </div>
       </Modal>
+
+      {/* Viewer Landscape Modal - shows analysis and Create/Pass options */}
+      <ViewerLandscapeModal
+        isOpen={isLandscapeModalOpen}
+        onClose={() => {
+          setIsLandscapeModalOpen(false);
+          setSeedPhraseInput("");
+        }}
+        seed={seedPhraseInput}
+        onCreateSession={handleCreateSession}
+        onPass={handlePassOnSeed}
+      />
     </div>
   );
 }
