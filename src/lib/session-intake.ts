@@ -10,6 +10,14 @@ import { runDataIntake } from '@/lib/data-intake';
 import type { IntakeStats } from '@/types/database';
 
 /**
+ * Top 9 phrase with position for demand scoring
+ */
+interface Top9Phrase {
+  phrase: string;
+  position: number;
+}
+
+/**
  * Run Data Intake for a session and save to database
  * Called when user clicks "Proceed to Refine" on Page 1
  */
@@ -28,23 +36,32 @@ export async function runAndSaveDataIntake(sessionId: string): Promise<IntakeSta
   // 2. Get all phrases for this session
   const { data: seeds, error: seedsError } = await supabase
     .from('seeds')
-    .select('phrase')
+    .select('phrase, generation_method, position')
     .eq('session_id', sessionId);
   
   if (seedsError) {
     throw new Error('Failed to fetch phrases: ' + seedsError.message);
   }
   
-  const phrases = (seeds || []).map(s => s.phrase);
+  const allSeeds = seeds || [];
+  const phrases = allSeeds.map(s => s.phrase);
   
   if (phrases.length === 0) {
     throw new Error('No phrases found for session');
   }
   
-  // 3. Run Data Intake algorithm
-  const intakeStats = runDataIntake(phrases, session.seed_phrase);
+  // 3. Extract Top 9 phrases with their positions (for demand scoring)
+  const top9Phrases: Top9Phrase[] = allSeeds
+    .filter(s => s.generation_method === 'top10' && s.position !== null && s.position < 9)
+    .map(s => ({ phrase: s.phrase, position: s.position as number }))
+    .sort((a, b) => a.position - b.position);
   
-  // 4. Save to database
+  console.log(`[SessionIntake] Found ${top9Phrases.length} Top 9 phrases for demand scoring`);
+  
+  // 4. Run Data Intake algorithm with Top 9 data
+  const intakeStats = runDataIntake(phrases, session.seed_phrase, top9Phrases);
+  
+  // 5. Save to database
   const { error: updateError } = await supabase
     .from('sessions')
     .update({

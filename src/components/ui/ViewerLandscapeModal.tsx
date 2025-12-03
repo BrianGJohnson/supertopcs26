@@ -129,7 +129,7 @@ export function ViewerLandscapeModal({
       />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-3xl mx-4 bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative z-10 w-full max-w-3xl mx-4 max-h-[90vh] bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -138,8 +138,8 @@ export function ViewerLandscapeModal({
           <IconX size={24} />
         </button>
 
-        {/* Content */}
-        <div className="px-10 py-10">
+        {/* Content - scrollable */}
+        <div className="px-10 py-10 overflow-y-auto flex-1">
           {/* Loading state */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-16">

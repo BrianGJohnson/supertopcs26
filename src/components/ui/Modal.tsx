@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useCallback, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { IconX } from "@tabler/icons-react";
 
 interface ModalProps {
@@ -34,7 +35,9 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
 
   if (!isOpen) return null;
 
-  return (
+  // Use portal to render modal at document body level
+  // This escapes any parent stacking contexts (z-index issues)
+  const modalContent = (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center">
       {/* Backdrop */}
       <div
@@ -69,6 +72,13 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
       </div>
     </div>
   );
+
+  // Render to body using portal to escape stacking contexts
+  if (typeof document !== "undefined") {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 }
 
 // Reusable button styles for modal footers

@@ -62,29 +62,43 @@ export function normalizePhrase(text: string): string {
 
 /**
  * Parse YouTube autocomplete response (handles JSON and JSONP formats)
+ * Returns array of suggestion strings (extracts text from nested arrays)
  */
 export function parseAutocompleteResponse(text: string): string[] {
+  let jsonData: unknown = null;
+  
   // Attempt 1: Parse as pure JSON
   try {
-    const jsonData = JSON.parse(text);
-    if (Array.isArray(jsonData) && jsonData.length > 1 && Array.isArray(jsonData[1])) {
-      return jsonData[1];
-    }
+    jsonData = JSON.parse(text);
   } catch {
     // Not valid JSON, try JSONP extraction
   }
 
   // Attempt 2: Extract JSON from JSONP wrapper
-  const match = text.match(/\[[\s\S]*\]/);
-  if (match) {
-    try {
-      const jsonData = JSON.parse(`[${match[1]}]`);
-      if (Array.isArray(jsonData) && jsonData.length > 1 && Array.isArray(jsonData[1])) {
-        return jsonData[1];
+  if (!jsonData) {
+    const match = text.match(/\[[\s\S]*\]/);
+    if (match) {
+      try {
+        jsonData = JSON.parse(match[0]);
+      } catch {
+        // Parsing failed
       }
-    } catch {
-      // Parsing failed
     }
+  }
+
+  // Extract suggestion strings from parsed data
+  // Structure: [query, [[suggestion1, 0, [...]], [suggestion2, 0, [...]], ...], {...}]
+  if (Array.isArray(jsonData) && jsonData.length > 1 && Array.isArray(jsonData[1])) {
+    const suggestions: string[] = [];
+    for (const item of jsonData[1]) {
+      // Each item is [text, 0, [...]] or just a string
+      if (Array.isArray(item) && typeof item[0] === 'string') {
+        suggestions.push(item[0]);
+      } else if (typeof item === 'string') {
+        suggestions.push(item);
+      }
+    }
+    return suggestions;
   }
 
   return [];

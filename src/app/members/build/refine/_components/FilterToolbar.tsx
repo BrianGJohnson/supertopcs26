@@ -53,10 +53,10 @@ const SCORE_METRIC_OPTIONS: { id: ScoreMetric; label: string; shortLabel: string
 ];
 
 const LENGTH_OPTIONS: { id: LengthFilter; label: string; range: string }[] = [
-  { id: "short", label: "Short", range: "1-2 words" },
-  { id: "medium", label: "Medium", range: "3-6 words" },
-  { id: "long", label: "Long", range: "7-9 words" },
-  { id: "extraLong", label: "Extra Long", range: "10+ words" },
+  { id: "short", label: "Single", range: "1 word" },
+  { id: "medium", label: "Short", range: "2-5 words" },
+  { id: "long", label: "Medium", range: "6-9 words" },
+  { id: "extraLong", label: "Long", range: "10+ words" },
 ];
 
 const LANGUAGE_OPTIONS: { id: LanguageFilter; label: string }[] = [
@@ -404,10 +404,10 @@ export function getWordCount(phrase: string): number {
 }
 
 export function getLengthCategory(wordCount: number): LengthFilter {
-  if (wordCount <= 2) return "short";
-  if (wordCount <= 6) return "medium";
-  if (wordCount <= 9) return "long";
-  return "extraLong";
+  if (wordCount <= 1) return "short";      // Single: 1 word
+  if (wordCount <= 5) return "medium";     // Short: 2-5 words
+  if (wordCount <= 9) return "long";       // Medium: 6-9 words
+  return "extraLong";                      // Long: 10+ words
 }
 
 // Language detection patterns
@@ -475,11 +475,18 @@ export function phraseMatchesFilter(
     return false;
   }
   
-  // Check search query
+  // Check search query - WORD-BASED search
+  // Each word in the query must appear somewhere in the phrase
+  // This allows searching for "favor" to find "what does youtube algorithm favor"
   if (filterState.searchQuery) {
-    const query = filterState.searchQuery.toLowerCase();
-    if (!phrase.toLowerCase().includes(query)) {
-      return false;
+    const normalizedPhrase = phrase.toLowerCase().trim();
+    const queryWords = filterState.searchQuery.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+    
+    // Every word in the query must be found in the phrase
+    for (const word of queryWords) {
+      if (!normalizedPhrase.includes(word)) {
+        return false;
+      }
     }
   }
   

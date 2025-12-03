@@ -8,7 +8,8 @@ import { ActionToolbar } from "./ActionToolbar";
 import { JumpToTitleModal } from "./JumpToTitleModal";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
 import { supabase } from "@/lib/supabase";
-import type { Seed } from "@/types/database";
+import { calculateFullDemandScore } from "@/lib/data-intake";
+import type { Seed, IntakeStats } from "@/types/database";
 
 // =============================================================================
 // TYPES
@@ -41,7 +42,11 @@ interface RefinePhrase {
 // HELPERS
 // =============================================================================
 
-function mapSeedToRefinePhrase(seed: Seed, analysis?: SeedAnalysis): RefinePhrase {
+function mapSeedToRefinePhrase(
+  seed: Seed, 
+  analysis?: SeedAnalysis, 
+  intakeStats?: IntakeStats | null
+): RefinePhrase {
   // Map generation_method to source type
   const sourceMap: Record<string, RefinePhrase["source"]> = {
     seed: "seed",
@@ -51,16 +56,24 @@ function mapSeedToRefinePhrase(seed: Seed, analysis?: SeedAnalysis): RefinePhras
     prefix: "prefix",
   };
   
+  const source = sourceMap[seed.generation_method || "seed"] || "seed";
+  
+  // Calculate demand score if we have intake stats
+  let demandScore: number | null = null;
+  if (intakeStats) {
+    demandScore = calculateFullDemandScore(seed.phrase, source, intakeStats);
+  }
+  
   // Calculate spread (if we have all scores)
   let spread: number | null = null;
   if (analysis?.topic_strength != null && 
       analysis?.audience_fit != null && 
-      analysis?.popularity != null && 
+      demandScore != null && 
       analysis?.competition != null) {
     const scores = [
       analysis.topic_strength,
       analysis.audience_fit,
-      analysis.popularity,
+      demandScore,
       analysis.competition,
     ];
     spread = Math.max(...scores) - Math.min(...scores);
@@ -69,10 +82,10 @@ function mapSeedToRefinePhrase(seed: Seed, analysis?: SeedAnalysis): RefinePhras
   return {
     id: seed.id,
     phrase: seed.phrase,
-    source: sourceMap[seed.generation_method || "seed"] || "seed",
+    source,
     topic: analysis?.topic_strength ?? null,
     fit: analysis?.audience_fit ?? null,
-    pop: analysis?.popularity ?? null,
+    pop: demandScore,  // Now calculated from demand algorithm
     comp: analysis?.competition ?? null,
     spread,
     isStarred: seed.is_selected || false,
@@ -92,6 +105,7 @@ export function RefinePageContent() {
   
   // State
   const [phrases, setPhrases] = useState<RefinePhrase[]>([]);
+  const [intakeStats, setIntakeStats] = useState<IntakeStats | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isScoring, setIsScoring] = useState(false);
@@ -102,7 +116,7 @@ export function RefinePageContent() {
   // Filter state with defaults: Medium + Long, English only, Topic metric
   // scoreThreshold starts at 0 and will be auto-set when scores load
   const [filterState, setFilterState] = useState<FilterState>({
-    lengths: new Set(["medium", "long"]),
+    lengths: new Set(["medium", "long"]),  // "Short" (2-5) and "Medium" (6-9) labels
     language: "english",
     searchQuery: "",
     scoreMetric: "topic",
@@ -124,15 +138,23 @@ export function RefinePageContent() {
     }
     
     try {
-      // Fetch session name
+      // Fetch session name and intake_stats
       const { data: session } = await supabase
         .from("sessions")
-        .select("name")
+        .select("name, intake_stats")
         .eq("id", sessionId)
         .single();
       
       if (session?.name) {
         setSessionName(session.name);
+      }
+      
+      // Store intake stats for demand scoring
+      const loadedIntakeStats = session?.intake_stats as IntakeStats | null;
+      setIntakeStats(loadedIntakeStats);
+      
+      if (loadedIntakeStats?.top9Demand) {
+        console.log(`[RefinePageContent] Loaded intake stats with ${loadedIntakeStats.top9Demand.phrases?.length ?? 0} Top 9 phrases`);
       }
       
       // Fetch seeds
@@ -149,10 +171,19 @@ export function RefinePageContent() {
       const analysisMap = new Map<string, SeedAnalysis>();
       analyses?.forEach(a => analysisMap.set(a.seed_id, a));
       
-      // Map seeds to RefinePhrase with analysis
+      // Map seeds to RefinePhrase with analysis AND intake stats for demand scoring
       const refinePhrases = seeds.map(seed => 
-        mapSeedToRefinePhrase(seed, analysisMap.get(seed.id))
+        mapSeedToRefinePhrase(seed, analysisMap.get(seed.id), loadedIntakeStats)
       );
+      
+      // Log demand score distribution
+      const demandScores = refinePhrases.map(p => p.pop).filter((p): p is number => p !== null);
+      if (demandScores.length > 0) {
+        const min = Math.min(...demandScores);
+        const max = Math.max(...demandScores);
+        const avg = Math.round(demandScores.reduce((a, b) => a + b, 0) / demandScores.length);
+        console.log(`[RefinePageContent] Demand scores: min=${min}, max=${max}, avg=${avg}, count=${demandScores.length}`);
+      }
       
       setPhrases(refinePhrases);
     } catch (error) {
@@ -481,6 +512,8 @@ export function RefinePageContent() {
   }, [visiblePhrases]);
   
   // Build score data for threshold calculation
+  // Build score data for percentile-based color coding
+  // IMPORTANT: Use ALL phrases (including rejected/hidden) so colors stay stable
   const scoreData = useMemo(() => {
     const data = {
       topic: [] as number[],
@@ -489,15 +522,21 @@ export function RefinePageContent() {
       comp: [] as number[],
       spread: [] as number[],
     };
-    nonHiddenPhrases.forEach(p => {
+    // Use ALL phrases, not just nonHiddenPhrases, so color coding is stable
+    phrases.forEach(p => {
       if (p.topic !== null) data.topic.push(p.topic);
       if (p.fit !== null) data.fit.push(p.fit);
       if (p.pop !== null) data.pop.push(p.pop);
       if (p.comp !== null) data.comp.push(p.comp);
       if (p.spread !== null) data.spread.push(p.spread);
     });
+    console.log('[RefinePageContent] scoreData from ALL phrases:', {
+      totalPhrases: phrases.length,
+      topicScores: data.topic.length,
+      topicRange: data.topic.length > 0 ? `${Math.min(...data.topic)}-${Math.max(...data.topic)}` : 'N/A',
+    });
     return data;
-  }, [nonHiddenPhrases]);
+  }, [phrases]);
   
   // Auto-set threshold (53%) and preset button (58%) ONCE when scores become available
   // After this, we never touch these values again - user is in control
@@ -599,6 +638,7 @@ export function RefinePageContent() {
       <div className="pt-8">
         <RefineTable
           phrases={visiblePhrases}
+          allScores={scoreData}
           onToggleStar={handleToggleStar}
           onToggleReject={handleToggleReject}
           onToggleSelect={handleToggleSelect}

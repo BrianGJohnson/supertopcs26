@@ -408,7 +408,35 @@ export interface IntakeStats {
   prefixPercentiles: Record<string, number>;
   suffixPercentiles: Record<string, number>;
   
+  // TOP 9 DEMAND SCORING
+  // Position-weighted demand signals from Top 9 autocomplete results
+  // Now includes session-wide frequency analysis
+  top9Demand?: {
+    // The Top 9 phrases in position order (index 0 = position 1)
+    phrases: string[];
+    // Position weights: [1.00, 0.60, 0.50, 0.40, 0.35, 0.32, 0.28, 0.25, 0.22]
+    positionWeights: number[];
+    // Anchor words that appear multiple times in Top 9, with their bonus
+    // e.g., { "2025": 6, "explained": 3 } (count * 3 = bonus points)
+    anchorBonuses: Record<string, number>;
+    // Pre-calculated demand scores for each phrase in the session
+    // Key is normalized phrase, value is 0-100 demand score
+    phraseScores: Record<string, number>;
+    // Session-wide bigram percentiles (excluding seed-only bigrams)
+    bigramPercentiles: Record<string, number>;
+    // Session-wide word percentiles (excluding seed words and fillers)
+    wordPercentiles: Record<string, number>;
+    // Two-word starter frequency: "how to" -> 22
+    twoWordStarters: Record<string, number>;
+    // Single-word starter frequency: "how" -> 38
+    oneWordStarters: Record<string, number>;
+    // Max frequencies for scaling
+    maxTwoWordFreq: number;
+    maxOneWordFreq: number;
+  };
+  
   // Metadata
+  seedPhrase: string;  // The original seed phrase (for anchor exclusion)
   totalPhrases: number;
   uniqueWords: number;
   processedAt: string;

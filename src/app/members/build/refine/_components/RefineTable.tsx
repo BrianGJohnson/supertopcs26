@@ -30,14 +30,36 @@ interface RefinePhrase {
 type SortColumn = "phrase" | "source" | "topic" | "fit" | "pop" | "comp" | "spread" | "starred";
 type SortDirection = "asc" | "desc";
 
+// All scores from the session for percentile calculation (not just visible phrases)
+interface AllScores {
+  topic: number[];
+  fit: number[];
+  pop: number[];
+  comp: number[];
+  spread: number[];
+}
+
 interface RefineTableProps {
   phrases: RefinePhrase[];
+  allScores: AllScores; // Used for percentile-based color coding
   onToggleStar: (id: string) => void;
   onToggleReject: (id: string) => void;
   onToggleSelect: (id: string) => void;
   selectedIds: Set<string>;
   starredCount: number;
 }
+
+// =============================================================================
+// SOURCE ORDER (for sorting by source column)
+// =============================================================================
+
+const SOURCE_ORDER: Record<string, number> = {
+  seed: 1,
+  top10: 2,
+  child: 3,
+  az: 4,
+  prefix: 5,
+};
 
 // =============================================================================
 // SOURCE PILL STYLES
@@ -72,30 +94,91 @@ const SOURCE_STYLES: Record<string, { label: string; textColor: string; borderCo
 };
 
 // =============================================================================
-// SCORE COLOR HELPER
+// PERCENTILE-BASED SCORE COLOR SYSTEM
 // =============================================================================
+// Colors are assigned based on where a score ranks within the session
+// Top 10% = Dark Green, 10-25% = Lime, 25-35% = Yellow-Green, 35-65% = Orange, Bottom 35% = Red
 
-function getScoreColor(score: number | null, inverted: boolean = false): string {
-  if (score === null) return "text-white/30";
+const SCORE_COLORS = {
+  darkGreen: "text-[#4DD68A]",   // Top 10% - Elite
+  lime: "text-[#A3E635]",        // 10-25% - Strong
+  yellowGreen: "text-[#CDDC39]", // 25-35% - Good
+  orange: "text-[#FB923C]",      // 35-65% - Moderate
+  red: "text-[#F87171]",         // Bottom 35% - Weak
+  null: "text-white/30",
+};
+
+/**
+ * Calculate percentile thresholds for a set of scores
+ * Returns the score values at each percentile boundary
+ */
+function calculatePercentileThresholds(
+  scores: number[],
+  inverted: boolean = false
+): { p10: number; p25: number; p35: number; p65: number } {
+  if (scores.length === 0) {
+    return { p10: 0, p25: 0, p35: 0, p65: 0 };
+  }
   
-  // For competition, lower is better (inverted)
-  const effectiveScore = inverted ? 100 - score : score;
+  // Sort: for normal scores, highest first; for inverted, lowest first
+  const sorted = [...scores].sort((a, b) => inverted ? a - b : b - a);
   
-  if (effectiveScore >= 80) return "text-[#4DD68A]"; // Green
-  if (effectiveScore >= 60) return "text-[#A3E635]"; // Lime
-  if (effectiveScore >= 40) return "text-[#FACC15]"; // Yellow
-  if (effectiveScore >= 20) return "text-[#FB923C]"; // Orange
-  return "text-[#F87171]"; // Red
+  // Calculate index for each percentile (0-indexed)
+  const getValueAtPercentile = (percentile: number) => {
+    const index = Math.floor((percentile / 100) * sorted.length);
+    return sorted[Math.min(index, sorted.length - 1)];
+  };
+  
+  return {
+    p10: getValueAtPercentile(10),
+    p25: getValueAtPercentile(25),
+    p35: getValueAtPercentile(35),
+    p65: getValueAtPercentile(65),
+  };
 }
 
-function getSpreadColor(spread: number | null): string {
-  if (spread === null) return "text-white/30";
+/**
+ * Get color for a score based on its percentile rank within the session
+ */
+function getScoreColorByPercentile(
+  score: number | null,
+  thresholds: { p10: number; p25: number; p35: number; p65: number },
+  inverted: boolean = false
+): string {
+  if (score === null) return SCORE_COLORS.null;
   
-  if (spread >= 30) return "text-[#4DD68A]"; // Green - great opportunity
-  if (spread >= 15) return "text-[#A3E635]"; // Lime
-  if (spread >= 0) return "text-[#FACC15]"; // Yellow
-  if (spread >= -15) return "text-[#FB923C]"; // Orange
-  return "text-[#F87171]"; // Red - bad spread
+  if (inverted) {
+    // For inverted (competition): lower scores are better
+    if (score <= thresholds.p10) return SCORE_COLORS.darkGreen;
+    if (score <= thresholds.p25) return SCORE_COLORS.lime;
+    if (score <= thresholds.p35) return SCORE_COLORS.yellowGreen;
+    if (score <= thresholds.p65) return SCORE_COLORS.orange;
+    return SCORE_COLORS.red;
+  } else {
+    // For normal scores: higher scores are better
+    if (score >= thresholds.p10) return SCORE_COLORS.darkGreen;
+    if (score >= thresholds.p25) return SCORE_COLORS.lime;
+    if (score >= thresholds.p35) return SCORE_COLORS.yellowGreen;
+    if (score >= thresholds.p65) return SCORE_COLORS.orange;
+    return SCORE_COLORS.red;
+  }
+}
+
+/**
+ * Get color for spread based on percentile
+ */
+function getSpreadColorByPercentile(
+  spread: number | null,
+  thresholds: { p10: number; p25: number; p35: number; p65: number }
+): string {
+  if (spread === null) return SCORE_COLORS.null;
+  
+  // Higher spread is better
+  if (spread >= thresholds.p10) return SCORE_COLORS.darkGreen;
+  if (spread >= thresholds.p25) return SCORE_COLORS.lime;
+  if (spread >= thresholds.p35) return SCORE_COLORS.yellowGreen;
+  if (spread >= thresholds.p65) return SCORE_COLORS.orange;
+  return SCORE_COLORS.red;
 }
 
 // =============================================================================
@@ -104,15 +187,45 @@ function getSpreadColor(spread: number | null): string {
 
 export function RefineTable({
   phrases,
+  allScores,
   onToggleStar,
   onToggleReject,
   onToggleSelect,
   selectedIds,
   starredCount,
 }: RefineTableProps) {
-  const [sortColumn, setSortColumn] = useState<SortColumn>("phrase");
+  // Default sort by source (ascending = seed first, then top10, child, az, prefix)
+  const [sortColumn, setSortColumn] = useState<SortColumn>("source");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Calculate percentile thresholds from ALL session scores (not just visible)
+  // This ensures color-coding is consistent regardless of filtering/hiding
+  const scoreThresholds = useMemo(() => {
+    const thresholds = {
+      topic: calculatePercentileThresholds(allScores.topic, false),
+      fit: calculatePercentileThresholds(allScores.fit, false),
+      pop: calculatePercentileThresholds(allScores.pop, false),
+      comp: calculatePercentileThresholds(allScores.comp, true), // Inverted: lower is better
+      spread: calculatePercentileThresholds(allScores.spread, false),
+    };
+    
+    // DEBUG: Log thresholds to understand the distribution
+    console.log('[RefineTable] Score Thresholds (from ALL phrases):', {
+      visiblePhrases: phrases.length,
+      topicCount: allScores.topic.length,
+      topicRange: allScores.topic.length > 0 ? `${Math.min(...allScores.topic)}-${Math.max(...allScores.topic)}` : 'N/A',
+      topicThresholds: thresholds.topic,
+      fitCount: allScores.fit.length,
+      fitRange: allScores.fit.length > 0 ? `${Math.min(...allScores.fit)}-${Math.max(...allScores.fit)}` : 'N/A',
+      fitThresholds: thresholds.fit,
+      popCount: allScores.pop.length,
+      popRange: allScores.pop.length > 0 ? `${Math.min(...allScores.pop)}-${Math.max(...allScores.pop)}` : 'N/A',
+      popThresholds: thresholds.pop,
+    });
+    
+    return thresholds;
+  }, [allScores, phrases.length]);
 
   // Handle column header click for sorting
   const handleSort = (column: SortColumn) => {
@@ -120,7 +233,8 @@ export function RefineTable({
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortColumn(column);
-      setSortDirection("desc"); // Default to desc for scores (high first)
+      // Source column defaults to asc (seed first), others default to desc (highest first)
+      setSortDirection(column === "source" || column === "phrase" ? "asc" : "desc");
     }
     setCurrentPage(1); // Reset to first page on sort
   };
@@ -134,7 +248,10 @@ export function RefineTable({
         case "phrase":
           return dir * a.phrase.localeCompare(b.phrase);
         case "source":
-          return dir * a.source.localeCompare(b.source);
+          // Sort by numeric order: seed=1, top10=2, child=3, az=4, prefix=5
+          const orderA = SOURCE_ORDER[a.source] ?? 99;
+          const orderB = SOURCE_ORDER[b.source] ?? 99;
+          return dir * (orderA - orderB);
         case "topic":
           return dir * ((a.topic ?? -1) - (b.topic ?? -1));
         case "fit":
@@ -333,27 +450,27 @@ export function RefineTable({
                     </td>
                     
                     {/* Topic */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColor(phrase.topic)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.topic, scoreThresholds.topic, false)}`}>
                       {phrase.topic ?? "—"}
                     </td>
                     
                     {/* Fit */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColor(phrase.fit)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.fit, scoreThresholds.fit, false)}`}>
                       {phrase.fit ?? "—"}
                     </td>
                     
                     {/* Pop */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColor(phrase.pop)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.pop, scoreThresholds.pop, false)}`}>
                       {phrase.pop ?? "—"}
                     </td>
                     
                     {/* Comp - inverted colors (low is good) */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColor(phrase.comp, true)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, true)}`}>
                       {phrase.comp ?? "—"}
                     </td>
                     
                     {/* Spread (no right border - last column) */}
-                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getSpreadColor(phrase.spread)}`}>
+                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getSpreadColorByPercentile(phrase.spread, scoreThresholds.spread)}`}>
                       {phrase.spread ?? "—"}
                     </td>
                   </tr>
