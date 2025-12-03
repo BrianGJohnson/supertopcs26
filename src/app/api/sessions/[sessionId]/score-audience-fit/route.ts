@@ -44,6 +44,7 @@ interface ChannelData {
   content_style: number | null;
   content_style_name: string | null;
   video_formats: string[] | null;
+  topic_ideas: string[] | null;
   audience_who: string | null;
   audience_struggle: string | null;
   audience_goal: string | null;
@@ -55,9 +56,14 @@ interface ChannelData {
   affiliate_products: string | null;
   sponsorship_niche: string | null;
   pillar_strategy: {
-    evergreen?: { subNiches?: Array<{ name: string }> };
+    pillars?: {
+      evergreen?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
+      trending?: { subNiches?: Array<{ name: string }> };
+      monetization?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
+    };
+    evergreen?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
     trending?: { subNiches?: Array<{ name: string }> };
-    monetization?: { subNiches?: Array<{ name: string }> };
+    monetization?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
   } | null;
 }
 
@@ -132,6 +138,7 @@ export async function POST(
         content_style,
         content_style_name,
         video_formats,
+        topic_ideas,
         audience_who,
         audience_struggle,
         audience_goal,
@@ -172,7 +179,7 @@ export async function POST(
       );
     }
     
-    // Build creator profile
+    // Build creator profile - INCLUDE ALL ONBOARDING DATA
     const primaryMoney = channelData.primary_monetization || 
                          channelData.monetization_priority?.[0] || 
                          channelData.monetization_methods?.[0] || 
@@ -183,11 +190,13 @@ export async function POST(
       contentStyleNumber: channelData.content_style || 4, // Default to Mentor
       contentStyleName: channelData.content_style_name || "The Mentor",
       videoFormats: channelData.video_formats || [],
+      topicIdeas: channelData.topic_ideas || [], // CRITICAL: Include topic ideas they listed
       audienceWho: channelData.audience_who || "",
       audienceStruggle: channelData.audience_struggle || "",
       audienceGoal: channelData.audience_goal || "",
       audienceExpertise: channelData.audience_expertise || "mixed",
       primaryMonetization: primaryMoney,
+      monetizationMethods: channelData.monetization_methods || [], // Include all methods
       productsDescription: channelData.products_description || undefined,
       affiliateProducts: channelData.affiliate_products || undefined,
       sponsorshipNiche: channelData.sponsorship_niche || undefined,
@@ -198,7 +207,9 @@ export async function POST(
     console.log(`[AudienceFit] Creator profile:`, {
       niche: profile.niche,
       style: `${profile.contentStyleName} (${profile.contentStyleNumber}/7)`,
+      topicIdeas: profile.topicIdeas,
       monetization: profile.primaryMonetization,
+      monetizationMethods: profile.monetizationMethods,
       hasProducts: !!profile.productsDescription,
       hasAffiliates: !!profile.affiliateProducts,
       hasPillars: !!profile.pillarStrategy,

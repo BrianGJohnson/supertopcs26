@@ -46,6 +46,7 @@ export interface CreatorProfile {
   
   // What they make
   videoFormats: string[];      // ["tutorials", "reviews", "vlogs"]
+  topicIdeas: string[];        // ["YouTube algorithm", "AI tools", "YouTube updates"] - from onboarding
   
   // Who they serve
   audienceWho: string;         // "Developers wanting to speed up coding"
@@ -55,15 +56,22 @@ export interface CreatorProfile {
   
   // Monetization (CRITICAL - specific data matters here)
   primaryMonetization: string; // "products", "affiliate", "adsense", "sponsorships"
+  monetizationMethods: string[]; // All methods in priority order
   productsDescription?: string;  // EXACT description of what they sell
   affiliateProducts?: string;    // EXACT products they promote
   sponsorshipNiche?: string;     // Brands they want to work with
   
-  // Content Pillars
+  // Content Pillars - supports both flat and nested structure
   pillarStrategy?: {
-    evergreen?: { subNiches?: Array<{ name: string }> };
+    pillars?: {
+      evergreen?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
+      trending?: { subNiches?: Array<{ name: string }> };
+      monetization?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
+    };
+    // Also support flat structure for backwards compatibility
+    evergreen?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
     trending?: { subNiches?: Array<{ name: string }> };
-    monetization?: { subNiches?: Array<{ name: string }> };
+    monetization?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
   };
   
   // Session context
@@ -140,289 +148,239 @@ const CONTENT_STYLE_MAP: Record<number, { name: string; traits: string; bestFit:
 };
 
 // =============================================================================
-// SYSTEM PROMPT
+// SYSTEM PROMPT - Focus on user's actual data, no artificial distribution
 // =============================================================================
 
-export const SYSTEM_PROMPT = `You are scoring how well each keyword phrase fits a specific YouTube creator's channel and audience.
+export const SYSTEM_PROMPT = `You are scoring how well each phrase fits a specific YouTube creator's channel.
 Return a JSON object with a "scores" key containing exactly N integers from 0-97.
 
-═══════════════════════════════════════════════════════════════════════════════
-CRITICAL MINDSET
-═══════════════════════════════════════════════════════════════════════════════
-You are NOT scoring phrase quality (that's already done).
-You are scoring: "Would THIS SPECIFIC creator's audience click on this?"
-
-Every phrase starts at 50 (neutral). Adjust up or down based on FIT.
-A perfectly generic phrase in their niche = 50.
-A phrase that matches their exact content style AND niche = 80+.
-A phrase completely off-brand = under 30.
-
-BE GENEROUS with the safety net. Your job is to PROTECT congruent phrases.
-If a phrase COULD work for this creator, score it 40+.
-Only score below 40 if it's clearly wrong for their channel.
+YOUR JOB: Score each phrase based on whether THIS SPECIFIC CREATOR would make this video and their audience would click on it.
 
 ═══════════════════════════════════════════════════════════════════════════════
-TARGET DISTRIBUTION (you MUST hit these targets)
+CRITICAL: THE SESSION SEED TOPIC IS THE STRONGEST SIGNAL
 ═══════════════════════════════════════════════════════════════════════════════
-• 10-18% should score 80-97 (Safe Zone - perfect fit, protect these)
-• 22-28% should score 60-79 (Good Fit - solid options)
-• 28-35% should score 40-59 (Gray Area - user decides)
-• 15-22% should score 20-39 (Questionable - likely off-brand)
-• 8-12% should score 0-19 (Off-Brand - suggest removal)
-
-TOP 40% ARE THE SAFETY NET. These are keepers.
-50% is the deletion guidance point - below this, user should consider removing.
+The "SESSION SEED TOPIC" in the user prompt is what the creator is actively researching RIGHT NOW.
+Any phrase closely related to the seed topic should score HIGH (75+).
+The seed topic IS their intent - they chose to research this.
 
 ═══════════════════════════════════════════════════════════════════════════════
-THE 7 CONTENT ARCHETYPES
-═══════════════════════════════════════════════════════════════════════════════
-Creators sit on a spectrum from pure information to pure entertainment:
-
-1 = THE SCHOLAR: Deep dives, research-heavy, academic style
-2 = THE TEACHER: Step-by-step tutorials, patient instruction  
-3 = THE GUIDE: Practical tips, actionable advice, solutions
-4 = THE MENTOR: Balanced edutainment, relatable wisdom
-5 = THE STORYTELLER: Narrative-driven, experience sharing
-6 = THE COMMENTATOR: Opinions, hot takes, current event analysis
-7 = THE PERFORMER: Pure entertainment, personality-driven
-
-The creator's number tells you what content style phrases should match.
-• Style 1-3: Boost instructional phrases ("how to", "tutorial", "guide")
-• Style 5-7: Boost entertainment phrases ("is X dead", "my experience", "react")
-• Style 4: Flexible - both can work
-
-═══════════════════════════════════════════════════════════════════════════════
-MONETIZATION MATCHING (CRITICAL)
-═══════════════════════════════════════════════════════════════════════════════
-If creator sells products or does affiliate marketing, PAY ATTENTION to what they sell.
-
-PROTECT AT ALL COSTS any phrase related to their specific products/affiliate niche.
-Example: Creator sells "a tool that helps with topics, titles, and thumbnails"
-→ ANY phrase about topics, titles, or thumbnails should score 85+
-→ These are MONEY PHRASES for this creator
-
-If they have specific monetization data:
-• products_description → Extract the capabilities and BOOST related phrases massively
-• affiliate_products → Extract the product types and BOOST related phrases massively
-• sponsorship_niche → BOOST phrases that would attract those brands
-
-═══════════════════════════════════════════════════════════════════════════════
-PILLAR ALIGNMENT
-═══════════════════════════════════════════════════════════════════════════════
-If the creator has content pillars, check if the phrase fits:
-
-• Evergreen pillars: Core topics they always cover → Strong boost (+15 to +25)
-• Trending pillars: Timely topics they care about → Moderate boost (+10 to +15)  
-• Monetization pillars: Topics tied to their revenue → MASSIVE boost (+20 to +30)
-
-A phrase matching ANY pillar should score at least 55+.
-A phrase matching their monetization pillar should score at least 75+.
-
-═══════════════════════════════════════════════════════════════════════════════
-NICHE MATCHING
+SCORING RULES (IN ORDER OF PRIORITY)
 ═══════════════════════════════════════════════════════════════════════════════
 
-CORE NICHE MATCH → +20 to +30
-Phrase directly relates to their stated niche.
+1. PHRASES RELATED TO SESSION SEED TOPIC → Score 75-97
+   The seed topic is what they're actively researching. Related phrases = high fit.
 
-ADJACENT NICHE → +5 to +15
-Related topic that overlaps with their audience.
-Example: Tech review channel → Software tutorials (adjacent, audience overlap)
+2. PHRASES MATCHING THEIR EXPLICIT TOPIC IDEAS → Score 80-97
+   If they listed "YouTube algorithm" as a topic, ANY phrase about algorithms fits.
+   Use SEMANTIC matching, not just keywords. "How algorithm works" = matches "algorithm"
 
-UNRELATED NICHE → -20 to -40
-Completely different topic area.
-Example: Gaming channel → Cooking recipes (wrong audience entirely)
+3. PHRASES MATCHING THEIR PRODUCTS → Score 85-97
+   If they sell something, phrases about that capability are MONEY PHRASES.
 
-═══════════════════════════════════════════════════════════════════════════════
-AUDIENCE MATCHING
-═══════════════════════════════════════════════════════════════════════════════
+4. PHRASES MATCHING MONETIZATION PILLARS → Score 80-95
+   These drive their revenue.
 
-Match the phrase to WHO they serve:
+5. PHRASES MATCHING EVERGREEN/TRENDING PILLARS → Score 65-85
+   Core content they regularly make.
 
-• audience_who: Does this phrase appeal to that person? 
-• audience_struggle: Does this phrase address that pain point?
-• audience_goal: Does this phrase help achieve that goal?
-• audience_expertise: Does this phrase match their level?
+6. PHRASES IN THEIR NICHE → Score 55-75
+   Generally on-brand for their channel.
 
-STRONG MATCH (phrase addresses their specific audience) → +15 to +25
-MODERATE MATCH (general fit) → +5 to +10
-MISMATCH (wrong audience level or need) → -10 to -25
+7. PHRASES OUTSIDE THEIR NICHE → Score 20-50
+   Could work but not obviously a fit.
 
-═══════════════════════════════════════════════════════════════════════════════
-SCORING FORMULA
-═══════════════════════════════════════════════════════════════════════════════
-
-BASE: 50 (neutral - could go either way)
-
-BOOSTS:
-• Niche match: +10 to +30
-• Content style match: +10 to +20
-• Audience match: +10 to +25
-• Pillar match: +10 to +30 (monetization pillars get +30)
-• Monetization phrase (matches their products/affiliates): +25 to +35
-
-PENALTIES:
-• Wrong content style: -15 to -25
-• Unrelated niche: -20 to -40
-• Wrong audience level: -10 to -20
-• Off-brand tone: -10 to -20
-
-Maximum score: 97 (never output 98, 99, or 100)
-Minimum score: 0
+8. PHRASES COMPLETELY UNRELATED → Score 0-20
+   Wrong audience entirely.
 
 ═══════════════════════════════════════════════════════════════════════════════
-EXAMPLES
+SEMANTIC MATCHING IS CRITICAL
 ═══════════════════════════════════════════════════════════════════════════════
+Don't just look for exact keyword matches. Use semantic understanding:
 
-CREATOR: YouTube Growth channel, Teacher style (2), sells tool for topics/titles/thumbnails
-Session seed: "youtube algorithm"
+- "YouTube algorithm" topic → matches "how algorithm works", "algorithm explained", "algorithm tips"
+- "Thumbnail Design" pillar → matches "thumbnail mistakes", "best thumbnails", "thumbnail CTR"
+- "Topic Research" product → matches "find video ideas", "what to make videos about"
 
-• "how to fix youtube algorithm" → 50 + 20(niche) + 15(teacher style) + 10(audience) = 95
-• "youtube title optimization tips" → 50 + 20(niche) + 15(style) + 30(MONETIZATION!) = 97 (cap)
-• "thumbnail design mistakes" → 50 + 15(related) + 15(style) + 30(MONETIZATION!) = 97 (cap)
-• "youtube algorithm explained" → 50 + 20(niche) + 15(style) = 85
-• "is youtube dead" → 50 + 15(niche) - 15(wrong style) = 50
-• "my youtube journey" → 50 + 10(niche) - 20(storyteller not teacher) = 40
-• "how to cook pasta" → 50 - 40(wrong niche) = 10
-
-CREATOR: Gaming commentary, Commentator style (6), AdSense monetization
-Session seed: "fortnite"
-
-• "is fortnite dying" → 50 + 25(niche) + 20(perfect style) = 95
-• "why fortnite sucks now" → 50 + 25(niche) + 20(style) = 95  
-• "fortnite tutorial for beginners" → 50 + 20(niche) - 20(wrong style) = 50
-• "fortnite building guide" → 50 + 15(niche) - 15(too tutorial) = 50
-• "minecraft drama" → 50 + 10(adjacent gaming) + 15(style) = 75
-• "how to bake bread" → 50 - 40(wrong niche) = 10
+If the MEANING relates to their topics/pillars/products, it's a match.
 
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════════════
-Return ONLY: {"scores": [85, 42, 91, 35, 67, ...]}
-
-Match the count exactly to the number of phrases provided.`;
+NEVER output 98, 99, or 100. Maximum is 97.
+Return ONLY: {"scores": [85, 42, 91, 35, 67, ...]}`;
 
 // =============================================================================
 // PROMPT BUILDER
 // =============================================================================
 
 /**
- * Build the user prompt with rich creator context
+ * Build the user prompt with ALL creator context from onboarding
+ * 
+ * PHILOSOPHY: Send everything the user told us during onboarding.
+ * More context = better scoring. GPT-5 mini can handle it.
  */
 export function buildAudienceFitPrompt(
   profile: CreatorProfile,
   phrases: string[]
 ): string {
-  const styleInfo = CONTENT_STYLE_MAP[profile.contentStyleNumber] || CONTENT_STYLE_MAP[4];
+  // -------------------------------------------------------------------------
+  // Extract pillar data (handle both nested and flat structure)
+  // -------------------------------------------------------------------------
+  const pillars = profile.pillarStrategy?.pillars || profile.pillarStrategy;
   
-  // Build monetization context
+  const evergreenPillar = pillars?.evergreen;
+  const trendingPillar = pillars?.trending;
+  const monetizationPillar = pillars?.monetization;
+  
+  // Get selected sub-niches (what user actually picked) or fall back to all
+  const evergreenTopics = evergreenPillar?.selectedSubNiches?.length 
+    ? evergreenPillar.selectedSubNiches 
+    : evergreenPillar?.subNiches?.map(s => s.name) || [];
+  
+  const trendingTopics = trendingPillar?.subNiches?.map(s => s.name) || [];
+  
+  const monetizationTopics = monetizationPillar?.selectedSubNiches?.length
+    ? monetizationPillar.selectedSubNiches
+    : monetizationPillar?.subNiches?.map(s => s.name) || [];
+
+  // -------------------------------------------------------------------------
+  // Build monetization context - USE ALL METHODS, not just primary
+  // -------------------------------------------------------------------------
   let monetizationContext = "";
-  switch (profile.primaryMonetization) {
-    case "products":
-      if (profile.productsDescription) {
-        monetizationContext = `
-MONETIZATION - PRODUCTS (PROTECT THESE PHRASES AT ALL COSTS):
-This creator sells: "${profile.productsDescription}"
-→ ANY phrase related to these capabilities should score 85+
-→ Extract what the product DOES and match phrases to those capabilities`;
-      } else {
-        monetizationContext = `
-MONETIZATION: Products (no specific details provided)
-→ Score phrases that could relate to products/courses slightly higher`;
-      }
-      break;
-      
-    case "affiliate":
-      if (profile.affiliateProducts) {
-        monetizationContext = `
-MONETIZATION - AFFILIATE (PROTECT THESE PHRASES AT ALL COSTS):
-This creator promotes: "${profile.affiliateProducts}"
-→ ANY phrase related to these products/categories should score 85+
-→ These are MONEY PHRASES - the creator earns from content about these topics`;
-      } else {
-        monetizationContext = `
-MONETIZATION: Affiliate marketing (no specific products listed)
-→ Score phrases about reviews/comparisons slightly higher`;
-      }
-      break;
-      
-    case "sponsorships":
-      if (profile.sponsorshipNiche) {
-        monetizationContext = `
-MONETIZATION - SPONSORSHIPS:
-Wants to work with brands in: "${profile.sponsorshipNiche}"
-→ BOOST phrases that would attract these types of sponsors
-→ Content that demonstrates expertise these brands care about`;
-      } else {
-        monetizationContext = `
-MONETIZATION: Sponsorships (seeking brand deals)
-→ Score phrases that demonstrate expertise slightly higher`;
-      }
-      break;
-      
-    case "adsense":
-    default:
-      monetizationContext = `
-MONETIZATION: AdSense / General
-→ Focus on high watch-time content topics
-→ No specific product phrases to protect`;
+  
+  // Always include products description if they sell products
+  if (profile.productsDescription) {
+    monetizationContext += `
+PRODUCTS THEY SELL (PROTECT THESE PHRASES - SCORE 85+):
+"${profile.productsDescription}"
+→ ANY phrase related to what this product does should score 85+
+→ These are MONEY PHRASES - they lead directly to sales`;
   }
   
-  // Build pillar context
+  // Always include affiliate info if they do affiliate
+  if (profile.affiliateProducts) {
+    monetizationContext += `
+
+AFFILIATE PRODUCTS THEY PROMOTE (PROTECT THESE PHRASES - SCORE 85+):
+"${profile.affiliateProducts}"
+→ ANY phrase related to these products should score 85+
+→ Content about these topics earns them money`;
+  }
+  
+  // Include sponsorship info
+  if (profile.sponsorshipNiche) {
+    monetizationContext += `
+
+SPONSORSHIP BRANDS THEY WANT:
+"${profile.sponsorshipNiche}"
+→ BOOST phrases that would attract these types of sponsors`;
+  }
+  
+  // If no specific monetization data, note the methods they use
+  if (!monetizationContext && profile.monetizationMethods?.length) {
+    monetizationContext = `
+MONETIZATION METHODS: ${profile.monetizationMethods.join(", ")}
+→ Score phrases that support these revenue methods higher`;
+  }
+  
+  if (!monetizationContext) {
+    monetizationContext = `
+MONETIZATION: Not specified
+→ Focus on topics that match their niche and audience`;
+  }
+
+  // -------------------------------------------------------------------------
+  // Build pillar context - INCLUDE ALL PILLARS
+  // -------------------------------------------------------------------------
   let pillarContext = "";
-  if (profile.pillarStrategy) {
-    const evergreen = profile.pillarStrategy.evergreen?.subNiches?.map(s => s.name).join(", ") || "Not set";
-    const trending = profile.pillarStrategy.trending?.subNiches?.map(s => s.name).join(", ") || "Not set";
-    const monetization = profile.pillarStrategy.monetization?.subNiches?.map(s => s.name).join(", ") || "Not set";
-    
+  
+  if (evergreenTopics.length || trendingTopics.length || monetizationTopics.length) {
     pillarContext = `
-CONTENT PILLARS (check if phrase matches any of these):
-• Evergreen topics: ${evergreen}
-• Trending topics: ${trending}
-• Monetization topics: ${monetization}
-→ Phrases matching monetization pillars should score 75+
-→ Phrases matching any pillar should score at least 55+`;
+CONTENT PILLARS (from their onboarding - phrases matching these should score HIGH):`;
+    
+    if (evergreenTopics.length) {
+      pillarContext += `
+• EVERGREEN TOPICS: ${evergreenTopics.join(", ")}
+  → These are their core, always-relevant topics. Score 65+ if phrase matches.`;
+    }
+    
+    if (trendingTopics.length) {
+      pillarContext += `
+• TRENDING TOPICS: ${trendingTopics.join(", ")}
+  → These are timely topics they care about. Score 60+ if phrase matches.`;
+    }
+    
+    if (monetizationTopics.length) {
+      pillarContext += `
+• MONETIZATION TOPICS: ${monetizationTopics.join(", ")}
+  → These drive revenue. Score 80+ if phrase matches.`;
+    }
   }
-  
-  // Build audience context
-  const audienceContext = `
-THE AUDIENCE THEY SERVE:
-• Who: ${profile.audienceWho || "Not specified"}
-• Their struggle: ${profile.audienceStruggle || "Not specified"}
-• Their goal: ${profile.audienceGoal || "Not specified"}
-• Expertise level: ${profile.audienceExpertise || "Not specified"}`;
-  
+
+  // -------------------------------------------------------------------------
+  // Build topic ideas context - THIS IS CRITICAL AND WAS MISSING
+  // -------------------------------------------------------------------------
+  let topicIdeasContext = "";
+  if (profile.topicIdeas?.length) {
+    topicIdeasContext = `
+
+TOPICS THEY EXPLICITLY SAID THEY WANT TO COVER (SCORE 80+ IF PHRASE MATCHES):
+${profile.topicIdeas.map(t => `• "${t}"`).join("\n")}
+→ The creator specifically listed these during onboarding
+→ ANY phrase related to these topics should score 80+`;
+  }
+
+  // -------------------------------------------------------------------------
   // Build the numbered phrases
+  // -------------------------------------------------------------------------
   const numberedPhrases = phrases
     .map((phrase, i) => `${i + 1}) ${phrase}`)
     .join('\n\n');
-  
+
+  // -------------------------------------------------------------------------
+  // BUILD THE FULL PROMPT - ALL DATA INCLUDED
+  // -------------------------------------------------------------------------
   return `═══════════════════════════════════════════════════════════════════════════════
-CREATOR IDENTITY
+CRITICAL: SESSION SEED TOPIC (HIGHEST PRIORITY)
 ═══════════════════════════════════════════════════════════════════════════════
-Channel Niche: ${profile.niche}
-Session Seed Topic: "${profile.seedPhrase}"
+The creator is actively researching: "${profile.seedPhrase}"
+→ ANY phrase related to "${profile.seedPhrase}" should score 75-97
+→ This is what they chose to research - it's their current focus
 
 ═══════════════════════════════════════════════════════════════════════════════
-CONTENT STYLE: ${profile.contentStyleName} (${profile.contentStyleNumber}/7)
+CREATOR PROFILE
 ═══════════════════════════════════════════════════════════════════════════════
-Style traits: ${styleInfo.traits}
-Best-fit phrases: ${styleInfo.bestFit}
-Poor-fit phrases: ${styleInfo.poorFit}
+CHANNEL NICHE: ${profile.niche}
+CONTENT STYLE: ${profile.contentStyleName} (#${profile.contentStyleNumber})
+VIDEO FORMATS: ${profile.videoFormats?.join(", ") || "Not specified"}
+${topicIdeasContext}
 
-Video formats they create: ${profile.videoFormats?.join(", ") || "Not specified"}
-${audienceContext}
+═══════════════════════════════════════════════════════════════════════════════
+THEIR AUDIENCE
+═══════════════════════════════════════════════════════════════════════════════
+• WHO: ${profile.audienceWho || "Not specified"}
+• STRUGGLE: ${profile.audienceStruggle || "Not specified"}
+• GOAL: ${profile.audienceGoal || "Not specified"}
+• EXPERTISE: ${profile.audienceExpertise || "Not specified"}
+
+═══════════════════════════════════════════════════════════════════════════════
+MONETIZATION & PILLARS
+═══════════════════════════════════════════════════════════════════════════════
 ${monetizationContext}
 ${pillarContext}
 
 ═══════════════════════════════════════════════════════════════════════════════
-SCORING TASK
+SCORING PRIORITY (in order)
 ═══════════════════════════════════════════════════════════════════════════════
-Score each phrase for AUDIENCE FIT only (0-97).
-• 50 = neutral starting point
-• Top 40% should be in the "safety net" (40+)
-• Below 50 = suggest removal
-• Protect monetization phrases at all costs (85+)
+1. Related to seed topic "${profile.seedPhrase}" → 75-97
+2. Matches their topic ideas → 80-97  
+3. Matches their products/monetization → 85-97
+4. Matches their pillars → 65-85
+5. In their niche → 55-75
+6. Loosely related → 40-55
+7. Unrelated → 0-40
+
+Maximum score is 97 (never 98-100).
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHRASES TO SCORE (${phrases.length} total):
