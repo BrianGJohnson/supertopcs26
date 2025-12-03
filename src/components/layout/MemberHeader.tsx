@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 // Navigation links configuration
 const NAV_LINKS = [
   { label: "Dashboard", href: "/members/dashboard" },
-  { label: "Builder", href: "/members/build/seed" },
+  { label: "Builder", href: "/members/build/target" },
   { label: "Sessions", href: "/members/sessions" },
   { label: "Account", href: "/members/account" },
 ];

@@ -2,15 +2,16 @@
  * Viewer Landscape Analysis
  * 
  * Provides comprehensive analysis of a seed phrase including:
- * - Demand Level (8 tiers based on suggestion count)
+ * - Traffic Light Signal (Go/Caution/Stop based on point system)
  * - Seed Strength (how many match the exact seed)
  * - Viewer Vibe (emotional landscape weighted by position)
  * 
- * Position weighting: #1 gets 10x the searches of #3
- * - Position 1: weight 1.0
- * - Position 2: weight 0.5
- * - Position 3: weight 0.25
- * - Position 4+: weight 0.15, 0.10, 0.08, 0.06, 0.05, 0.04, 0.03
+ * Point System:
+ * - Exact Match: 2 points each
+ * - Topic Match: 1 point each
+ * - Max score: 42 points (14×2 + 14×1)
+ * 
+ * Position weighting for vibes: #1 gets 10x the searches of #3
  * 
  * @see docs/viewer-landscape-analysis.md
  */
@@ -19,6 +20,9 @@
 // TYPES
 // =============================================================================
 
+export type SignalLevel = 'go' | 'caution' | 'stop';
+
+// Keep DemandLevel for backward compatibility but map to SignalLevel
 export type DemandLevel = 
   | 'extreme' 
   | 'incredible' 
@@ -61,7 +65,15 @@ export interface VibeDistribution {
 export interface ViewerLandscape {
   seed: string;
   
-  // Demand
+  // Traffic Light Signal (new system)
+  signal: SignalLevel;
+  signalLabel: string;
+  signalMessage: string;
+  signalColor: string;
+  signalIcon: string;
+  signalScore: number;  // 0-42 points
+  
+  // Legacy demand fields (mapped from signal for backward compatibility)
   demandLevel: DemandLevel;
   demandLabel: string;
   demandColor: string;
@@ -133,7 +145,50 @@ function getPositionWeight(position: number): number {
 }
 
 // =============================================================================
-// DEMAND LEVELS (8 tiers)
+// TRAFFIC LIGHT SIGNAL SYSTEM
+// =============================================================================
+
+interface SignalConfig {
+  label: string;
+  color: string;
+  icon: string;
+}
+
+const SIGNAL_CONFIG: Record<SignalLevel, SignalConfig> = {
+  'go': { label: 'Go', color: '#2BD899', icon: '🟢' },
+  'caution': { label: 'Caution', color: '#F59E0B', icon: '🟡' },
+  'stop': { label: 'Stop', color: '#FF6B6B', icon: '🔴' },
+};
+
+/**
+ * Calculate signal score: (exactMatch × 2) + (topicMatch × 1)
+ * Max score = 42 (14×2 + 14×1)
+ */
+function calculateSignalScore(exactMatchCount: number, topicMatchCount: number): number {
+  return (exactMatchCount * 2) + topicMatchCount;
+}
+
+/**
+ * Get signal level and message based on score
+ */
+function getSignalFromScore(score: number): { level: SignalLevel; message: string } {
+  if (score >= 35) {
+    return { level: 'go', message: 'Outstanding. Viewers are highly interested in this topic.' };
+  } else if (score >= 28) {
+    return { level: 'go', message: 'Strong topic with solid viewer interest.' };
+  } else if (score >= 20) {
+    return { level: 'go', message: 'Good topic. Viewers are interested.' };
+  } else if (score >= 12) {
+    return { level: 'caution', message: 'Some interest exists. Consider refining your angle.' };
+  } else if (score >= 5) {
+    return { level: 'caution', message: 'Limited interest. This may be too niche.' };
+  } else {
+    return { level: 'stop', message: 'Very low interest. Reconsider this topic.' };
+  }
+}
+
+// =============================================================================
+// LEGACY DEMAND LEVELS (for backward compatibility)
 // =============================================================================
 
 interface DemandConfig {
@@ -143,24 +198,28 @@ interface DemandConfig {
 }
 
 const DEMAND_LEVELS: Record<DemandLevel, DemandConfig> = {
-  'extreme': { label: 'Extreme Demand', color: '#2BD899', icon: '🟢' },
-  'incredible': { label: 'Incredible Demand', color: '#2BD899', icon: '🟢' },
-  'high': { label: 'High Demand', color: '#4DD68A', icon: '🟢' },
-  'strong': { label: 'Strong Demand', color: '#6B9BD1', icon: '🔵' },
-  'solid': { label: 'Solid Demand', color: '#6B9BD1', icon: '🔵' },
-  'moderate': { label: 'Moderate Demand', color: '#A6B0C2', icon: '⚪' },
-  'low': { label: 'Low Demand', color: '#F59E0B', icon: '🟠' },
-  'very-low': { label: 'Very Low Demand', color: '#FF6B6B', icon: '🔴' },
+  'extreme': { label: 'Go', color: '#2BD899', icon: '🟢' },
+  'incredible': { label: 'Go', color: '#2BD899', icon: '🟢' },
+  'high': { label: 'Go', color: '#2BD899', icon: '🟢' },
+  'strong': { label: 'Caution', color: '#F59E0B', icon: '🟡' },
+  'solid': { label: 'Caution', color: '#F59E0B', icon: '🟡' },
+  'moderate': { label: 'Caution', color: '#F59E0B', icon: '🟡' },
+  'low': { label: 'Stop', color: '#FF6B6B', icon: '🔴' },
+  'very-low': { label: 'Stop', color: '#FF6B6B', icon: '🔴' },
 };
 
-function getDemandLevel(count: number): DemandLevel {
-  if (count >= 10) return 'extreme';
-  if (count === 9) return 'incredible';
-  if (count >= 7) return 'high';
-  if (count >= 5) return 'strong';
-  if (count === 4) return 'solid';
-  if (count === 3) return 'moderate';
-  if (count === 2) return 'low';
+/**
+ * Map signal level to legacy demand level for backward compatibility
+ */
+function signalToDemandLevel(signal: SignalLevel, score: number): DemandLevel {
+  if (signal === 'go') {
+    if (score >= 35) return 'extreme';
+    if (score >= 28) return 'high';
+    return 'strong';
+  } else if (signal === 'caution') {
+    if (score >= 12) return 'moderate';
+    return 'low';
+  }
   return 'very-low';
 }
 
@@ -495,13 +554,14 @@ function getYouTubeSearchUrl(phrase: string): string {
 }
 
 // Anchor words to extract from suggestions (signal words that reveal intent)
-const ANCHOR_WORDS = [
+// Note: Years are handled dynamically to filter out past years
+const ANCHOR_WORDS_BASE = [
   // Frustrated
   'sucks', 'trash', 'broken', 'dead', 'dying', 'worst', 'bad', 'terrible', 'awful', 'hate', 'ruined',
   // Learning
   'explained', 'tutorial', 'guide', 'how', 'learn', 'basics', 'beginners', 'course', 'tips',
-  // Current
-  '2024', '2025', '2026', 'new', 'latest', 'update', 'change', 'changed',
+  // Current (years handled separately)
+  'new', 'latest', 'update', 'change', 'changed',
   // Problem
   'fix', 'problem', 'issue', 'error', 'help', 'not working',
   // Curious
@@ -509,6 +569,17 @@ const ANCHOR_WORDS = [
   // Action
   'start', 'create', 'make', 'build', 'grow', 'boost',
 ];
+
+/**
+ * Check if a word is a year and if it's current or future
+ */
+function isCurrentOrFutureYear(word: string): boolean {
+  const yearMatch = word.match(/^(20\d{2})$/);
+  if (!yearMatch) return false;
+  const year = parseInt(yearMatch[1], 10);
+  const currentYear = new Date().getFullYear();
+  return year >= currentYear;
+}
 
 function extractAnchorWords(suggestions: string[], seed: string): string[] {
   const seedWords = seed.toLowerCase().split(/\s+/);
@@ -519,8 +590,13 @@ function extractAnchorWords(suggestions: string[], seed: string): string[] {
     for (const word of words) {
       // Skip if it's part of the seed
       if (seedWords.includes(word)) continue;
+      // Check if it's a current/future year
+      if (isCurrentOrFutureYear(word)) {
+        found.add(word);
+        continue;
+      }
       // Check if it's an anchor word
-      if (ANCHOR_WORDS.includes(word)) {
+      if (ANCHOR_WORDS_BASE.includes(word)) {
         found.add(word);
       }
     }
@@ -644,26 +720,17 @@ export function analyzeViewerLandscape(
     }
   }
   
-  // Get demand level - factor in exact match for low competition scenarios
-  let demandLevel = getDemandLevel(count);
+  // Calculate signal score using point system
+  const signalScore = calculateSignalScore(exactMatchCount, topicMatchCount);
+  const { level: signal, message: signalMessage } = getSignalFromScore(signalScore);
+  const signalConfig = SIGNAL_CONFIG[signal];
   
-  // Downgrade demand level if exact match is very low (indicates semantic demand, not exact demand)
-  if (exactMatchPercent < 20 && count >= 5) {
-    // Semantic demand exists but exact phrase has low competition
-    if (demandLevel === 'extreme' || demandLevel === 'incredible') {
-      demandLevel = 'moderate';
-    } else if (demandLevel === 'high') {
-      demandLevel = 'solid';
-    }
-  }
-  
+  // Map signal to legacy demand level for backward compatibility
+  const demandLevel = signalToDemandLevel(signal, signalScore);
   const demandConfig = DEMAND_LEVELS[demandLevel];
   
-  // Build demand label with competition signal
-  let demandLabel = demandConfig.label;
-  if (isLowCompetition) {
-    demandLabel = `${demandConfig.label} • Potential Low Competition`;
-  }
+  // Build demand label (now uses signal label)
+  const demandLabel = signalConfig.label;
   
   // Generate insight - now considers opportunity
   const insight = generateInsightWithOpportunity(
@@ -678,11 +745,19 @@ export function analyzeViewerLandscape(
   return {
     seed,
     
-    // Demand
+    // Traffic Light Signal (new system)
+    signal,
+    signalLabel: signalConfig.label,
+    signalMessage,
+    signalColor: signalConfig.color,
+    signalIcon: signalConfig.icon,
+    signalScore,
+    
+    // Legacy demand fields (mapped from signal)
     demandLevel,
     demandLabel,
-    demandColor: demandConfig.color,
-    demandIcon: demandConfig.icon,
+    demandColor: signalConfig.color,
+    demandIcon: signalConfig.icon,
     suggestionCount: count,
     
     // Competition
@@ -736,19 +811,41 @@ export function getVibeLabel(vibe: VibeCategory): string {
   return VIBE_CONFIG[vibe].label;
 }
 
+// Signal-based color classes (new system)
+export function getSignalColorClass(signal: SignalLevel): string {
+  switch (signal) {
+    case 'go':
+      return 'text-[#2BD899]';
+    case 'caution':
+      return 'text-[#F59E0B]';
+    case 'stop':
+      return 'text-[#FF6B6B]';
+  }
+}
+
+export function getSignalBgClass(signal: SignalLevel): string {
+  switch (signal) {
+    case 'go':
+      return 'bg-[#2BD899]/10 border-[#2BD899]/30';
+    case 'caution':
+      return 'bg-[#F59E0B]/10 border-[#F59E0B]/30';
+    case 'stop':
+      return 'bg-[#FF6B6B]/10 border-[#FF6B6B]/30';
+  }
+}
+
+// Legacy demand-based classes (for backward compatibility)
 export function getDemandColorClass(level: DemandLevel): string {
   switch (level) {
     case 'extreme':
     case 'incredible':
     case 'high':
-      return 'text-[#2BD899]';
     case 'strong':
+      return 'text-[#2BD899]';
     case 'solid':
-      return 'text-[#6B9BD1]';
     case 'moderate':
-      return 'text-[#A6B0C2]';
-    case 'low':
       return 'text-[#F59E0B]';
+    case 'low':
     case 'very-low':
       return 'text-[#FF6B6B]';
   }
@@ -759,14 +856,12 @@ export function getDemandBgClass(level: DemandLevel): string {
     case 'extreme':
     case 'incredible':
     case 'high':
-      return 'bg-[#2BD899]/10 border-[#2BD899]/30';
     case 'strong':
+      return 'bg-[#2BD899]/10 border-[#2BD899]/30';
     case 'solid':
-      return 'bg-[#6B9BD1]/10 border-[#6B9BD1]/30';
     case 'moderate':
-      return 'bg-[#A6B0C2]/10 border-[#A6B0C2]/30';
-    case 'low':
       return 'bg-[#F59E0B]/10 border-[#F59E0B]/30';
+    case 'low':
     case 'very-low':
       return 'bg-[#FF6B6B]/10 border-[#FF6B6B]/30';
   }
@@ -796,20 +891,20 @@ export function getVibeColorClass(vibe: VibeCategory): string {
 export function getVibeBgClass(vibe: VibeCategory): string {
   switch (vibe) {
     case 'learning':
-      return 'bg-[#6B9BD1]/20';
+      return 'bg-[#6B9BD1]';  // Solid color for progress bars
     case 'frustrated':
-      return 'bg-[#F59E0B]/20';
+      return 'bg-[#F59E0B]';
     case 'current':
-      return 'bg-[#2BD899]/20';
+      return 'bg-[#2BD899]';
     case 'problem-solving':
-      return 'bg-[#FF8A3D]/20';
+      return 'bg-[#FF8A3D]';
     case 'curious':
-      return 'bg-[#9B7DFF]/20';
+      return 'bg-[#9B7DFF]';
     case 'action-ready':
-      return 'bg-[#2BD899]/20';
+      return 'bg-[#2BD899]';
     case 'comparing':
-      return 'bg-[#6B9BD1]/20';
+      return 'bg-[#6B9BD1]';
     case 'brand':
-      return 'bg-[#A6B0C2]/20';
+      return 'bg-[#A6B0C2]';
   }
 }

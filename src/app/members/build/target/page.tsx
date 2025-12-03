@@ -156,6 +156,7 @@ export default function TargetPage() {
 
   // Select a phrase - open Viewer Landscape modal for analysis
   const handleSelectPhrase = (phrase: string) => {
+    setPhraseModalOpen(false); // Close the phrase modal first
     setSelectedPhrase(phrase);
     setLandscapeModalOpen(true);
   };
@@ -205,6 +206,7 @@ export default function TargetPage() {
   const handlePassPhrase = () => {
     setLandscapeModalOpen(false);
     setSelectedPhrase(null);
+    setPhraseModalOpen(true); // Reopen phrase modal so user can pick another
   };
 
   // Navigate to seed page with optional pre-filled seed (legacy - now uses modal)
@@ -370,8 +372,27 @@ export default function TargetPage() {
               ))}
             </div>
 
-            {/* Phrase Selection Modal */}
-            <Modal
+            {/* Back + Own Idea buttons */}
+            <div className="flex flex-col items-center gap-4 pt-4">
+              <button
+                onClick={handleOwnIdea}
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-all"
+              >
+                <IconPencil size={20} />
+                I Have My Own Idea
+              </button>
+              
+              <button
+                onClick={() => setSelectedPillar(null)}
+                className="text-white/40 hover:text-white/60 text-base"
+              >
+                ← Back to Pillars
+              </button>
+            </div>
+          </div>
+
+          {/* Phrase Selection Modal - OUTSIDE the grid container */}
+          <Modal
               isOpen={phraseModalOpen}
               onClose={() => setPhraseModalOpen(false)}
               title="Pick a Seed Phrase"
@@ -451,25 +472,6 @@ export default function TargetPage() {
                 onPass={handlePassPhrase}
               />
             )}
-
-            {/* Back + Own Idea buttons */}
-            <div className="flex flex-col items-center gap-4 pt-4">
-              <button
-                onClick={handleOwnIdea}
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-lg bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-all"
-              >
-                <IconPencil size={20} />
-                I Have My Own Idea
-              </button>
-              
-              <button
-                onClick={() => setSelectedPillar(null)}
-                className="text-white/40 hover:text-white/60 text-base"
-              >
-                ← Back to Pillars
-              </button>
-            </div>
-          </div>
 
           {/* Footer */}
           <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 mt-8">

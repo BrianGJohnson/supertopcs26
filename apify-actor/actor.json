@@ -1,0 +1,10 @@
+{
+    "actorSpecification": 1,
+    "name": "youtube-autocomplete",
+    "title": "YouTube Autocomplete",
+    "description": "Fetches real YouTube autocomplete suggestions with proxy rotation",
+    "version": "1.0.0",
+    "buildTag": "latest",
+    "input": "./input_schema.json",
+    "dockerfile": "./Dockerfile"
+}

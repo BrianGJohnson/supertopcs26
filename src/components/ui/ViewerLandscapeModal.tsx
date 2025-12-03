@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { IconX } from "@tabler/icons-react";
 import {
   type ViewerLandscape,
   type VibeCategory,
-  getDemandColorClass,
-  getDemandBgClass,
+  type SignalLevel,
+  getSignalColorClass,
+  getSignalBgClass,
   getVibeIcon,
   getVibeLabel,
   getVibeBgClass,
@@ -44,6 +46,12 @@ export function ViewerLandscapeModal({
   const [landscape, setLandscape] = useState<ViewerLandscape | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure we're on the client for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Handle escape key
   const handleEscape = useCallback(
@@ -97,8 +105,6 @@ export function ViewerLandscapeModal({
     fetchLandscape();
   }, [isOpen, seed]);
 
-  if (!isOpen) return null;
-
   // Get vibes to display (only those with > 0%)
   const getDisplayVibes = (): { vibe: VibeCategory; percent: number }[] => {
     if (!landscape) return [];
@@ -120,26 +126,32 @@ export function ViewerLandscapeModal({
       .slice(0, 4); // Show top 4 max
   };
 
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+  // Don't render on server or if not open
+  if (!mounted || !isOpen) return null;
+
+  // Use portal to render at document.body level, escaping any transform ancestors
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+        className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={onClose}
       />
 
-      {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-3xl mx-4 max-h-[90vh] bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors z-10"
-        >
-          <IconX size={24} />
-        </button>
+      {/* Centering container */}
+      <div className="relative z-[10001] flex min-h-full items-center justify-center p-4">
+        {/* Modal Card */}
+        <div className="relative w-full max-w-3xl bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col my-8">
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <IconX size={24} />
+          </button>
 
-        {/* Content - scrollable */}
-        <div className="px-10 py-10 overflow-y-auto flex-1">
+          {/* Content */}
+          <div className="px-10 py-10">
           {/* Loading state */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-16">
@@ -171,48 +183,47 @@ export function ViewerLandscapeModal({
           {/* Success state */}
           {landscape && !isLoading && (
             <>
-              {/* Demand Badge */}
-              <div className={`inline-flex items-center gap-3 px-7 py-4 rounded-full border ${getDemandBgClass(landscape.demandLevel)}`}>
-                <span className="text-3xl">{landscape.demandIcon}</span>
-                <span className={`font-bold text-2xl ${getDemandColorClass(landscape.demandLevel)}`}>
-                  {landscape.demandLabel}
+              {/* Traffic Light Signal Badge */}
+              <div className={`inline-flex items-center gap-4 px-8 py-5 rounded-full border ${getSignalBgClass(landscape.signal)}`}>
+                <span className="text-4xl">{landscape.signalIcon}</span>
+                <span className={`font-bold text-3xl ${getSignalColorClass(landscape.signal)}`}>
+                  {landscape.signalLabel}
                 </span>
               </div>
 
+              {/* Signal Message */}
+              <p className="mt-5 text-white/90 text-xl">
+                {landscape.signalMessage}
+              </p>
+
               {/* Match Stats - Exact and Topic */}
-              <div className="mt-5 space-y-2">
-                <p className="text-white/60 text-lg">
-                  <span className="text-white/80 font-semibold">{landscape.exactMatchCount} of {landscape.suggestionCount}</span> exact match
-                </p>
-                <p className="text-white/60 text-lg">
-                  <span className="text-white/80 font-semibold">{landscape.topicMatchCount} of {landscape.suggestionCount}</span> topic match
-                  {landscape.isOpportunity && (
-                    <span className="ml-2 px-2 py-0.5 bg-[#2BD899]/20 text-[#2BD899] text-sm font-semibold rounded">
-                      Opportunity
-                    </span>
-                  )}
+              <div className="mt-4 space-y-1">
+                <p className="text-white/50 text-lg">
+                  <span className="text-white/70 font-medium">{landscape.exactMatchCount} of {landscape.suggestionCount}</span> exact match
+                  {" • "}
+                  <span className="text-white/70 font-medium">{landscape.topicMatchCount} of {landscape.suggestionCount}</span> topic match
                 </p>
               </div>
 
               {/* Divider */}
               <div className="my-6 border-t border-white/10" />
 
-              {/* Top 5 Phrases */}
+              {/* Popular Topics */}
               <div>
-                <h3 className="text-xl font-bold text-white/80 mb-4">Top Phrases</h3>
+                <h3 className="text-2xl font-bold text-white/80 mb-4">Popular Topics</h3>
                 <div className="space-y-2">
                   {landscape.topFive.map((item) => (
                     <div
                       key={item.position}
-                      className="flex items-center gap-4 px-5 py-3 bg-white/5 rounded-xl"
+                      className="flex items-center gap-4 px-5 py-4 bg-white/5 rounded-xl"
                     >
-                      <span className="text-white/40 text-base font-bold w-6">
+                      <span className="text-white/40 text-lg font-bold w-7">
                         {item.position}.
                       </span>
-                      <span className="flex-1 text-white/90 text-base truncate">
+                      <span className="flex-1 text-white/90 text-lg truncate">
                         {item.phrase}
                       </span>
-                      <span className="text-xl" title={getVibeLabel(item.vibe)}>
+                      <span className="text-2xl" title={getVibeLabel(item.vibe)}>
                         {item.vibeIcon}
                       </span>
                     </div>
@@ -223,14 +234,14 @@ export function ViewerLandscapeModal({
               {/* Anchor Words - only show if we have some */}
               {landscape.anchorWords.length > 0 && (
                 <>
-                  <div className="my-5 border-t border-white/10" />
+                  <div className="my-6 border-t border-white/10" />
                   <div>
-                    <h3 className="text-lg font-bold text-white/70 mb-3">Words Viewers Use</h3>
-                    <div className="flex flex-wrap gap-2">
+                    <h3 className="text-xl font-bold text-white/80 mb-4">Words Viewers Use</h3>
+                    <div className="flex flex-wrap gap-3">
                       {landscape.anchorWords.map((word) => (
                         <span
                           key={word}
-                          className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-full text-white/80 text-sm"
+                          className="px-4 py-2 bg-[#2BD899]/15 border border-[#2BD899]/40 rounded-full text-[#2BD899] text-base font-medium"
                         >
                           {word}
                         </span>
@@ -245,13 +256,13 @@ export function ViewerLandscapeModal({
 
               {/* Who's Watching - simplified, no percentages */}
               <div>
-                <h3 className="text-lg font-bold text-white/70 mb-3">Who's Watching</h3>
-                <div className="space-y-3">
+                <h3 className="text-xl font-bold text-white/80 mb-4">Who's Watching</h3>
+                <div className="space-y-4">
                   {getDisplayVibes().map(({ vibe, percent }) => (
                     <div key={vibe} className="flex items-center gap-4">
-                      <span className="text-xl w-8">{getVibeIcon(vibe)}</span>
-                      <span className="text-white/80 text-base w-32">{getVibeLabel(vibe)}</span>
-                      <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
+                      <span className="text-2xl w-9">{getVibeIcon(vibe)}</span>
+                      <span className="text-white/80 text-lg w-36">{getVibeLabel(vibe)}</span>
+                      <div className="flex-1 h-3.5 bg-white/20 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${getVibeBgClass(vibe)}`}
                           style={{ width: `${percent}%` }}
@@ -267,19 +278,19 @@ export function ViewerLandscapeModal({
 
               {/* Viewer Landscape Insight */}
               <div>
-                <h3 className="text-lg font-bold text-white/70 mb-2">Viewer Landscape</h3>
-                <p className="text-white/80 text-base leading-relaxed">
+                <h3 className="text-xl font-bold text-white/80 mb-3">Viewer Landscape</h3>
+                <p className="text-white/80 text-lg leading-relaxed">
                   {landscape.insight}
                 </p>
               </div>
 
               {/* YouTube Link */}
-              <div className="mt-4">
+              <div className="mt-5">
                 <a
                   href={landscape.youtubeSearchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-[#6B9BD1] hover:text-[#8BB5E0] text-base transition-colors"
+                  className="inline-flex items-center gap-2 text-[#6B9BD1] hover:text-[#8BB5E0] text-lg transition-colors"
                 >
                   <span>Check competition on YouTube</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +303,7 @@ export function ViewerLandscapeModal({
               <div className="flex gap-5 mt-8">
                 <button
                   onClick={() => onCreateSession?.(seed)}
-                  className="flex-1 px-8 py-5 bg-gradient-to-b from-[#6B9BD1] to-[#5A8AC0] text-white font-bold text-xl rounded-xl hover:from-[#7BA8DC] hover:to-[#6B9BD1] transition-all shadow-lg"
+                  className="flex-1 px-8 py-5 bg-gradient-to-b from-[#4A7BB5] to-[#3A6195] text-white font-bold text-xl rounded-xl hover:from-[#5588C2] hover:to-[#4A7BB5] transition-all shadow-[0_4px_20px_rgba(74,123,181,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]"
                 >
                   Create Session
                 </button>
@@ -306,7 +317,9 @@ export function ViewerLandscapeModal({
             </>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

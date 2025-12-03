@@ -48,15 +48,20 @@ function mapSeedToRefinePhrase(
   intakeStats?: IntakeStats | null
 ): RefinePhrase {
   // Map generation_method to source type
-  const sourceMap: Record<string, RefinePhrase["source"]> = {
-    seed: "seed",
-    top10: "top10",
-    child: "child",
-    az: "az",
-    prefix: "prefix",
+  // Child variations (child_phrase, child_prefix_how_to, child_prefix_what_does) all map to "child"
+  const getSource = (method: string | null): RefinePhrase["source"] => {
+    if (!method) return "seed";
+    if (method.startsWith("child")) return "child";
+    const sourceMap: Record<string, RefinePhrase["source"]> = {
+      seed: "seed",
+      top10: "top10",
+      az: "az",
+      prefix: "prefix",
+    };
+    return sourceMap[method] || "seed";
   };
   
-  const source = sourceMap[seed.generation_method || "seed"] || "seed";
+  const source = getSource(seed.generation_method);
   
   // Calculate demand score if we have intake stats
   let demandScore: number | null = null;

@@ -2,14 +2,15 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { toTitleCase } from "@/lib/utils";
 import {
-  randomDelay,
-  shuffle,
   normalizePhrase,
-  fetchAutocomplete,
   getSignificantWords,
   isRelevantToSeed,
   hasOutdatedYear,
   hasSocialMediaSpam,
+  fetchAZComplete,
+  fetchPrefixComplete,
+  fetchChildExpansion,
+  SEMANTIC_PREFIXES,
 } from "@/lib/youtube-autocomplete";
 
 // Initialize Supabase client for server-side
@@ -159,20 +160,25 @@ export async function POST(request: NextRequest) {
               break;
             }
 
-            const childPrefixes = ["how to", "what does"];
-            const shuffledParents = shuffle(parentPhrases);
-            const total = shuffledParents.length * (1 + childPrefixes.length); // Total queries
+            // Use Apify child expansion
+            const total = parentPhrases.length * 3; // 3 calls per parent (direct + how to + what does)
             let current = 0;
-
-            for (let p = 0; p < shuffledParents.length; p++) {
-              const parent = shuffledParents[p];
-
+            
+            // Fetch child expansion and report progress manually
+            const { allPhrases: childPhrases, expansions } = await fetchChildExpansion(parentPhrases);
+            
+            // Process each expansion for progress reporting
+            for (const expansion of expansions) {
               // Direct expansion
               current++;
-              const directResults = await fetchAutocomplete(parent);
-              const directAdded = await savePhrases(sessionId, directResults, method, existingNormalized, seedSignificantWords);
+              const directAdded = await savePhrases(
+                sessionId,
+                expansion.directChildren,
+                'child_phrase',
+                existingNormalized,
+                seedSignificantWords
+              );
               totalAdded += directAdded;
-              
               await sendEvent({
                 type: "progress",
                 method,
@@ -180,117 +186,106 @@ export async function POST(request: NextRequest) {
                 total,
                 added: directAdded,
                 totalAdded,
-                query: parent,
+                query: expansion.parentPhrase,
               });
               
-              await randomDelay(1200, 1800);
-
-              // Prefix expansions
-              for (let i = 0; i < childPrefixes.length; i++) {
-                const prefix = childPrefixes[i];
-                current++;
-                const query = `${prefix} ${parent}`;
-                const prefixResults = await fetchAutocomplete(query);
-                const prefixAdded = await savePhrases(sessionId, prefixResults, method, existingNormalized, seedSignificantWords);
-                totalAdded += prefixAdded;
-
-                await sendEvent({
-                  type: "progress",
-                  method,
-                  current,
-                  total,
-                  added: prefixAdded,
-                  totalAdded,
-                  query,
-                });
-
-                if (i < childPrefixes.length - 1 || p < shuffledParents.length - 1) {
-                  await randomDelay(1200, 1800);
-                }
-              }
-
-              // Occasional longer pause between parent phrases
-              if (p < shuffledParents.length - 1 && p % 3 === 2) {
-                await randomDelay(2500, 4000);
-              }
+              // how to expansion
+              current++;
+              const howToAdded = await savePhrases(
+                sessionId,
+                expansion.howToChildren,
+                'child_prefix_how_to',
+                existingNormalized,
+                seedSignificantWords
+              );
+              totalAdded += howToAdded;
+              await sendEvent({
+                type: "progress",
+                method,
+                current,
+                total,
+                added: howToAdded,
+                totalAdded,
+                query: `how to ${expansion.parentPhrase}`,
+              });
+              
+              // what does expansion
+              current++;
+              const whatDoesAdded = await savePhrases(
+                sessionId,
+                expansion.whatDoesChildren,
+                'child_prefix_what_does',
+                existingNormalized,
+                seedSignificantWords
+              );
+              totalAdded += whatDoesAdded;
+              await sendEvent({
+                type: "progress",
+                method,
+                current,
+                total,
+                added: whatDoesAdded,
+                totalAdded,
+                query: `what does ${expansion.parentPhrase}`,
+              });
             }
             break;
           }
 
           case "az": {
-            const alphabet = shuffle("abcdefghijklmnopqrstuvwxyz".split(""));
-            const total = alphabet.length;
+            // Use Apify bulk A-Z expansion (single call with use_suffix: true)
+            await sendEvent({
+              type: "progress",
+              method,
+              current: 1,
+              total: 1,
+              added: 0,
+              totalAdded,
+              query: `${seed} [a-z]`,
+            });
 
-            for (let i = 0; i < alphabet.length; i++) {
-              const letter = alphabet[i];
-              const current = i + 1;
-              const query = `${seed} ${letter}`;
+            const { phrases: azPhrases } = await fetchAZComplete(seed);
+            const phraseTexts = azPhrases.map(p => p.text);
+            const added = await savePhrases(sessionId, phraseTexts, method, existingNormalized, seedSignificantWords);
+            totalAdded += added;
 
-              const results = await fetchAutocomplete(query);
-              const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
-              totalAdded += added;
-
-              await sendEvent({
-                type: "progress",
-                method,
-                current,
-                total,
-                added,
-                totalAdded,
-                query,
-              });
-
-              if (i < alphabet.length - 1) {
-                await randomDelay(1500, 2000);
-                if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-                  await randomDelay(2000, 3500);
-                }
-              }
-            }
+            await sendEvent({
+              type: "progress",
+              method,
+              current: 1,
+              total: 1,
+              added,
+              totalAdded,
+              query: `${seed} [a-z] complete`,
+            });
             break;
           }
 
           case "prefix": {
-            // Ordered by probability of generating quality results
-            // Tier 1: Single words (highest probability)
-            // Tier 2: Two-word phrases (strong patterns)
-            // Tier 3: Action single words
-            const prefixes = [
-              // Tier 1: Single Words
-              "how", "why", "what", "best", "when",
-              "is", "does", "can", "will", "should",
-              // Tier 2: Two-Word Phrases
-              "how to", "how does", "what is", "what does", "why does",
-              // Tier 3: Action Single Words
-              "fix", "improve", "learn", "tips",
-            ];
-            const total = prefixes.length;
+            // Use Apify bulk prefix expansion (6 semantic prefixes)
+            const total = SEMANTIC_PREFIXES.length;
+            let current = 0;
 
-            for (let i = 0; i < prefixes.length; i++) {
-              const prefix = prefixes[i];
-              const current = i + 1;
-              const query = `${prefix} ${seed}`;
+            // Fetch all prefix completions
+            const { phrases: prefixPhrases } = await fetchPrefixComplete(seed);
+            
+            // Save all phrases at once with the method tag
+            const phraseTexts = prefixPhrases.map(p => p.text);
+            const added = await savePhrases(sessionId, phraseTexts, method, existingNormalized, seedSignificantWords);
+            totalAdded += added;
 
-              const results = await fetchAutocomplete(query);
-              const added = await savePhrases(sessionId, results, method, existingNormalized, seedSignificantWords);
-              totalAdded += added;
-
+            // Report progress for each prefix (for UI consistency)
+            for (const prefix of SEMANTIC_PREFIXES) {
+              current++;
               await sendEvent({
                 type: "progress",
                 method,
                 current,
                 total,
-                added,
+                added: current === total ? added : 0, // Only report added on last event
                 totalAdded,
-                query,
+                query: `${prefix} ${seed}`,
               });
-
-              if (i < prefixes.length - 1) {
-                await randomDelay(1500, 2000);
-                if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-                  await randomDelay(2000, 3500);
-                }
-              }
             }
             break;
           }

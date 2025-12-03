@@ -1,0 +1,17 @@
+{
+    "name": "youtube-autocomplete",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "Private YouTube autocomplete scraper using Apify proxies",
+    "main": "src/main.js",
+    "scripts": {
+        "start": "node src/main.js",
+        "test": "echo \"No tests yet\""
+    },
+    "dependencies": {
+        "apify": "^3.1.0",
+        "got-scraping": "^4.0.0"
+    },
+    "author": "Brian Johnson",
+    "license": "UNLICENSED"
+}

@@ -438,7 +438,7 @@ export async function POST(
     }
     
     // -------------------------------------------------------------------------
-    // 7. Build response
+    // 7. Build response (percentile normalization removed - using raw GPT scores)
     // -------------------------------------------------------------------------
     const scores = allResults.map(r => r.score);
     const distribution = calculateDistribution(scores);

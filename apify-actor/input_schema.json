@@ -1,0 +1,29 @@
+{
+    "title": "YouTube Autocomplete Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "queries": {
+            "title": "Search Queries",
+            "type": "array",
+            "description": "List of search queries to get autocomplete suggestions for",
+            "editor": "stringList",
+            "prefill": ["ai content creation"]
+        },
+        "language": {
+            "title": "Language",
+            "type": "string",
+            "description": "Language code for suggestions (e.g., en, es, de)",
+            "default": "en",
+            "editor": "textfield"
+        },
+        "country": {
+            "title": "Country",
+            "type": "string",
+            "description": "Country code for regional suggestions (e.g., US, UK, DE)",
+            "default": "US",
+            "editor": "textfield"
+        }
+    },
+    "required": ["queries"]
+}

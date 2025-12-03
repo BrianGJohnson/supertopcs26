@@ -67,7 +67,7 @@ function SeedPageContent() {
   // Derived data for components
   const sourceCounts = {
     top10: seeds.filter(s => s.generation_method === "top10").length,
-    child: seeds.filter(s => s.generation_method === "child").length,
+    child: seeds.filter(s => s.generation_method?.startsWith("child")).length,
     az: seeds.filter(s => s.generation_method === "az").length,
     prefix: seeds.filter(s => s.generation_method === "prefix").length,
   };

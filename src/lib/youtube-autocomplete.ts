@@ -1,30 +1,48 @@
 /**
- * Shared utilities for YouTube autocomplete API routes
+ * YouTube Autocomplete - APIFY INTEGRATION
  * 
- * This file contains all the helper functions used by both:
- * - /api/autocomplete/route.ts (returns suggestions to client)
- * - /api/autocomplete/stream/route.ts (saves suggestions to database)
+ * This file provides autocomplete functionality via Apify.
+ * The direct YouTube/Google API calls have been deprecated to avoid IP blocking.
+ * 
+ * MIGRATION: December 3, 2025
+ * - Direct Google API calls → Apify proxy service
+ * - Old code preserved in youtube-autocomplete.deprecated.ts
+ * 
+ * @see /docs/apify-integration-guide.md for full documentation
  */
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+// Re-export everything from apify-autocomplete for backward compatibility
+export {
+  // Core fetch function (drop-in replacement)
+  fetchAutocompleteViaApify as fetchAutocomplete,
+  
+  // Hybrid expansion functions
+  fetchTop10,
+  fetchAZComplete,
+  fetchPrefixComplete,
+  fetchChildExpansion,
+  runHybridExpansion,
+  
+  // Configuration
+  SEMANTIC_PREFIXES,
+  CHILD_PREFIXES,
+  TAG_CONFIG,
+  
+  // Types
+  type ApifyCallResult,
+  type ApifyBulkCallResult,
+  type TaggedPhrase,
+  type ChildExpansionResult,
+  type ExpansionReport,
+} from "./apify-autocomplete";
 
-export const AUTOCOMPLETE_ENDPOINTS = [
-  { url: "https://suggestqueries.google.com/complete/search", client: "youtube" },
-  { url: "https://clients1.google.com/complete/search", client: "youtube" },
-  { url: "https://suggestqueries.google.com/complete/search", client: "firefox" },
-];
-
-export const TIMEOUT_MS = 10000;
-
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS (kept for backward compatibility)
 // ============================================================================
 
 /**
  * Random delay between min and max milliseconds
- * Used to simulate human-like request patterns
+ * Note: Apify handles its own rate limiting, but this is kept for compatibility
  */
 export function randomDelay(min: number, max: number): Promise<void> {
   const ms = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -33,7 +51,6 @@ export function randomDelay(min: number, max: number): Promise<void> {
 
 /**
  * Shuffle an array (Fisher-Yates algorithm)
- * Used to randomize query order for less predictable patterns
  */
 export function shuffle<T>(array: T[]): T[] {
   const arr = [...array];
@@ -46,7 +63,6 @@ export function shuffle<T>(array: T[]): T[] {
 
 /**
  * Normalize phrase text for deduplication and comparison
- * Converts to lowercase, trims, normalizes spaces, removes special chars
  */
 export function normalizePhrase(text: string): string {
   return text
@@ -57,106 +73,11 @@ export function normalizePhrase(text: string): string {
 }
 
 // ============================================================================
-// AUTOCOMPLETE FETCHING
-// ============================================================================
-
-/**
- * Parse YouTube autocomplete response (handles JSON and JSONP formats)
- * Returns array of suggestion strings (extracts text from nested arrays)
- */
-export function parseAutocompleteResponse(text: string): string[] {
-  let jsonData: unknown = null;
-  
-  // Attempt 1: Parse as pure JSON
-  try {
-    jsonData = JSON.parse(text);
-  } catch {
-    // Not valid JSON, try JSONP extraction
-  }
-
-  // Attempt 2: Extract JSON from JSONP wrapper
-  if (!jsonData) {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        jsonData = JSON.parse(match[0]);
-      } catch {
-        // Parsing failed
-      }
-    }
-  }
-
-  // Extract suggestion strings from parsed data
-  // Structure: [query, [[suggestion1, 0, [...]], [suggestion2, 0, [...]], ...], {...}]
-  if (Array.isArray(jsonData) && jsonData.length > 1 && Array.isArray(jsonData[1])) {
-    const suggestions: string[] = [];
-    for (const item of jsonData[1]) {
-      // Each item is [text, 0, [...]] or just a string
-      if (Array.isArray(item) && typeof item[0] === 'string') {
-        suggestions.push(item[0]);
-      } else if (typeof item === 'string') {
-        suggestions.push(item);
-      }
-    }
-    return suggestions;
-  }
-
-  return [];
-}
-
-/**
- * Fetch autocomplete suggestions with timeout and fallback endpoints
- * Tries multiple Google endpoints until one succeeds
- */
-export async function fetchAutocomplete(query: string): Promise<string[]> {
-  for (const endpoint of AUTOCOMPLETE_ENDPOINTS) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      const url = `${endpoint.url}?client=${endpoint.client}&ds=yt&q=${encodeURIComponent(query)}&hl=en&gl=US`;
-
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.warn(`Endpoint ${endpoint.url} returned ${response.status}, trying next...`);
-        continue;
-      }
-
-      const text = await response.text();
-      const suggestions = parseAutocompleteResponse(text);
-
-      if (suggestions.length > 0) {
-        return suggestions;
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        console.warn(`Timeout on ${endpoint.url}, trying next...`);
-      } else {
-        console.warn(`Error on ${endpoint.url}:`, error);
-      }
-      continue;
-    }
-  }
-
-  return [];
-}
-
-// ============================================================================
 // PHRASE FILTERING (used by stream route for database saves)
 // ============================================================================
 
 /**
- * Extract significant words from seed phrase (filters out common/short words)
- * Keeps numbers and version strings like "4.5"
+ * Extract significant words from seed phrase
  */
 export function getSignificantWords(seed: string): string[] {
   const stopWords = new Set([
@@ -171,13 +92,10 @@ export function getSignificantWords(seed: string): string[] {
     "too", "very", "just", "also", "now", "here", "there", "then", "once"
   ]);
 
-  // Split by spaces but preserve version numbers like "4.5"
   const words = seed.toLowerCase().split(/\s+/);
   
   return words.filter(word => {
-    // Keep numbers and version strings (e.g., "4.5", "2024")
     if (/^\d+(\.\d+)?$/.test(word)) return true;
-    // Filter out stop words and very short words
     return word.length >= 2 && !stopWords.has(word);
   });
 }
@@ -191,17 +109,16 @@ export function isRelevantToSeed(phrase: string, significantWords: string[]): bo
 }
 
 /**
- * Get allowed years for filtering (current year + next year if Sept-Dec)
+ * Get allowed years for filtering
  */
 export function getAllowedYears(): Set<string> {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
+  const currentMonth = now.getMonth();
   
   const allowed = new Set<string>();
   allowed.add(String(currentYear));
   
-  // If September (8) through December (11), also allow next year
   if (currentMonth >= 8) {
     allowed.add(String(currentYear + 1));
   }
@@ -210,49 +127,34 @@ export function getAllowedYears(): Set<string> {
 }
 
 /**
- * Check if phrase contains an outdated year (should be filtered out)
- * Returns true if phrase should be REMOVED
+ * Check if phrase contains an outdated year
  */
 export function hasOutdatedYear(phrase: string): boolean {
   const allowedYears = getAllowedYears();
-  
-  // Match 4-digit years (2020-2099 range to avoid matching other numbers)
   const yearPattern = /\b(20[2-9]\d)\b/g;
   const matches = phrase.match(yearPattern);
   
-  if (!matches) return false; // No years found, keep the phrase
+  if (!matches) return false;
   
-  // If any year in the phrase is NOT allowed, filter it out
   for (const year of matches) {
     if (!allowedYears.has(year)) {
-      return true; // Has outdated year, should be removed
+      return true;
     }
   }
   
-  return false; // All years are allowed
+  return false;
 }
 
 /**
- * Check if phrase contains social media spam artifacts
- * Returns true if phrase should be REMOVED
+ * Check if phrase contains social media spam
  */
 export function hasSocialMediaSpam(phrase: string): boolean {
-  // Filter 1: Contains hashtags (social media artifact)
-  if (phrase.includes('#')) {
-    return true;
-  }
+  if (phrase.includes('#')) return true;
+  if (/@\w+/.test(phrase)) return true;
   
-  // Filter 2: Contains @ mentions
-  if (/@\w+/.test(phrase)) {
-    return true;
-  }
-  
-  // Filter 3: Has 3+ emojis (spam indicator)
   const emojiPattern = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]/gu;
   const emojiMatches = phrase.match(emojiPattern);
-  if (emojiMatches && emojiMatches.length >= 3) {
-    return true;
-  }
+  if (emojiMatches && emojiMatches.length >= 3) return true;
   
   return false;
 }

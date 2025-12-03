@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  randomDelay,
-  shuffle,
   normalizePhrase,
-  fetchAutocomplete,
+  fetchTop10,
+  fetchAZComplete,
+  fetchPrefixComplete,
+  fetchChildExpansion,
+  SEMANTIC_PREFIXES,
 } from "@/lib/youtube-autocomplete";
 
 /**
  * POST /api/autocomplete
  * 
- * Fetches autocomplete suggestions from YouTube based on the method:
- * - top10: Single query, returns ~10 suggestions
- * - az: 26 queries (seed + a, seed + b, ..., seed + z)
- * - prefix: 25 queries with common prefixes
- * - child: Expands parent phrases (requires parentPhrases in body)
+ * Fetches autocomplete suggestions via Apify (no direct YouTube API calls).
+ * 
+ * Methods (using forward_flight~my-actor with batch mode):
+ * - top10: Single query, returns ~14 suggestions (~3.5s)
+ * - az: Batch 26 A-Z queries in one call (~14s)
+ * - prefix: Batch 6 semantic prefixes in one call (~5s)
+ * - child: Batch all parent phrases in one call (~10s)
+ * 
+ * MIGRATION: Uses custom Apify actor with batch support.
+ * @see /docs/apify-integration-guide.md
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,71 +35,28 @@ export async function POST(request: NextRequest) {
 
     switch (method) {
       case "top10": {
-        // Simple search - single query
-        suggestions = await fetchAutocomplete(seed);
+        // Top-10: Single Apify call (~3s)
+        const { phrases } = await fetchTop10(seed);
+        suggestions = phrases.map(p => p.text);
         break;
       }
 
       case "az": {
-        // A-Z expansion - 26 queries, shuffled, ~40-48 seconds total
-        const alphabet = shuffle("abcdefghijklmnopqrstuvwxyz".split(""));
-        const allSuggestions: string[] = [];
-
-        // Sequential with human-like delays (1.5-2s per request = ~40-48s total)
-        for (let i = 0; i < alphabet.length; i++) {
-          const letter = alphabet[i];
-          const results = await fetchAutocomplete(`${seed} ${letter}`);
-          allSuggestions.push(...results);
-
-          // Random delay between requests (1500-2000ms)
-          if (i < alphabet.length - 1) {
-            await randomDelay(1500, 2000);
-            
-            // Occasional longer pause every 5-8 requests (simulates human distraction)
-            if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-              await randomDelay(2000, 3500);
-            }
-          }
-        }
-
-        suggestions = allSuggestions;
+        // A-Z: Bulk Apify call with use_suffix (~6s for all 26 letters!)
+        const { phrases } = await fetchAZComplete(seed);
+        suggestions = phrases.map(p => p.text);
         break;
       }
 
       case "prefix": {
-        // Prefix expansion - 25 common prefixes, shuffled, ~40-45 seconds total
-        const prefixes = shuffle([
-          "what", "what does", "why", "how", "how to",
-          "does", "can", "is", "will", "why does",
-          "problems", "tip", "how does", "understand", "explain",
-          "change", "update", "fix", "guide to", "learn",
-          "broken", "improve", "help with", "strategy", "plan for",
-        ]);
-        const allSuggestions: string[] = [];
-
-        // Sequential with human-like delays (1.5-2s per request = ~40-45s total)
-        for (let i = 0; i < prefixes.length; i++) {
-          const prefix = prefixes[i];
-          const results = await fetchAutocomplete(`${prefix} ${seed}`);
-          allSuggestions.push(...results);
-
-          // Random delay between requests (1500-2000ms)
-          if (i < prefixes.length - 1) {
-            await randomDelay(1500, 2000);
-            
-            // Occasional longer pause every 5-8 requests
-            if (i > 0 && i % (5 + Math.floor(Math.random() * 4)) === 0) {
-              await randomDelay(2000, 3500);
-            }
-          }
-        }
-
-        suggestions = allSuggestions;
+        // Prefix: Reduced semantic prefixes (6 calls, ~18s)
+        const { phrases } = await fetchPrefixComplete(seed, SEMANTIC_PREFIXES);
+        suggestions = phrases.map(p => p.text);
         break;
       }
 
       case "child": {
-        // Child expansion - expand each parent phrase, ~30-60 seconds depending on parent count
+        // Child expansion: 30 calls (~75s)
         if (!parentPhrases || !Array.isArray(parentPhrases)) {
           return NextResponse.json(
             { error: "Child method requires parentPhrases array" },
@@ -100,38 +64,8 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const allSuggestions: string[] = [];
-        const childPrefixes = ["how to", "what does"];
-
-        // Shuffle parent phrases for less predictable pattern
-        const shuffledParents = shuffle(parentPhrases);
-
-        for (let p = 0; p < shuffledParents.length; p++) {
-          const parent = shuffledParents[p];
-          
-          // Direct expansion
-          const directResults = await fetchAutocomplete(parent);
-          allSuggestions.push(...directResults);
-          await randomDelay(1200, 1800);
-
-          // Prefix expansions
-          for (let i = 0; i < childPrefixes.length; i++) {
-            const prefix = childPrefixes[i];
-            const prefixResults = await fetchAutocomplete(`${prefix} ${parent}`);
-            allSuggestions.push(...prefixResults);
-            
-            if (i < childPrefixes.length - 1 || p < shuffledParents.length - 1) {
-              await randomDelay(1200, 1800);
-            }
-          }
-
-          // Occasional longer pause between parent phrases
-          if (p < shuffledParents.length - 1 && p % 3 === 2) {
-            await randomDelay(2500, 4000);
-          }
-        }
-
-        suggestions = allSuggestions;
+        const { allPhrases } = await fetchChildExpansion(parentPhrases);
+        suggestions = allPhrases.map(p => p.text);
         break;
       }
 
@@ -147,7 +81,6 @@ export async function POST(request: NextRequest) {
         normalized: normalizePhrase(s),
       }))
       .filter(({ normalized }) => {
-        // Skip empty, skip if same as seed
         if (!normalized || normalized === normalizePhrase(seed)) return false;
         if (seen.has(normalized)) return false;
         seen.add(normalized);
@@ -160,6 +93,7 @@ export async function POST(request: NextRequest) {
       method,
       count: uniqueSuggestions.length,
       suggestions: uniqueSuggestions,
+      source: "apify", // Indicate we're using Apify
     });
   } catch (error) {
     console.error("Autocomplete API error:", error);

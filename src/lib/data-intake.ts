@@ -803,7 +803,7 @@ const FOREIGN_LANGUAGE_PATTERNS = [
 ];
 
 // YouTuber/Channel name patterns (likely garbage phrases)
-const YOUTUBER_NAME_PATTERNS = [
+const YOUTUBER_NAME_PATTERNS: RegExp[] = [
   // REMOVED: YouTuber name patterns - not scalable
 ];
 
