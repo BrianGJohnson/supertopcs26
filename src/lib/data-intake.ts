@@ -5,7 +5,7 @@
  * Extracts patterns from all generated phrases to enable
  * FREE Popularity & Competition scoring without external APIs.
  * 
- * NEW: Position-weighted demand scores based on autocomplete hierarchy.
+ * NEW: Position-weighted demand scores based on topic hierarchy.
  */
 
 import type { IntakeStats } from '@/types/database';
@@ -15,7 +15,7 @@ import type { IntakeStats } from '@/types/database';
 // ============================================================
 
 /**
- * Position weights for Top 9 autocomplete results
+ * Position weights for Top 9 topic results
  * Position 1 = highest search volume, Position 9 = lowest
  * These create natural score differentiation within Top 10
  */
@@ -434,7 +434,7 @@ function computeFilteredPercentiles(
  * 
  * @param phrases - All phrases in the session
  * @param seedPhrase - The original seed phrase
- * @param top9Phrases - Top 9 autocomplete results with positions (optional, for demand scoring)
+ * @param top9Phrases - Top 9 topic results with positions (optional, for demand scoring)
  */
 export function runDataIntake(
   phrases: string[], 
@@ -922,8 +922,8 @@ function getNaturalLanguageAdjustment(phrase: string): number {
  * Formula:
  *   popularityScore = baseFromTag + variation + openerBoost + lengthPoints + nlAdjustment
  * 
- * Tags are determined by relationship to Top 10 autocomplete results:
- *   - TOP_10: Is one of the Top 9 autocomplete results (base 90)
+ * Tags are determined by relationship to Top 10 topic results:
+ *   - TOP_10: Is one of the Top 9 topic results (base 90)
  *   - T10_CHILD: Starts with a Top 10 phrase (base 78)
  *   - T10_RELATED: Contains a Top 10 phrase (base 70)
  *   - NO_TAG: No relationship to Top 10 (base 62)
@@ -1321,7 +1321,7 @@ export function calculateAllPCScores(
 
 // ============================================================
 // LTV (LONG-TERM VIEWS) SCORING
-// Measures alignment with Top 10 autocomplete results
+// Measures alignment with Top 10 topic results
 // ============================================================
 
 /**

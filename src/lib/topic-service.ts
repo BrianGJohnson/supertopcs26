@@ -1,22 +1,16 @@
 /**
- * YouTube Autocomplete - APIFY INTEGRATION
+ * Topic Service Module
  * 
- * This file provides autocomplete functionality via Apify.
- * The direct YouTube/Google API calls have been deprecated to avoid IP blocking.
- * 
- * MIGRATION: December 3, 2025
- * - Direct Google API calls → Apify proxy service
- * - Old code preserved in youtube-autocomplete.deprecated.ts
- * 
- * @see /docs/apify-integration-guide.md for full documentation
+ * This module provides topic idea generation and expansion functionality.
+ * All topic fetching is handled by the topic-expansion module.
  */
 
-// Re-export everything from apify-autocomplete for backward compatibility
+// Re-export everything from topic-expansion for backward compatibility
 export {
-  // Core fetch function (drop-in replacement)
-  fetchAutocompleteViaApify as fetchAutocomplete,
+  // Core fetch function
+  fetchTopics as fetchAutocomplete,
   
-  // Hybrid expansion functions
+  // Expansion functions
   fetchTop10,
   fetchAZComplete,
   fetchPrefixComplete,
@@ -29,20 +23,19 @@ export {
   TAG_CONFIG,
   
   // Types
-  type ApifyCallResult,
-  type ApifyBulkCallResult,
+  type TopicCallResult,
+  type BulkTopicResult,
   type TaggedPhrase,
   type ChildExpansionResult,
   type ExpansionReport,
-} from "./apify-autocomplete";
+} from "./topic-expansion";
 
 // ============================================================================
-// UTILITY FUNCTIONS (kept for backward compatibility)
+// UTILITY FUNCTIONS
 // ============================================================================
 
 /**
  * Random delay between min and max milliseconds
- * Note: Apify handles its own rate limiting, but this is kept for compatibility
  */
 export function randomDelay(min: number, max: number): Promise<void> {
   const ms = Math.floor(Math.random() * (max - min + 1)) + min;

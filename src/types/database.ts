@@ -409,7 +409,7 @@ export interface IntakeStats {
   suffixPercentiles: Record<string, number>;
   
   // TOP 9 DEMAND SCORING
-  // Position-weighted demand signals from Top 9 autocomplete results
+  // Position-weighted demand signals from Top 9 topic results
   // Now includes session-wide frequency analysis
   top9Demand?: {
     // The Top 9 phrases in position order (index 0 = position 1)

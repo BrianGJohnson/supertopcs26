@@ -1,16 +1,14 @@
 /**
- * Apify YouTube Autocomplete Module (v3.0)
+ * Topic Expansion Module (v3.0)
  * 
- * This module provides YouTube autocomplete suggestions via our custom Apify actor.
- * Uses forward_flight~my-actor for reliable, scalable autocomplete access.
+ * This module provides topic idea generation via our expansion service.
+ * Service configured via environment variables.
  * 
  * KEY FEATURES:
- * - Custom actor with full control
+ * - Custom service with full control
  * - Batch queries in single calls
- * - Up to 14 suggestions per query
+ * - Up to 14 topics per query
  * - ~14s for full A-Z (26 queries)
- * 
- * @see /docs/apify-integration-guide.md for full documentation
  */
 
 // ============================================================================
@@ -18,24 +16,25 @@
 // ============================================================================
 
 /**
- * Response format from our custom Apify actor (forward_flight~my-actor)
- * Each suggestion is a separate object with seed and suggestion
+ * Response format from expansion service
+ * Each topic is a separate object with seed and suggestion
  */
-export interface ApifyAutocompleteResponse {
+export interface TopicExpansionResponse {
   seed: string;
   suggestion: string;
 }
 
-export interface ApifyCallResult {
+export interface TopicCallResult {
   query: string;
   suggestions: string[];
   durationMs: number;
   success: boolean;
   error?: string;
   retryCount: number;
+  rawData?: TopicExpansionResponse[];  // Optional: raw response for grouped parsing
 }
 
-export interface ApifyBulkCallResult {
+export interface BulkTopicResult {
   queries: string[];
   suggestions: string[];
   durationMs: number;
@@ -83,7 +82,7 @@ export interface ExpansionReport {
   totalSuggestions: number;
   uniqueSuggestions: number;
   
-  // Cost (estimated based on Apify pricing)
+  // Cost (estimated)
   estimatedCostUsd: number;
   
   // Modes used
@@ -97,7 +96,7 @@ export interface ExpansionReport {
 /**
  * Retry configuration for failed requests
  */
-export const APIFY_RETRY_CONFIG = {
+export const RETRY_CONFIG = {
   maxRetries: 2,
   baseBackoffMs: 1000,
   maxBackoffMs: 5000,
@@ -105,13 +104,12 @@ export const APIFY_RETRY_CONFIG = {
 };
 
 /**
- * Timeout for each Apify API call
+ * Timeout for each API call
  */
-export const APIFY_TIMEOUT_MS = 30000; // 30 seconds (Apify runs can take time)
+export const SERVICE_TIMEOUT_MS = 30000; // 30 seconds
 
 /**
  * Cost estimation per call (in USD)
- * Based on Apify's compute unit pricing
  */
 export const ESTIMATED_COST_PER_CALL_USD = 0.001;
 
@@ -119,8 +117,6 @@ export const ESTIMATED_COST_PER_CALL_USD = 0.001;
  * Semantic prefixes for Prefix Complete (18 optimized prefixes)
  * Ordered by value: singles first, then high-value phrases
  * No shuffle needed - batch mode sends all at once
- * 
- * @see /docs/apify-expansion-methods.md for full documentation
  */
 export const SEMANTIC_PREFIXES = [
   // === HIGH VALUE SINGLES (1-6) ===
@@ -207,48 +203,51 @@ export function sleep(ms: number): Promise<void> {
  * Calculate exponential backoff for retries
  */
 function calculateBackoff(retryCount: number): number {
-  const backoff = APIFY_RETRY_CONFIG.baseBackoffMs * Math.pow(2, retryCount);
+  const backoff = RETRY_CONFIG.baseBackoffMs * Math.pow(2, retryCount);
   const jitter = Math.random() * 500; // Add 0-500ms jitter
-  return Math.min(backoff + jitter, APIFY_RETRY_CONFIG.maxBackoffMs);
+  return Math.min(backoff + jitter, RETRY_CONFIG.maxBackoffMs);
 }
 
 // ============================================================================
-// APIFY API FUNCTIONS
+// SERVICE API FUNCTIONS
 // ============================================================================
 
 /**
- * Get the Apify API endpoint URL
- * Uses our custom actor: forward_flight~my-actor
+ * Get the expansion service endpoint URL
+ * Must be configured via environment variables
  */
-function getApifyEndpoint(): string {
-  const actor = process.env.APIFY_AUTOCOMPLETE_ACTOR || 'forward_flight~my-actor';
+function getServiceEndpoint(): string {
+  const actor = process.env.APIFY_AUTOCOMPLETE_ACTOR;
   const token = process.env.APIFY_API_TOKEN;
   
+  if (!actor) {
+    throw new Error('Service actor environment variable is not set');
+  }
+  
   if (!token) {
-    throw new Error('APIFY_API_TOKEN environment variable is not set');
+    throw new Error('Service token environment variable is not set');
   }
   
   return `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}`;
 }
 
 /**
- * Parse Apify response into array of suggestion strings
- * New format: array of { seed, suggestion } objects
+ * Parse response into array of topic strings
  */
-export function parseApifyResponse(data: ApifyAutocompleteResponse[]): string[] {
+export function parseTopicResponse(data: TopicExpansionResponse[]): string[] {
   if (!data || data.length === 0) return [];
   
-  // Extract all suggestions from the response
+  // Extract all topics from the response
   return data
     .map(item => item.suggestion)
     .filter(s => typeof s === 'string' && s.trim());
 }
 
 /**
- * Parse Apify response grouped by seed
- * Returns a Map of seed -> suggestions[]
+ * Parse response grouped by seed
+ * Returns a Map of seed -> topics[]
  */
-export function parseApifyResponseGrouped(data: ApifyAutocompleteResponse[]): Map<string, string[]> {
+export function parseTopicResponseGrouped(data: TopicExpansionResponse[]): Map<string, string[]> {
   const grouped = new Map<string, string[]>();
   
   if (!data || data.length === 0) return grouped;
@@ -256,53 +255,53 @@ export function parseApifyResponseGrouped(data: ApifyAutocompleteResponse[]): Ma
   for (const item of data) {
     if (!item.seed || !item.suggestion) continue;
     
-    const suggestions = grouped.get(item.seed) || [];
-    suggestions.push(item.suggestion);
-    grouped.set(item.seed, suggestions);
+    const topics = grouped.get(item.seed) || [];
+    topics.push(item.suggestion);
+    grouped.set(item.seed, topics);
   }
   
   return grouped;
 }
 
 /**
- * Parse Apify bulk response into deduplicated array of suggestions
+ * Parse bulk response into deduplicated array of topics
  * Used for batch queries (A-Z, prefix, child expansion)
  */
-export function parseApifyBulkResponse(data: ApifyAutocompleteResponse[]): string[] {
+export function parseBulkTopicResponse(data: TopicExpansionResponse[]): string[] {
   if (!data || data.length === 0) return [];
   
-  const allSuggestions = data
+  const allTopics = data
     .map(item => item.suggestion)
     .filter(s => typeof s === 'string' && s.trim());
   
   // Deduplicate while preserving order
-  return [...new Set(allSuggestions)];
+  return [...new Set(allTopics)];
 }
 
 /**
- * Make an Apify autocomplete API call with retry logic
+ * Make a topic expansion API call with retry logic
  * Supports single query or batch queries
  * 
- * @param query - The search query (or first query for display purposes)
+ * @param query - The seed query (or first query for display purposes)
  * @param options - Optional parameters including queries array for batch mode
- * @returns ApifyCallResult with suggestions and metadata
+ * @returns TopicCallResult with topics and metadata
  */
-export async function fetchApifyAutocomplete(
+export async function fetchTopicExpansion(
   query: string,
   options: { queries?: string[] } = {}
-): Promise<ApifyCallResult> {
+): Promise<TopicCallResult> {
   const startTime = Date.now();
   let lastError: string | undefined;
   
   // Use queries array if provided, otherwise wrap single query
   const queries = options.queries || [query];
   
-  for (let attempt = 0; attempt <= APIFY_RETRY_CONFIG.maxRetries; attempt++) {
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), APIFY_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), SERVICE_TIMEOUT_MS);
       
-      const response = await fetch(getApifyEndpoint(), {
+      const response = await fetch(getServiceEndpoint(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -318,12 +317,12 @@ export async function fetchApifyAutocomplete(
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        const shouldRetry = APIFY_RETRY_CONFIG.retryableStatuses.includes(response.status);
+        const shouldRetry = RETRY_CONFIG.retryableStatuses.includes(response.status);
         lastError = `HTTP ${response.status}: ${response.statusText}`;
         
-        if (shouldRetry && attempt < APIFY_RETRY_CONFIG.maxRetries) {
+        if (shouldRetry && attempt < RETRY_CONFIG.maxRetries) {
           const backoff = calculateBackoff(attempt);
-          console.warn(`[Apify] Retryable error for "${query}": ${lastError}. Retrying in ${backoff}ms...`);
+          console.warn(`[TopicExpansion] Retryable error for "${query}": ${lastError}. Retrying in ${backoff}ms...`);
           await sleep(backoff);
           continue;
         }
@@ -331,10 +330,10 @@ export async function fetchApifyAutocomplete(
         throw new Error(lastError);
       }
       
-      const data: ApifyAutocompleteResponse[] = await response.json();
+      const data: TopicExpansionResponse[] = await response.json();
       
-      // Parse all suggestions (our actor returns flat array of {seed, suggestion})
-      const suggestions = parseApifyResponse(data);
+      // Parse all topics
+      const suggestions = parseTopicResponse(data);
       
       return {
         query,
@@ -342,6 +341,7 @@ export async function fetchApifyAutocomplete(
         durationMs: Date.now() - startTime,
         success: true,
         retryCount: attempt,
+        rawData: data,  // Include raw data for grouped parsing
       };
       
     } catch (error) {
@@ -355,9 +355,9 @@ export async function fetchApifyAutocomplete(
         lastError = 'Unknown error';
       }
       
-      if (attempt < APIFY_RETRY_CONFIG.maxRetries) {
+      if (attempt < RETRY_CONFIG.maxRetries) {
         const backoff = calculateBackoff(attempt);
-        console.warn(`[Apify] Error for "${query}": ${lastError}. Retrying in ${backoff}ms...`);
+        console.warn(`[TopicExpansion] Error for "${query}": ${lastError}. Retrying in ${backoff}ms...`);
         await sleep(backoff);
         continue;
       }
@@ -365,27 +365,27 @@ export async function fetchApifyAutocomplete(
   }
   
   // All retries exhausted
-  console.error(`[Apify] All retries failed for "${query}": ${lastError}`);
+  console.error(`[TopicExpansion] All retries failed for "${query}": ${lastError}`);
   return {
     query,
     suggestions: [],
     durationMs: Date.now() - startTime,
     success: false,
     error: lastError,
-    retryCount: APIFY_RETRY_CONFIG.maxRetries,
+    retryCount: RETRY_CONFIG.maxRetries,
   };
 }
 
 /**
- * Fetch autocomplete for multiple queries in a single batch call
+ * Fetch topics for multiple queries in a single batch call
  * Much faster than individual calls - all queries processed together
  * 
- * @param queries - Array of search queries
- * @returns ApifyCallResult with all suggestions combined
+ * @param queries - Array of seed queries
+ * @returns TopicCallResult with all topics combined
  */
-export async function fetchApifyAutocompleteBatch(
+export async function fetchTopicBatch(
   queries: string[]
-): Promise<ApifyCallResult> {
+): Promise<TopicCallResult> {
   if (queries.length === 0) {
     return {
       query: '',
@@ -396,24 +396,21 @@ export async function fetchApifyAutocompleteBatch(
     };
   }
   
-  return fetchApifyAutocomplete(queries[0], { queries });
+  return fetchTopicExpansion(queries[0], { queries });
 }
 
 // ============================================================================
-// HIGH-LEVEL FETCH FUNCTION (Drop-in replacement)
+// HIGH-LEVEL FETCH FUNCTION
 // ============================================================================
 
 /**
- * Fetch autocomplete suggestions via Apify
+ * Fetch topic ideas
  * 
- * This is a drop-in replacement for the direct fetchAutocomplete() function.
- * It uses Apify's proxy service to avoid IP blocking issues.
- * 
- * @param query - The search query to get suggestions for
- * @returns Array of suggestion strings
+ * @param query - The seed query to get topics for
+ * @returns Array of topic strings
  */
-export async function fetchAutocompleteViaApify(query: string): Promise<string[]> {
-  const result = await fetchApifyAutocomplete(query);
+export async function fetchTopics(query: string): Promise<string[]> {
+  const result = await fetchTopicExpansion(query);
   return result.suggestions;
 }
 
@@ -427,7 +424,7 @@ export async function fetchAutocompleteViaApify(query: string): Promise<string[]
 export function generateExpansionReport(
   sessionId: string,
   startTime: Date,
-  results: ApifyCallResult[],
+  results: TopicCallResult[],
   totalDelayMs: number,
   modesExecuted: string[]
 ): ExpansionReport {
@@ -514,9 +511,9 @@ export function formatExpansionReport(report: ExpansionReport): string {
  */
 export async function fetchTop10(seed: string): Promise<{
   phrases: TaggedPhrase[];
-  result: ApifyCallResult;
+  result: TopicCallResult;
 }> {
-  const result = await fetchApifyAutocomplete(seed);
+  const result = await fetchTopicExpansion(seed);
   
   const phrases: TaggedPhrase[] = result.suggestions.map(text => ({
     text,
@@ -540,14 +537,14 @@ export async function fetchTop10(seed: string): Promise<{
  */
 export async function fetchAZComplete(seed: string): Promise<{
   phrases: TaggedPhrase[];
-  result: ApifyCallResult;
+  result: TopicCallResult;
 }> {
   // Generate all 26 A-Z queries
   const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
   const queries = alphabet.map(letter => `${seed} ${letter}`);
   
   // Single batch call for all 26 queries
-  const result = await fetchApifyAutocompleteBatch(queries);
+  const result = await fetchTopicBatch(queries);
   
   // Deduplicate suggestions
   const uniqueSuggestions = [...new Set(result.suggestions)];
@@ -578,13 +575,13 @@ export async function fetchPrefixComplete(
   prefixes: readonly string[] = SEMANTIC_PREFIXES
 ): Promise<{
   phrases: TaggedPhrase[];
-  results: ApifyCallResult[];
+  results: TopicCallResult[];
   totalDelayMs: number;
 }> {
   const queries = prefixes.map(prefix => `${prefix} ${seed}`);
   
   // Single batch call for all prefix queries
-  const result = await fetchApifyAutocompleteBatch(queries);
+  const result = await fetchTopicBatch(queries);
   
   // Deduplicate suggestions
   const uniqueSuggestions = [...new Set(result.suggestions)];
@@ -606,6 +603,10 @@ export async function fetchPrefixComplete(
  * All parent phrases expanded in ONE call
  * Tag: child_phrase
  * 
+ * IMPORTANT: ANY phrase returned when querying a Top-10 phrase
+ * is a valid Child phrase. We do NOT filter by "startsWith" - topic expansion
+ * can return related phrases that don't start with the parent.
+ * 
  * @param parentPhrases - Array of parent phrases (typically Top-10 results)
  * @returns Child expansion results with tagged phrases
  */
@@ -614,7 +615,7 @@ export async function fetchChildExpansion(
 ): Promise<{
   expansions: ChildExpansionResult[];
   allPhrases: TaggedPhrase[];
-  results: ApifyCallResult[];
+  results: TopicCallResult[];
   totalDelayMs: number;
 }> {
   if (parentPhrases.length === 0) {
@@ -627,23 +628,45 @@ export async function fetchChildExpansion(
   }
   
   // Single batch call for all parent phrases
-  const result = await fetchApifyAutocompleteBatch(parentPhrases);
+  const result = await fetchTopicBatch(parentPhrases);
   
-  // Group results by parent phrase for child filtering
+  // Use grouped response to properly associate each suggestion with its parent
+  const grouped = parseTopicResponseGrouped(result.rawData || []);
+  
+  // Build a case-insensitive lookup map for parent phrases
+  const parentLookup = new Map<string, string>();
+  for (const parent of parentPhrases) {
+    parentLookup.set(parent.toLowerCase().trim(), parent);
+  }
+  
   const expansions: ChildExpansionResult[] = [];
   const allPhrases: TaggedPhrase[] = [];
   
-  // Process each suggestion to find children
+  // Process each parent phrase and its suggestions
   for (const parent of parentPhrases) {
     const parentNormalized = parent.toLowerCase().trim();
     
-    // Filter suggestions that are children of this parent
-    const directChildren = result.suggestions.filter(s => {
+    // Get all suggestions that came from querying this parent phrase
+    // Try exact match first, then normalized match
+    let parentSuggestions = grouped.get(parent) || [];
+    
+    // If exact match failed, try to find by iterating through grouped keys
+    if (parentSuggestions.length === 0) {
+      for (const [seed, suggestions] of grouped.entries()) {
+        if (seed.toLowerCase().trim() === parentNormalized) {
+          parentSuggestions = suggestions;
+          break;
+        }
+      }
+    }
+    
+    // Filter out only exact matches of the parent phrase itself
+    const directChildren = parentSuggestions.filter(s => {
       const normalized = s.toLowerCase().trim();
-      return normalized.startsWith(parentNormalized) && normalized !== parentNormalized;
+      return normalized !== parentNormalized;
     });
     
-    // Tag direct children
+    // Tag all children from this parent
     for (const text of directChildren) {
       // Avoid duplicates in allPhrases
       const textNormalized = text.toLowerCase().trim();
@@ -713,7 +736,7 @@ export async function runHybridExpansion(
 }> {
   const startTime = new Date();
   const sessionId = options.sessionId || `session_${Date.now()}`;
-  const allResults: ApifyCallResult[] = [];
+  const allResults: TopicCallResult[] = [];
   const totalDelayMs = 0; // No delays needed with batch mode
   const modesExecuted: string[] = [];
   

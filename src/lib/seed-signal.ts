@@ -2,7 +2,7 @@
  * Seed Signal Validator
  * 
  * Provides instant validation of seed phrase popularity by checking
- * YouTube autocomplete response volume AND quality.
+ * Topic response volume AND quality.
  * 
  * The insight: Not all suggestions are equal. We need to distinguish:
  * - Topic suggestions (viewer intent): "legacy planning tips", "how to legacy plan"
@@ -134,14 +134,14 @@ function isTopicSuggestion(suggestion: string, seed: string): boolean {
 // =============================================================================
 
 /**
- * Calculate the seed signal based on autocomplete results
+ * Calculate the seed signal based on topic results
  * Now analyzes QUALITY of suggestions, not just quantity
  */
 export function calculateSeedSignal(
   seed: string,
-  autocompleteResults: string[]
+  topicResults: string[]
 ): SeedSignal {
-  const count = autocompleteResults.length;
+  const count = topicResults.length;
   const seedLower = seed.toLowerCase().trim();
   
   // Analyze each suggestion
@@ -149,7 +149,7 @@ export function calculateSeedSignal(
   let brandMatches = 0;
   let exactMatches = 0;
   
-  for (const suggestion of autocompleteResults) {
+  for (const suggestion of topicResults) {
     const suggestionLower = suggestion.toLowerCase();
     
     // Count exact matches (starts with seed)
@@ -196,7 +196,7 @@ export function calculateSeedSignal(
     signalStrength,
     message,
     explanation,
-    suggestions: autocompleteResults,
+    suggestions: topicResults,
   };
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createAuthenticatedSupabase } from "@/lib/supabase-server";
 import {
   normalizePhrase,
   fetchTop10,
@@ -6,24 +7,29 @@ import {
   fetchPrefixComplete,
   fetchChildExpansion,
   SEMANTIC_PREFIXES,
-} from "@/lib/youtube-autocomplete";
+} from "@/lib/topic-service";
 
 /**
- * POST /api/autocomplete
+ * POST /api/topics
  * 
- * Fetches autocomplete suggestions via Apify (no direct YouTube API calls).
+ * Fetches topic ideas for expansion.
+ * Requires authentication.
  * 
- * Methods (using forward_flight~my-actor with batch mode):
- * - top10: Single query, returns ~14 suggestions (~3.5s)
+ * Methods:
+ * - top10: Single query, returns ~14 topics (~3.5s)
  * - az: Batch 26 A-Z queries in one call (~14s)
  * - prefix: Batch 6 semantic prefixes in one call (~5s)
  * - child: Batch all parent phrases in one call (~10s)
- * 
- * MIGRATION: Uses custom Apify actor with batch support.
- * @see /docs/apify-integration-guide.md
  */
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const { userId } = await createAuthenticatedSupabase(request);
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { seed, method = "top10", parentPhrases } = body;
 
@@ -35,14 +41,14 @@ export async function POST(request: NextRequest) {
 
     switch (method) {
       case "top10": {
-        // Top-10: Single Apify call (~3s)
+        // Top-10: Single call (~3s)
         const { phrases } = await fetchTop10(seed);
         suggestions = phrases.map(p => p.text);
         break;
       }
 
       case "az": {
-        // A-Z: Bulk Apify call with use_suffix (~6s for all 26 letters!)
+        // A-Z: Bulk call (~6s for all 26 letters)
         const { phrases } = await fetchAZComplete(seed);
         suggestions = phrases.map(p => p.text);
         break;
@@ -93,10 +99,9 @@ export async function POST(request: NextRequest) {
       method,
       count: uniqueSuggestions.length,
       suggestions: uniqueSuggestions,
-      source: "apify", // Indicate we're using Apify
     });
   } catch (error) {
-    console.error("Autocomplete API error:", error);
+    console.error("Topics API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

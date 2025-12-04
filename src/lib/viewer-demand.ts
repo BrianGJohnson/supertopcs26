@@ -1,7 +1,7 @@
 /**
  * Viewer Demand Scoring System
  * 
- * Scores seed phrases 0-100 based on autocomplete signals that indicate
+ * Scores seed phrases 0-100 based on topic signals that indicate
  * genuine viewer interest (people wanting to learn, understand, solve, vent).
  * 
  * Philosophy: "Built for the Viewer" - we detect signals that real humans
@@ -21,7 +21,7 @@ export interface DemandScore {
   description: string;
   
   // Breakdown
-  suggestionCount: number;          // Raw count of autocomplete results
+  suggestionCount: number;          // Raw count of topic results
   totalSignals: number;             // Sum of all topic signals found
   signalDensity: number;            // Signals per suggestion (0-3+)
   semanticFocus: number;            // 0-100, how focused vs scattered
@@ -837,7 +837,7 @@ function getTierFromScore(score: number): DemandTier {
  * Calculate the Viewer Demand Score for a seed phrase
  * 
  * @param seed - The seed phrase being evaluated
- * @param suggestions - Autocomplete suggestions from YouTube
+ * @param suggestions - Topic suggestions
  * @returns DemandScore with 0-100 score and breakdown
  */
 export function calculateViewerDemand(

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { authFetch } from "@/lib/supabase";
 import { 
   type ViewerLandscape,
   getDemandColorClass,
@@ -35,7 +36,7 @@ interface SeedSignalIndicatorProps {
  * SeedSignalIndicator
  * 
  * Displays real-time validation feedback for a seed phrase based on
- * YouTube autocomplete response volume and viewer landscape analysis.
+ * topic expansion response volume and viewer landscape analysis.
  * 
  * Usage:
  * <SeedSignalIndicator seed={seedInput} />
@@ -66,7 +67,7 @@ export function SeedSignalIndicator({
       setError(null);
 
       try {
-        const response = await fetch("/api/seed-signal", {
+        const response = await authFetch("/api/seed-signal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ seed: seed.trim() }),

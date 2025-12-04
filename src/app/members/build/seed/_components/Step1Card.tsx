@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SessionMenu } from "@/components/SessionMenu";
+import { authFetch } from "@/lib/supabase";
 
 interface Step1CardProps {
   sessionId: string | null;
@@ -21,20 +22,16 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Calculate tools completion
-  const toolsCompleted = [
-    sourceCounts.top10 > 0,
-    sourceCounts.child > 0,
-    sourceCounts.az > 0,
-    sourceCounts.prefix > 0,
-  ].filter(Boolean).length;
+  // Calculate tools completion - count which sources have run
+  // Note: Child can legitimately have 0 results if all children are filtered as duplicates
+  // So we check if the required sources have data: top10, az, and prefix
+  // Child is optional since it depends on Top-10 results
+  const hasTop10 = sourceCounts.top10 > 0;
+  const hasAZ = sourceCounts.az > 0;
+  const hasPrefix = sourceCounts.prefix > 0;
   
-  // GATE: Only show complete if all tools done AND we're not actively expanding
-  // This syncs with the toast timing in SeedCard
-  const allToolsComplete = toolsCompleted === 4 && !isExpanding;
-  
-  // Determine the current state
-  const hasStarted = toolsCompleted > 0 || isExpanding;
+  // GATE: Complete if we have the 3 required sources AND not actively expanding
+  const allToolsComplete = hasTop10 && hasAZ && hasPrefix && !isExpanding;
 
   // Handle "Proceed to Refine" click - runs Data Intake
   const handleProceedToRefine = async () => {
@@ -44,7 +41,7 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
     
     try {
       // Run Data Intake API
-      const response = await fetch(`/api/sessions/${sessionId}/intake`, {
+      const response = await authFetch(`/api/sessions/${sessionId}/intake`, {
         method: 'POST',
       });
       
@@ -76,7 +73,7 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
       return (
         <>
           Your topic is expanding automatically.<br />
-          We're mapping out the topic landscape—even the hidden corners.
+          We&apos;re mapping out the topic landscape—even the hidden corners.
         </>
       );
     }
@@ -85,15 +82,14 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
       return (
         <>
           Create a session with a topic to begin.<br />
-          We'll explore the full range of related topics.
+          We&apos;ll explore the full range of related topics.
         </>
       );
     }
-    // Has seed phrase but hasn't started
     return (
       <>
-        Click "Expand Topic" above to begin.<br />
-        We'll map out related topics for you.
+        Click &quot;Expand Topic&quot; above to begin.<br />
+        We&apos;ll map out related topics for you.
       </>
     );
   };

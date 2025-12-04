@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { IconX } from "@tabler/icons-react";
+import { authFetch } from "@/lib/supabase";
 import {
   type ViewerLandscape,
   type VibeCategory,
@@ -82,7 +83,7 @@ export function ViewerLandscapeModal({
       setError(null);
 
       try {
-        const response = await fetch("/api/seed-signal", {
+        const response = await authFetch("/api/seed-signal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ seed: seed.trim() }),
@@ -183,12 +184,17 @@ export function ViewerLandscapeModal({
           {/* Success state */}
           {landscape && !isLoading && (
             <>
-              {/* Traffic Light Signal Badge */}
-              <div className={`inline-flex items-center gap-4 px-8 py-5 rounded-full border ${getSignalBgClass(landscape.signal)}`}>
-                <span className="text-4xl">{landscape.signalIcon}</span>
-                <span className={`font-bold text-3xl ${getSignalColorClass(landscape.signal)}`}>
-                  {landscape.signalLabel}
-                </span>
+              {/* Traffic Light Signal Badge with Topic */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className={`inline-flex items-center gap-3 px-6 py-4 rounded-full border ${getSignalBgClass(landscape.signal)}`}>
+                  <span className="text-3xl">{landscape.signalIcon}</span>
+                  <span className={`font-bold text-2xl ${getSignalColorClass(landscape.signal)}`}>
+                    {landscape.signalLabel}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-semibold text-white/90 truncate max-w-md">
+                  {seed}
+                </h2>
               </div>
 
               {/* Signal Message */}

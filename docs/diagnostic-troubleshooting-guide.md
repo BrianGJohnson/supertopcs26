@@ -2,11 +2,42 @@
 
 ## Overview
 
-This guide documents a systematic approach to debugging CSS/styling issues and other problems that don't respond to simple fixes.
+This guide documents a systematic approach to debugging CSS/styling issues, API failures, and other problems that don't respond to simple fixes.
 
 ## When to Use This Guide
 
 Say: *"Run the diagnostic troubleshooting guide for [problem description]"*
+
+---
+
+## Common Issue: "Failed to analyze seed phrase" / API 401 Errors
+
+**Symptom:** Modal or component shows error, console shows 401 Unauthorized
+
+**Cause:** Component using `fetch()` instead of `authFetch()` for authenticated API routes.
+
+**Authenticated API Routes (require `authFetch`):**
+- `/api/seed-signal` - Seed phrase analysis
+- `/api/topics` - Topic expansion  
+- `/api/topics/stream` - Streaming topic expansion
+
+**Fix Pattern:**
+```tsx
+// ❌ Wrong - will get 401
+const response = await fetch("/api/seed-signal", { ... });
+
+// ✅ Correct - includes auth token
+import { authFetch } from "@/lib/supabase";
+const response = await authFetch("/api/seed-signal", { ... });
+```
+
+**Quick Check Command:**
+```bash
+# Find all fetch calls to authenticated routes missing authFetch
+grep -r "await fetch.*\/api\/(seed-signal|topics)" src/
+```
+
+---
 
 ## The Process
 
@@ -66,6 +97,24 @@ Don't jump to solutions. First, list ALL possible reasons the issue could exist:
 
 ---
 
+## API Error Checklist
+
+**For "Failed to..." or 401/500 errors:**
+
+- [ ] Check browser Network tab for actual status code
+- [ ] Check browser Console for error details
+- [ ] Is the API route using `createAuthenticatedSupabase`? → Use `authFetch`
+- [ ] Are all required env vars set? (check terminal for warnings)
+- [ ] Check the API route file for the actual error handling
+- [ ] Check Vercel/server logs for server-side errors
+
+**For refactoring-related breaks:**
+- [ ] Were imports updated after file renames?
+- [ ] Were all callers updated to use new function names?
+- [ ] Run `grep` to find all usages of old patterns
+
+---
+
 ## Quick Commands
 
 ```bash
@@ -77,4 +126,13 @@ Cmd+Shift+R (Mac) / Ctrl+Shift+R (Windows)
 
 # Restart dev server
 # Kill existing, then npm run dev
+
+# Find unauthenticated API calls
+grep -r "await fetch.*\/api\/(seed-signal|topics)" src/
+
+# TypeScript check
+npx tsc --noEmit
+
+# ESLint check on specific files
+npx eslint src/path/to/file.tsx
 ```

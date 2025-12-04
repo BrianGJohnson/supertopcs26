@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAutocomplete } from "@/lib/youtube-autocomplete";
+import { createAuthenticatedSupabase } from "@/lib/supabase-server";
+import { fetchAutocomplete } from "@/lib/topic-service";
 import { calculateSeedSignal } from "@/lib/seed-signal";
 import { analyzeViewerLandscape } from "@/lib/viewer-landscape";
 
 /**
  * POST /api/seed-signal
  * 
- * Analyzes a seed phrase by checking YouTube autocomplete results.
+ * Analyzes a seed phrase and returns viewer landscape analysis.
+ * Requires authentication.
+ * 
  * Returns comprehensive viewer landscape analysis including:
  * - Demand level (8 tiers)
  * - Seed strength (exact match ratio)
@@ -21,6 +24,13 @@ import { analyzeViewerLandscape } from "@/lib/viewer-landscape";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const { userId } = await createAuthenticatedSupabase(request);
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { seed } = body;
 
@@ -40,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch autocomplete suggestions from YouTube
+    // Fetch topic suggestions
     const suggestions = await fetchAutocomplete(trimmedSeed);
     
     // Calculate legacy signal (for backward compatibility)

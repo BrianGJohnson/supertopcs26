@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAuthenticatedSupabase } from "@/lib/supabase-server";
 import { toTitleCase } from "@/lib/utils";
 import {
   normalizePhrase,
@@ -7,17 +8,29 @@ import {
   isRelevantToSeed,
   hasOutdatedYear,
   hasSocialMediaSpam,
-  fetchAZComplete,
-  fetchPrefixComplete,
   fetchChildExpansion,
   SEMANTIC_PREFIXES,
-} from "@/lib/youtube-autocomplete";
+} from "@/lib/topic-service";
+import { fetchTopicBatch } from "@/lib/topic-expansion";
 
 // Initialize Supabase client for server-side
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// ============================================================================
+// SMALL BATCH CONFIGURATION
+// Split A-Z into 4 batches, Prefix into 2 batches
+// This creates natural request patterns and incremental UI updates
+// ============================================================================
+
+const AZ_BATCHES = [
+  'abcdefg'.split(''),   // A-G (7 letters)
+  'hijklmn'.split(''),   // H-N (7 letters)
+  'opqrstu'.split(''),   // O-U (7 letters)
+  'vwxyz'.split(''),     // V-Z (5 letters)
+];
 
 // Type for SSE progress events
 interface ProgressEvent {
@@ -28,6 +41,14 @@ interface ProgressEvent {
   added: number;
   totalAdded: number;
   query?: string;
+}
+
+/**
+ * Random delay for respectful API usage (1.5-3 seconds between batches)
+ */
+function randomDelay(minMs: number, maxMs: number): Promise<void> {
+  const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+  return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 /**
@@ -105,13 +126,24 @@ async function getExistingPhrases(sessionId: string): Promise<Set<string>> {
 }
 
 /**
- * POST /api/autocomplete/stream
+ * POST /api/topics/stream
  * 
- * Streams autocomplete results directly to the database.
+ * Streams topic results directly to the database.
+ * Requires authentication.
  * Returns progress updates via Server-Sent Events (SSE) for real-time UI updates.
  */
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const { userId } = await createAuthenticatedSupabase(request);
+    
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const body = await request.json();
     const { sessionId, seed, method, parentPhrases } = body;
 
@@ -160,12 +192,12 @@ export async function POST(request: NextRequest) {
               break;
             }
 
-            // Use Apify child expansion
+            // Use child expansion
             const total = parentPhrases.length * 3; // 3 calls per parent (direct + how to + what does)
             let current = 0;
             
             // Fetch child expansion and report progress manually
-            const { allPhrases: childPhrases, expansions } = await fetchChildExpansion(parentPhrases);
+            const { expansions } = await fetchChildExpansion(parentPhrases);
             
             // Process each expansion for progress reporting
             for (const expansion of expansions) {
@@ -233,59 +265,110 @@ export async function POST(request: NextRequest) {
           }
 
           case "az": {
-            // Use Apify bulk A-Z expansion (single call with use_suffix: true)
-            await sendEvent({
-              type: "progress",
-              method,
-              current: 1,
-              total: 1,
-              added: 0,
-              totalAdded,
-              query: `${seed} [a-z]`,
-            });
-
-            const { phrases: azPhrases } = await fetchAZComplete(seed);
-            const phraseTexts = azPhrases.map(p => p.text);
-            const added = await savePhrases(sessionId, phraseTexts, method, existingNormalized, seedSignificantWords);
-            totalAdded += added;
-
-            await sendEvent({
-              type: "progress",
-              method,
-              current: 1,
-              total: 1,
-              added,
-              totalAdded,
-              query: `${seed} [a-z] complete`,
-            });
+            // A-Z in 4 SMALL BATCHES with delays between each
+            // This creates natural request patterns and incremental UI updates
+            const totalBatches = AZ_BATCHES.length;
+            
+            for (let i = 0; i < AZ_BATCHES.length; i++) {
+              const batch = AZ_BATCHES[i];
+              const queries = batch.map(letter => `${seed} ${letter}`);
+              const batchLabel = `${batch[0].toUpperCase()}-${batch[batch.length - 1].toUpperCase()}`;
+              
+              // Send "working" event before the service call
+              await sendEvent({
+                type: "progress",
+                method,
+                current: i,
+                total: totalBatches,
+                added: 0,
+                totalAdded,
+                query: `${seed} [${batchLabel}]...`,
+              });
+              
+              // Fetch this batch
+              const result = await fetchTopicBatch(queries);
+              
+              // Save phrases immediately so they appear in the table
+              const added = await savePhrases(
+                sessionId,
+                result.suggestions,
+                'az',
+                existingNormalized,
+                seedSignificantWords
+              );
+              totalAdded += added;
+              
+              // Send completion event for this batch
+              await sendEvent({
+                type: "progress",
+                method,
+                current: i + 1,
+                total: totalBatches,
+                added,
+                totalAdded,
+                query: `${seed} [${batchLabel}] +${added}`,
+              });
+              
+              // Short delay between batches (not after the last one)
+              if (i < AZ_BATCHES.length - 1) {
+                await randomDelay(1500, 3000);
+              }
+            }
             break;
           }
 
           case "prefix": {
-            // Use Apify bulk prefix expansion (6 semantic prefixes)
-            const total = SEMANTIC_PREFIXES.length;
-            let current = 0;
-
-            // Fetch all prefix completions
-            const { phrases: prefixPhrases } = await fetchPrefixComplete(seed);
+            // Prefix in 2 SMALL BATCHES (9 prefixes each) with delay between
+            const prefixArray = [...SEMANTIC_PREFIXES];
+            const batch1 = prefixArray.slice(0, 9);
+            const batch2 = prefixArray.slice(9);
+            const batches = [batch1, batch2].filter(b => b.length > 0);
+            const totalBatches = batches.length;
             
-            // Save all phrases at once with the method tag
-            const phraseTexts = prefixPhrases.map(p => p.text);
-            const added = await savePhrases(sessionId, phraseTexts, method, existingNormalized, seedSignificantWords);
-            totalAdded += added;
-
-            // Report progress for each prefix (for UI consistency)
-            for (const prefix of SEMANTIC_PREFIXES) {
-              current++;
+            for (let i = 0; i < batches.length; i++) {
+              const batch = batches[i];
+              const queries = batch.map(prefix => `${prefix} ${seed}`);
+              const batchNum = i + 1;
+              
+              // Send "working" event before the service call
               await sendEvent({
                 type: "progress",
                 method,
-                current,
-                total,
-                added: current === total ? added : 0, // Only report added on last event
+                current: i,
+                total: totalBatches,
+                added: 0,
                 totalAdded,
-                query: `${prefix} ${seed}`,
+                query: `Prefix batch ${batchNum}...`,
               });
+              
+              // Fetch this batch
+              const result = await fetchTopicBatch(queries);
+              
+              // Save phrases immediately so they appear in the table
+              const added = await savePhrases(
+                sessionId,
+                result.suggestions,
+                'prefix',
+                existingNormalized,
+                seedSignificantWords
+              );
+              totalAdded += added;
+              
+              // Send completion event for this batch
+              await sendEvent({
+                type: "progress",
+                method,
+                current: i + 1,
+                total: totalBatches,
+                added,
+                totalAdded,
+                query: `Prefix batch ${batchNum} +${added}`,
+              });
+              
+              // Short delay between batches (not after the last one)
+              if (i < batches.length - 1) {
+                await randomDelay(1500, 3000);
+              }
             }
             break;
           }

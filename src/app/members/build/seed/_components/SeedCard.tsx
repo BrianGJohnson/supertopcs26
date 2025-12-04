@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { SeedIconGreen } from "@/components/icons";
 import { getSessionById } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
+import { authFetch } from "@/lib/supabase";
 import type { Seed } from "@/types/database";
 import { PhraseSelectModal, ExpansionProgress } from "./PhraseSelectModal";
 import { IconCheck, IconSparkles } from "@tabler/icons-react";
@@ -56,14 +57,6 @@ const PROGRESS_MESSAGES: Record<string, string[]> = {
   ],
 };
 
-// Method colors (for status dots only - matches source tags)
-const METHOD_COLORS: Record<string, string> = {
-  top10: "#FF8A3D",
-  child: "#D4E882",  // Softer yellow-green to match table tags
-  az: "#4DD68A",
-  prefix: "#39C7D8",
-};
-
 // Neutral color for progress bar and messages (cream white with hint of blue)
 const PROGRESS_NEUTRAL_COLOR = "#E0E7EF";
 const PROGRESS_BAR_COLOR = "#6B9BD1"; // Electric blue - consistent, professional
@@ -81,7 +74,7 @@ interface SeedCardProps {
   setIsExpanding: (value: boolean) => void;
 }
 
-export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, setIsExpanding }: SeedCardProps) {
+export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpanding }: SeedCardProps) {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
@@ -103,6 +96,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
   const [isFullyFinished, setIsFullyFinished] = useState(false); // Gate: only true when toast fires
   const expansionAbortRef = useRef(false);
   const messageRef = useRef<NodeJS.Timeout | null>(null);
+  const userNavigatedAwayRef = useRef(false); // Track if user closed modal to continue browsing
   
   // Module completion tracking
   const [modules, setModules] = useState<ModuleState>({
@@ -189,7 +183,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
     setModules((prev) => ({ ...prev, top10: "loading" }));
     
     try {
-      const response = await fetch("/api/autocomplete", {
+      const response = await authFetch("/api/topics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seed: seedPhrase, method: "top10" }),
@@ -245,7 +239,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
   };
 
   /**
-   * Stream SSE events from the autocomplete API
+   * Stream SSE events from the topics API
    * Updates progress in real-time as each query completes
    */
   const streamExpansion = async (
@@ -259,7 +253,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
         body.parentPhrases = parentPhrases;
       }
 
-      fetch("/api/autocomplete/stream", {
+      authFetch("/api/topics/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -313,7 +307,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
                   resolve(false);
                   return;
                 }
-              } catch (parseError) {
+              } catch {
                 console.warn("Failed to parse SSE event:", eventStr);
               }
             }
@@ -401,17 +395,21 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
       setIsAutoExpanding(false);
       setIsExpanding(false);
       
-      // Show success toast (fires at same time as UI update)
-      showToast({
-        type: "success",
-        title: "Session Complete",
-        message: `Your expansion for ${toTitleCase(seedPhrase)} is ready for review.`,
-        action: {
-          label: "View Results",
-          href: "/members/build/refine",
-        },
-        duration: 0,
-      });
+      // Only show toast if user navigated away (closed modal during expansion)
+      // If they stayed on the page, they already see the "complete" UI
+      if (userNavigatedAwayRef.current) {
+        showToast({
+          type: "success",
+          title: "Session Complete",
+          message: `Your expansion for ${toTitleCase(seedPhrase)} is ready for review.`,
+          action: {
+            label: "View Results",
+            href: "/members/build/refine",
+          },
+          duration: 0,
+        });
+        userNavigatedAwayRef.current = false; // Reset for next expansion
+      }
       
     } catch (error) {
       console.error("Auto-expansion failed:", error);
@@ -433,6 +431,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, seeds, isExpanding, set
 
   // Handle closing modal during expansion
   const handleContinueBrowsing = () => {
+    userNavigatedAwayRef.current = true; // User chose to leave, show toast when done
     setModalOpen(false);
   };
 
