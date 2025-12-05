@@ -26,6 +26,9 @@ export const user_profiles = pgTable('user_profiles', {
   email: text('email'),
   avatar_url: text('avatar_url'),
   
+  // Display preferences
+  display_mode: text('display_mode').default('essentials'), // "essentials" or "full" - user-level, applies across all channels
+  
   // Preferences
   preferences: jsonb('preferences'), // UI settings, defaults, etc.
   

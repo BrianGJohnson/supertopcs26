@@ -16,6 +16,8 @@ export type Json =
 // ============================================================
 // USER PROFILES
 // ============================================================
+export type DisplayMode = 'essentials' | 'full';
+
 export interface UserProfile {
   id: string;
   user_id: string;
@@ -23,6 +25,7 @@ export interface UserProfile {
   display_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  display_mode: DisplayMode | null;
   preferences: Json | null;
   created_at: string | null;
   updated_at: string | null;

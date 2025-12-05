@@ -109,7 +109,7 @@ export function FeatureCard({
           <IconComponent size={28} style={{ color }} />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold text-white">{title}</h3>
+          <h3 className="text-xl font-semibold text-white/90">{title}</h3>
           <p className="text-lg text-white/60 leading-relaxed">
             {processedDescription}
           </p>

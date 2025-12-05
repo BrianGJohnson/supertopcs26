@@ -12,12 +12,14 @@ import { Step1Card } from "./_components/Step1Card";
 import { TopicsTable } from "./_components/TopicsTable";
 import { ViewerLandscapeModal } from "@/components/ui/ViewerLandscapeModal";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
+import { useDisplayMode } from "@/hooks/useDisplayMode";
 import type { Seed } from "@/types/database";
 
 // Inner component that uses useSearchParams
 function SeedPageContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+  const { isFull } = useDisplayMode();
   
   // Single source of truth for all seed data
   const [seeds, setSeeds] = useState<Seed[]>([]);
@@ -92,13 +94,16 @@ function SeedPageContent() {
           seeds={seeds}
           isExpanding={isExpanding}
           setIsExpanding={setIsExpanding}
+          isFull={isFull}
         />
+        {/* Step 1 Card - Always show but with minimal view in Simple mode */}
         <Step1Card 
           sessionId={sessionId}
           topicCount={seeds.length}
           sourceCounts={sourceCounts}
           isExpanding={isExpanding}
           hasSeedPhrase={seeds.some(s => s.generation_method === 'seed')}
+          isFull={isFull}
         />
         <TopicsTable 
           seeds={seeds}

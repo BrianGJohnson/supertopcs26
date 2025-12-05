@@ -77,7 +77,20 @@ export async function POST(request: NextRequest) {
 
     switch (step) {
       case 1:
-        // Welcome - no data to save, just mark step complete
+        // Welcome - save display mode preference to user_profiles (user-level setting)
+        if (data.display_mode) {
+          const { error: profileError } = await supabase
+            .from("user_profiles")
+            .upsert({ 
+              user_id: userId,
+              display_mode: data.display_mode,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+          
+          if (profileError) {
+            console.error("Failed to save display mode:", profileError);
+          }
+        }
         break;
 
       case 2:

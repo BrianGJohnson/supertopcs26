@@ -23,6 +23,7 @@ interface PhraseSelectModalProps {
   expansionProgress?: ExpansionProgress | null;
   seedPhrase?: string;
   onContinueBrowsing?: () => void;
+  isFull?: boolean;
 }
 
 // Phase display names and colors
@@ -43,6 +44,7 @@ export function PhraseSelectModal({
   expansionProgress = null,
   seedPhrase = "",
   onContinueBrowsing,
+  isFull = true,
 }: PhraseSelectModalProps) {
   // All phrases selected by default
   const [selected, setSelected] = useState<Set<string>>(new Set(phrases));
@@ -85,52 +87,70 @@ export function PhraseSelectModal({
         }
       >
         <div className="space-y-6">
-          {/* Success message - Brand blue */}
-          <div className="flex items-center gap-3 p-4 bg-[#6B9BD1]/10 border border-[#6B9BD1]/30 rounded-xl">
-            <IconCheck size={24} className="text-[#6B9BD1] flex-shrink-0" />
-            <p className="text-white text-[1.125rem]">
-              Top 10 saved! Running deep expansion now.
-            </p>
-          </div>
+          {/* Simple mode: Just show a spinner and simple message */}
+          {!isFull ? (
+            <>
+              <div className="flex flex-col items-center gap-6 py-4">
+                <IconLoader2 size={48} className="animate-spin text-[#6B9BD1]" />
+                <p className="text-white text-[1.25rem] font-medium text-center">
+                  Finding related topics for you...
+                </p>
+              </div>
+              <p className="text-white/60 text-[1.125rem] text-center leading-relaxed">
+                This takes about 2 minutes.
+              </p>
+            </>
+          ) : (
+            <>
+              {/* Detailed mode: Show step-by-step progress */}
+              {/* Success message - Brand blue */}
+              <div className="flex items-center gap-3 p-4 bg-[#6B9BD1]/10 border border-[#6B9BD1]/30 rounded-xl">
+                <IconCheck size={24} className="text-[#6B9BD1] flex-shrink-0" />
+                <p className="text-white text-[1.125rem]">
+                  Top 10 saved! Running deep expansion now.
+                </p>
+              </div>
 
-          {/* Simple phase checklist - no progress bar, no repetition */}
-          <div className="space-y-3">
-            {(["child", "az", "prefix"] as const).map((phase) => {
-              const phaseConfig = PHASE_CONFIG[phase];
-              const isActive = currentPhase === phase;
-              const isComplete = 
-                (phase === "child" && (currentPhase === "az" || currentPhase === "prefix")) ||
-                (phase === "az" && currentPhase === "prefix");
-              const isPending = !isActive && !isComplete;
+              {/* Simple phase checklist - no progress bar, no repetition */}
+              <div className="space-y-3">
+                {(["child", "az", "prefix"] as const).map((phase) => {
+                  const phaseConfig = PHASE_CONFIG[phase];
+                  const isActive = currentPhase === phase;
+                  const isComplete = 
+                    (phase === "child" && (currentPhase === "az" || currentPhase === "prefix")) ||
+                    (phase === "az" && currentPhase === "prefix");
+                  const isPending = !isActive && !isComplete;
 
-              return (
-                <div 
-                  key={phase}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    isActive 
-                      ? "bg-white/[0.06] border border-white/20" 
-                      : "bg-black/20 border border-white/5"
-                  }`}
-                >
-                  {isComplete ? (
-                    <IconCheck size={20} className="text-[#6B9BD1]" />
-                  ) : isActive ? (
-                    <IconLoader2 size={20} className="animate-spin" style={{ color: phaseConfig.color }} />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-white/20" />
-                  )}
-                  <span className={`text-[1.125rem] ${isPending ? "text-white/40" : "text-white"}`}>
-                    {phaseConfig.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                  return (
+                    <div 
+                      key={phase}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                        isActive 
+                          ? "bg-white/[0.06] border border-white/20" 
+                          : "bg-black/20 border border-white/5"
+                      }`}
+                    >
+                      {isComplete ? (
+                        <IconCheck size={20} className="text-[#6B9BD1]" />
+                      ) : isActive ? (
+                        <IconLoader2 size={20} className="animate-spin" style={{ color: phaseConfig.color }} />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full border-2 border-white/20" />
+                      )}
+                      <span className={`text-[1.125rem] ${isPending ? "text-white/40" : "text-white"}`}>
+                        {phaseConfig.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
 
-          {/* Info message */}
-          <p className="text-white/60 text-[1.125rem] text-center leading-relaxed">
-            This takes about 2 minutes. Feel free to explore — we'll notify you when it's ready!
-          </p>
+              {/* Info message */}
+              <p className="text-white/60 text-[1.125rem] text-center leading-relaxed">
+                This takes about 2 minutes. Feel free to explore — we'll notify you when it's ready!
+              </p>
+            </>
+          )}
         </div>
       </Modal>
     );

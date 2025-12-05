@@ -117,7 +117,7 @@ export default function OnboardingStep6() {
       <div className="space-y-10 max-w-2xl mx-auto">
         {/* Who Do You Want To Help */}
         <div className="space-y-4 text-center">
-          <h3 className="text-2xl font-bold text-white">
+          <h3 className="text-2xl font-bold text-white/90">
             Describe Your Ideal Viewer
           </h3>
 
@@ -141,7 +141,7 @@ export default function OnboardingStep6() {
 
         {/* Their Problem & Dream */}
         <div className="space-y-5 text-center">
-          <h3 className="text-2xl font-bold text-white">
+          <h3 className="text-2xl font-bold text-white/90">
             Their Problem & Dream
           </h3>
 
@@ -192,7 +192,7 @@ export default function OnboardingStep6() {
         {/* Expertise Level - 2x2 Grid with Colors */}
         <div className="space-y-5 text-center">
           <div>
-            <h3 className="text-2xl font-bold text-white mb-2">
+            <h3 className="text-2xl font-bold text-white/90 mb-2">
               Their Experience Level
             </h3>
             <p className="text-lg text-white/50">

@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconRocket, IconUserCheck, IconBrandYoutube, IconTrendingUp } from "@tabler/icons-react";
+import { IconRocket, IconUserCheck, IconBrandYoutube, IconTrendingUp, IconLayoutList, IconChartBar } from "@tabler/icons-react";
 import { OnboardingPageLayout } from "@/components/layout/OnboardingPageLayout";
 import { FeatureCard, FeatureCardGrid, FEATURE_CARD_COLORS } from "@/components/ui/FeatureCard";
+import { authFetch } from "@/lib/supabase";
 
 /**
  * Step 1: Welcome
@@ -15,8 +16,23 @@ import { FeatureCard, FeatureCardGrid, FEATURE_CARD_COLORS } from "@/components/
 
 export default function OnboardingStep1() {
   const router = useRouter();
+  const [displayMode, setDisplayMode] = useState<"essentials" | "full">("essentials");
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // Save display mode preference
+    try {
+      await authFetch("/api/onboarding/save", {
+        method: "POST",
+        body: JSON.stringify({
+          step: 1,
+          data: {
+            display_mode: displayMode,
+          },
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving display mode:", error);
+    }
     router.push("/members/onboarding/step-2");
   };
 
@@ -33,39 +49,127 @@ export default function OnboardingStep1() {
         <FeatureCard
           icon={IconUserCheck}
           color={FEATURE_CARD_COLORS.cyan}
-          title="Personalized, Not Generic"
-          description="Most tools give everyone the same numbers, the same recommendations. We tailor everything to your niche, your audience, and your goals."
-          highlight="everything"
+          title="Built Around You"
+          description="No generic lists. Everything is tailored to your niche and goals."
+          highlight="your niche"
         />
 
         <FeatureCard
           icon={IconBrandYoutube}
           color={FEATURE_CARD_COLORS.red}
-          title="Data Direct from YouTube"
-          description="Our metrics aren't third-party guesses. They come straight from YouTube, enhanced with AI, and scored based on your specific channel context."
-          highlight="your specific channel context"
+          title="Real YouTube Data"
+          description="Straight from YouTube — discover topics viewers actually want to watch."
+          highlight="actually want to watch"
         />
 
         <FeatureCard
           icon={IconTrendingUp}
           color={FEATURE_CARD_COLORS.green}
-          title="A System That Learns"
-          description="The more you use Super Topics, the smarter it gets. We learn from your uploads, what's working, and what's not. This isn't static — it grows with your channel."
-          highlight="it grows with your channel"
+          title="Gets Smarter Over Time"
+          description="The more you use it, the better it knows what works for your channel."
+          highlight="your channel"
         />
       </FeatureCardGrid>
 
       {/* Divider */}
-      <div className="w-full max-w-2xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mt-8" />
+      <div className="w-full max-w-xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mt-4" />
+
+      {/* Display Mode Selection */}
+      <div className="max-w-xl mx-auto pt-6">
+        <div className="text-center mb-6">
+          <h3 className="text-xl font-semibold text-white/90 mb-2">
+            How much detail do you want to see?
+          </h3>
+          <p className="text-white/50 text-base">
+            You can change this anytime in settings.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-5">
+          {/* Keep it simple option */}
+          <button
+            onClick={() => setDisplayMode("essentials")}
+            className={`
+              flex-1 flex items-start gap-4 p-5 rounded-2xl text-left
+              transition-all duration-200
+              ${displayMode === "essentials"
+                ? "bg-[#2BD899]/15 border-2 border-[#2BD899]/60"
+                : "bg-white/[0.04] border-2 border-white/10 hover:border-white/20"
+              }
+            `}
+          >
+            <div 
+              className={`
+                flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
+                ${displayMode === "essentials" ? "bg-[#2BD899]/20" : "bg-white/10"}
+              `}
+            >
+              <IconLayoutList 
+                size={24} 
+                className={displayMode === "essentials" ? "text-[#2BD899]" : "text-white/50"} 
+              />
+            </div>
+            <div className="flex-1">
+              <div className={`font-semibold text-lg ${displayMode === "essentials" ? "text-white/90" : "text-white/70"}`}>
+                Keep it simple
+              </div>
+              <div className="text-white/50 text-sm leading-snug mt-1">
+                Just what I need to make decisions
+              </div>
+            </div>
+            {displayMode === "essentials" && (
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#2BD899] flex items-center justify-center">
+                <svg className="w-4 h-4 text-[#0B1220]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+          </button>
+
+          {/* Show me everything option */}
+          <button
+            onClick={() => setDisplayMode("full")}
+            className={`
+              flex-1 flex items-start gap-4 p-5 rounded-2xl text-left
+              transition-all duration-200
+              ${displayMode === "full"
+                ? "bg-[#7A5CFA]/15 border-2 border-[#7A5CFA]/60"
+                : "bg-white/[0.04] border-2 border-white/10 hover:border-white/20"
+              }
+            `}
+          >
+            <div 
+              className={`
+                flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center
+                ${displayMode === "full" ? "bg-[#7A5CFA]/20" : "bg-white/10"}
+              `}
+            >
+              <IconChartBar 
+                size={24} 
+                className={displayMode === "full" ? "text-[#7A5CFA]" : "text-white/50"} 
+              />
+            </div>
+            <div className="flex-1">
+              <div className={`font-semibold text-lg ${displayMode === "full" ? "text-white/90" : "text-white/70"}`}>
+                Show me everything
+              </div>
+              <div className="text-white/50 text-sm leading-snug mt-1">
+                All the metrics and details
+              </div>
+            </div>
+            {displayMode === "full" && (
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#7A5CFA] flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* CTA Section */}
-      <div className="text-center space-y-6 pt-6 max-w-2xl mx-auto">
-        <p className="text-white/50 text-lg">
-          Spend 2-3 minutes telling us about your channel, and we'll start
-          <br />
-          delivering <span className="text-white/70">personalized topic recommendations</span> immediately.
-        </p>
-
+      <div className="text-center pt-10 max-w-2xl mx-auto">
         <button
           onClick={handleContinue}
           className="

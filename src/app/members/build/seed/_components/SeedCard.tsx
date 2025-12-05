@@ -43,7 +43,7 @@ const PROGRESS_MESSAGES: Record<string, string[]> = {
   child: [
     "Expanding Your Top Picks Into Related Topics",
     "Finding Variations With Less Competition",
-    "Discovering Low Competition Topics",
+    "Discovering Low Comp Signal Topics",
   ],
   az: [
     "Exploring Every Topic Variation A to Z",
@@ -72,9 +72,10 @@ interface SeedCardProps {
   seeds: Seed[];
   isExpanding: boolean;
   setIsExpanding: (value: boolean) => void;
+  isFull?: boolean;
 }
 
-export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpanding }: SeedCardProps) {
+export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpanding, isFull = true }: SeedCardProps) {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
@@ -495,7 +496,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                 className="px-14 py-6 bg-gradient-to-r from-[#7C3AED] via-[#4F46E5] to-[#0891B2] hover:from-[#8B5CF6] hover:via-[#6366F1] hover:to-[#06B6D4] text-white rounded-2xl font-bold text-3xl transition-all flex items-center gap-3 shadow-[0_0_35px_rgba(124,58,237,0.5)] hover:shadow-[0_0_45px_rgba(124,58,237,0.7)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 <IconSparkles size={28} />
-                Expand Topic
+                Start Expansion
               </button>
               <p className="text-white/80 text-xl text-center font-medium">
                 {seedPhrase 
@@ -511,18 +512,20 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                 <IconCheck size={24} className="text-white/70" />
                 <span className="text-lg font-semibold">Topic Expansion Complete</span>
               </div>
-              {/* Completion badges - neutral cream/white color for consistency */}
-              <div className="flex items-center justify-center gap-3">
-                {(["top10", "child", "az", "prefix"] as const).map((method) => (
-                  <div
-                    key={method}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-[#E0E7EF] border border-white/20"
-                  >
-                    <IconCheck size={14} className="text-white/60" />
-                    {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
-                  </div>
-                ))}
-              </div>
+              {/* Completion badges - neutral cream/white color for consistency - Only show in Detailed mode */}
+              {isFull && (
+                <div className="flex items-center justify-center gap-3">
+                  {(["top10", "child", "az", "prefix"] as const).map((method) => (
+                    <div
+                      key={method}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white/10 text-[#E0E7EF] border border-white/20"
+                    >
+                      <IconCheck size={14} className="text-white/60" />
+                      {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             // In progress state: Show progress bar and status
@@ -561,37 +564,39 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                 />
               </div>
               
-              {/* Phase Status Dots - neutral cream color for all */}
-              <div className="flex items-center justify-center gap-5">
-                {(["top10", "child", "az", "prefix"] as const).map((method) => {
-                  const status = modules[method];
-                  const isComplete = status === "complete";
-                  const isActive = status === "loading";
-                  
-                  return (
-                    <div key={method} className="flex items-center gap-2">
-                      <div
-                        className={`w-3 h-3 rounded-full transition-all ${
-                          isComplete 
-                            ? "bg-[#E0E7EF]" 
-                            : isActive 
-                            ? "bg-[#E0E7EF] animate-pulse" 
-                            : "bg-white/20"
-                        }`}
-                      />
-                      <span 
-                        className={`text-base font-medium transition-colors ${
-                          isComplete || isActive
-                            ? "text-[#E0E7EF]" 
-                            : "text-white/40"
-                        }`}
-                      >
-                        {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Phase Status Dots - neutral cream color for all - Only show in Detailed mode */}
+              {isFull && (
+                <div className="flex items-center justify-center gap-5">
+                  {(["top10", "child", "az", "prefix"] as const).map((method) => {
+                    const status = modules[method];
+                    const isComplete = status === "complete";
+                    const isActive = status === "loading";
+                    
+                    return (
+                      <div key={method} className="flex items-center gap-2">
+                        <div
+                          className={`w-3 h-3 rounded-full transition-all ${
+                            isComplete 
+                              ? "bg-[#E0E7EF]" 
+                              : isActive 
+                              ? "bg-[#E0E7EF] animate-pulse" 
+                              : "bg-white/20"
+                          }`}
+                        />
+                        <span 
+                          className={`text-base font-medium transition-colors ${
+                            isComplete || isActive
+                              ? "text-[#E0E7EF]" 
+                              : "text-white/40"
+                          }`}
+                        >
+                          {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -615,6 +620,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
         expansionProgress={expansionProgress}
         seedPhrase={seedPhrase}
         onContinueBrowsing={handleContinueBrowsing}
+        isFull={isFull}
       />
     </>
   );

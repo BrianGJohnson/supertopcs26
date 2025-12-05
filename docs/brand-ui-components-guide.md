@@ -35,12 +35,16 @@ Midnight Blue:    #1A2754 (active states, steppers)
 
 ### Text Opacities
 ```
-Headings:         text-white (100%)
-Body text:        text-white/80 or text-white/70
+Hero headlines:   text-white (100%) — main page titles only
+Card headings:    text-white/90 (90%) — softer, easier on eyes
+Body text:        text-white/70
 Secondary text:   text-white/60
 Muted/helper:     text-white/50
 Subtle/disabled:  text-white/40
 ```
+
+**Note:** Card headings use 90% white to reduce glare against dark backgrounds.
+Hierarchy is driven by subtle opacity differences, not harsh contrast.
 
 ---
 

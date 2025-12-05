@@ -3,6 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { useDisplayMode } from "@/hooks/useDisplayMode";
 
 // Navigation links configuration
 const NAV_LINKS = [
@@ -19,6 +21,7 @@ interface MemberHeaderProps {
 
 export function MemberHeader({ tokens = 3242, initials = "BJ" }: MemberHeaderProps) {
   const pathname = usePathname();
+  const { mode, setMode } = useDisplayMode();
   
   // Check if a nav link is active (exact match or starts with for nested routes)
   const isActive = (href: string) => {
@@ -30,15 +33,17 @@ export function MemberHeader({ tokens = 3242, initials = "BJ" }: MemberHeaderPro
   };
 
   return (
-    <nav className="w-full px-2 py-4 flex justify-between items-center border-b border-white/5 relative z-10 backdrop-blur-sm">
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-3">
-        <img src="/logo-supertopics.svg" alt="Super Topics" className="h-14 w-auto" />
-        <span className="font-bold tracking-tight" style={{ fontSize: '1.468rem', color: '#D6DBE6' }}>Super Topics</span>
-      </Link>
+    <nav className="w-full px-4 py-4 flex items-center border-b border-white/5 relative z-10 backdrop-blur-sm">
+      {/* Left side: Logo - fixed width for balance */}
+      <div className="flex-1 flex items-center">
+        <Link href="/" className="flex items-center gap-3">
+          <img src="/logo-supertopics.svg" alt="Super Topics" className="h-14 w-auto" />
+          <span className="font-bold tracking-tight" style={{ fontSize: '1.468rem', color: '#D6DBE6' }}>Super Topics</span>
+        </Link>
+      </div>
 
       {/* Center Navigation */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-8">
+      <div className="flex items-center gap-8">
         {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -56,18 +61,20 @@ export function MemberHeader({ tokens = 3242, initials = "BJ" }: MemberHeaderPro
         ))}
       </div>
 
-      {/* Right side: Tokens + User */}
-      <div className="flex items-center gap-4">
-        {/* Tokens pill with user circle - placeholder for future dropdown */}
-        <button className="pl-5 pr-0 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 flex items-center gap-3 shadow-inner hover:border-white/20 transition-all group">
-          <span className="text-sm font-bold text-gray-200 group-hover:text-white transition-colors">{tokens} tokens</span>
-          <div className="rounded-full bg-[#1A2754] flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-[#1A2754]/30" style={{ width: '39px', height: '39px' }}>
-            {initials}
-          </div>
-        </button>
+      {/* Right side: Tokens + View Toggle + User - fixed width for balance */}
+      <div className="flex-1 flex items-center justify-end gap-3">
+        {/* Tokens pill */}
+        <div className="px-4 py-2 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 shadow-inner">
+          <span className="text-sm font-bold text-gray-200">{tokens} tokens</span>
+        </div>
         
-        {/* Placeholder for future dropdown menu */}
-        {/* <UserDropdown /> */}
+        {/* View Mode Toggle */}
+        <ViewModeToggle mode={mode} onModeChange={setMode} />
+        
+        {/* User initials circle */}
+        <div className="rounded-full bg-[#1A2754] flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-[#1A2754]/30 cursor-pointer hover:bg-[#243470] transition-colors" style={{ width: '39px', height: '39px' }}>
+          {initials}
+        </div>
       </div>
     </nav>
   );

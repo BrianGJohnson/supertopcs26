@@ -277,10 +277,10 @@ export default function OnboardingStep3() {
 
                 {/* Text */}
                 <div className="flex-1">
-                  <div className={`text-lg font-bold ${selected ? "text-white" : "text-white/90"}`}>
+                  <div className={`text-lg font-bold ${selected ? "text-white/90" : "text-white/80"}`}>
                     {option.label}
                   </div>
-                  <div className="text-base text-white/60 leading-snug">
+                  <div className="text-base text-white/50 leading-snug">
                     {option.description}
                   </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui/Toast";
+import { DisplayModeProvider } from "@/context/DisplayModeContext";
 
 /**
  * Client-side providers wrapper
@@ -10,7 +11,9 @@ import { ToastProvider } from "@/components/ui/Toast";
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
-      {children}
+      <DisplayModeProvider>
+        {children}
+      </DisplayModeProvider>
     </ToastProvider>
   );
 }

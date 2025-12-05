@@ -875,11 +875,8 @@ export function RefinePageContent() {
         } : null}
         sessionPhrases={phrases.map(p => ({ phrase: p.phrase, demand: p.pop }))}
         seedPhrase={seedPhrase}
-        onSelect={(id) => {
-          handleToggleStar(id);
-          setOpportunityPhrase(null);
-        }}
-        onPass={(_id) => setOpportunityPhrase(null)}
+        isStarred={opportunityPhrase?.isStarred ?? false}
+        onToggleStar={(id) => handleToggleStar(id)}
       />
     </div>
   );

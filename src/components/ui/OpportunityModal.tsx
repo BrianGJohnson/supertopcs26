@@ -1,15 +1,14 @@
 "use client";
 
-import React from "react";
-import { IconX, IconExternalLink, IconFlame, IconTarget, IconTrendingUp, IconLink, IconSparkles } from "@tabler/icons-react";
+import React, { useState } from "react";
+import { IconX, IconExternalLink, IconCheck, IconLoader2, IconSparkles, IconSearch, IconCircleCheck, IconCircleDot, IconStar, IconStarFilled, IconArrowDown } from "@tabler/icons-react";
 import { toTitleCase } from "@/lib/utils";
 import { 
   calculateOpportunityScore, 
   buildHotAnchors, 
-  getOpportunityTier,
-  type OpportunityResult,
   type SessionContext 
 } from "@/lib/opportunity-scoring";
+import { authFetch } from "@/lib/supabase";
 
 // ============================================================================
 // TYPES
@@ -25,84 +24,73 @@ interface PhraseData {
   generationMethod: string | null;
 }
 
+interface AutocompleteSuggestion {
+  phrase: string;
+  isExactMatch: boolean;
+  isTopicMatch: boolean;
+  inSession: boolean;
+  sessionDemand?: number | null;
+  vibe?: string;
+  vibeIcon?: string;
+}
+
 interface OpportunityModalProps {
   isOpen: boolean;
   onClose: () => void;
   phrase: PhraseData | null;
   sessionPhrases: Array<{ phrase: string; demand: number | null }>;
   seedPhrase: string;
-  onSelect?: (phraseId: string) => void;
-  onPass?: (phraseId: string) => void;
+  isStarred?: boolean;
+  onToggleStar?: (phraseId: string) => void;
 }
 
 // ============================================================================
-// HELPER COMPONENTS
+// COLOR SYSTEM - Consistent tiers
 // ============================================================================
 
-function ScoreCard({ 
-  title, 
-  score, 
-  label, 
-  color,
-  children 
-}: { 
-  title: string;
-  score: number;
-  label: string;
-  color: string;
-  children?: React.ReactNode;
-}) {
-  const bgColor = score >= 60 
-    ? 'bg-[#2BD899]/15 border-[#2BD899]/40' 
-    : score >= 40 
-    ? 'bg-[#6B9BD1]/15 border-[#6B9BD1]/40' 
-    : score >= 20 
-    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/40' 
-    : 'bg-[#FF6B6B]/15 border-[#FF6B6B]/40';
-
-  return (
-    <div className={`p-6 rounded-2xl border ${bgColor}`}>
-      <h4 className="text-base font-semibold text-white/50 uppercase tracking-wide mb-4">
-        {title}
-      </h4>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-xl font-bold" style={{ color }}>
-          {label}
-        </span>
-        <span className="text-3xl font-bold" style={{ color }}>
-          {score}
-        </span>
-      </div>
-      {children}
-    </div>
-  );
+function getScoreStyle(score: number): { color: string; bgColor: string; borderColor: string } {
+  if (score >= 80) return { 
+    color: '#4DD68A', 
+    bgColor: 'bg-[#4DD68A]/10', 
+    borderColor: 'border-[#4DD68A]/30' 
+  };
+  if (score >= 60) return { 
+    color: '#A3E635', 
+    bgColor: 'bg-[#A3E635]/10', 
+    borderColor: 'border-[#A3E635]/30' 
+  };
+  if (score >= 40) return { 
+    color: '#FACC15', 
+    bgColor: 'bg-[#FACC15]/10', 
+    borderColor: 'border-[#FACC15]/30' 
+  };
+  if (score >= 20) return { 
+    color: '#FB923C', 
+    bgColor: 'bg-[#FB923C]/10', 
+    borderColor: 'border-[#FB923C]/30' 
+  };
+  return { 
+    color: '#F87171', 
+    bgColor: 'bg-[#F87171]/10', 
+    borderColor: 'border-[#F87171]/30' 
+  };
 }
 
-function BreakdownItem({ label, value, icon }: { label: string; value: number; icon?: React.ReactNode }) {
-  if (value === 0) return null;
-  return (
-    <p className="flex justify-between items-center">
-      <span className="flex items-center gap-2">
-        {icon}
-        <span>{label}</span>
-      </span>
-      <span className="text-white/80">+{value}</span>
-    </p>
-  );
-}
-
-function Badge({ children, color }: { children: React.ReactNode; color: string }) {
-  return (
-    <span 
-      className="px-3 py-1.5 rounded-full text-sm font-medium"
-      style={{ 
-        backgroundColor: `${color}20`,
-        color: color 
-      }}
-    >
-      {children}
-    </span>
-  );
+function getScoreLabel(score: number, type: 'demand' | 'opportunity'): string {
+  if (type === 'demand') {
+    if (score >= 90) return 'Extreme';
+    if (score >= 75) return 'Very High';
+    if (score >= 60) return 'High';
+    if (score >= 45) return 'Moderate';
+    if (score >= 30) return 'Low';
+    return 'Very Low';
+  } else {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Strong';
+    if (score >= 40) return 'Moderate';
+    if (score >= 20) return 'Limited';
+    return 'Low';
+  }
 }
 
 // ============================================================================
@@ -115,10 +103,26 @@ export function OpportunityModal({
   phrase,
   sessionPhrases,
   seedPhrase,
-  onSelect,
-  onPass,
+  isStarred,
+  onToggleStar,
 }: OpportunityModalProps) {
+  const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+
+  // Reset state when modal closes or phrase changes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
+      setSuggestionsError(null);
+    }
+  }, [isOpen, phrase?.id]);
+
   if (!isOpen || !phrase) return null;
+
+  // Calculate word count for length analysis
+  const wordCount = phrase.phrase.trim().split(/\s+/).length;
 
   // Build session context
   const hotAnchors = buildHotAnchors(sessionPhrases);
@@ -141,16 +145,88 @@ export function OpportunityModal({
     context
   );
 
-  const oppTier = getOpportunityTier(result.score);
-  const demandTier = getDemandTier(phrase.demand);
+  const demandScore = phrase.demand ?? 0;
+  const oppScore = result.score;
+  
+  const demandStyle = getScoreStyle(demandScore);
+  const oppStyle = getScoreStyle(oppScore);
 
-  // Calculate match percentages for display
-  const exactPct = phrase.suggestionCount > 0 
-    ? Math.round((phrase.exactMatchCount / phrase.suggestionCount) * 100) 
-    : 0;
-  const topicPct = phrase.suggestionCount > 0 
-    ? Math.round((phrase.topicMatchCount / phrase.suggestionCount) * 100) 
-    : 0;
+  // Build breakdown items (only show non-zero)
+  const breakdownItems = [
+    { label: 'Demand Base', value: result.breakdown.demandBase, max: 30 },
+    { label: 'Low Comp Signal', value: result.breakdown.lowCompSignal, max: 25 },
+    { label: 'Long-Term Views', value: result.breakdown.longTermViews, max: 25 },
+    { label: 'Hot Anchor', value: result.breakdown.hotAnchor, max: 15 },
+    { label: 'Related Phrases', value: result.breakdown.relatedPhrase, max: 15 },
+  ].filter(item => item.value > 0);
+
+  // Fetch autocomplete suggestions
+  const handleExploreSuggestions = async () => {
+    setIsLoadingSuggestions(true);
+    setSuggestionsError(null);
+    
+    try {
+      const response = await authFetch("/api/seed-signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: phrase.phrase }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch suggestions");
+      }
+      
+      const data = await response.json();
+      
+      // Build session phrase lookup for cross-referencing
+      const sessionLookup = new Map<string, number | null>();
+      sessionPhrases.forEach(p => {
+        sessionLookup.set(p.phrase.toLowerCase(), p.demand);
+      });
+      
+      // Get suggestions from the landscape response
+      const rawSuggestions: string[] = data.landscape?.suggestions || data.suggestions || [];
+      const rankedSuggestions = data.landscape?.rankedSuggestions || [];
+      
+      // Process suggestions
+      const processed: AutocompleteSuggestion[] = rawSuggestions.map((suggestionPhrase: string, index: number) => {
+        const phraseLower = suggestionPhrase.toLowerCase();
+        const seedLower = phrase.phrase.toLowerCase();
+        const inSession = sessionLookup.has(phraseLower);
+        
+        // Check if exact match (starts with seed)
+        const isExactMatch = phraseLower.startsWith(seedLower);
+        
+        // Check if topic match (shares significant words with seed)
+        const seedWords = new Set(seedLower.split(/\s+/).filter(w => w.length > 2));
+        const phraseWords = phraseLower.split(/\s+/).filter(w => w.length > 2);
+        const sharedWords = phraseWords.filter(w => seedWords.has(w));
+        const isTopicMatch = sharedWords.length > 0;
+        
+        // Get vibe from ranked suggestions if available
+        const ranked = rankedSuggestions[index];
+        const vibe = ranked?.vibe;
+        const vibeIcon = ranked?.vibeIcon;
+        
+        return {
+          phrase: suggestionPhrase,
+          isExactMatch,
+          isTopicMatch,
+          inSession,
+          sessionDemand: inSession ? sessionLookup.get(phraseLower) : undefined,
+          vibe,
+          vibeIcon,
+        };
+      });
+      
+      setSuggestions(processed);
+    } catch (error) {
+      console.error("Failed to fetch suggestions:", error);
+      setSuggestionsError("Failed to load suggestions. Please try again.");
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -161,114 +237,319 @@ export function OpportunityModal({
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#1a1f2e] rounded-3xl shadow-2xl border border-white/10">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors z-10"
-        >
-          <IconX className="w-5 h-5 text-white/60" />
-        </button>
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1a1f2e] rounded-3xl shadow-2xl border border-white/10">
+        {/* Top right buttons */}
+        <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+          {onToggleStar && (
+            <button
+              onClick={() => onToggleStar(phrase.id)}
+              className={`p-2 rounded-full transition-colors ${
+                isStarred 
+                  ? 'bg-[#FFD700]/20 hover:bg-[#FFD700]/30' 
+                  : 'hover:bg-white/10'
+              }`}
+              title={isStarred ? 'Remove from starred' : 'Star this phrase'}
+            >
+              {isStarred ? (
+                <IconStarFilled className="w-5 h-5 text-[#FFD700]" />
+              ) : (
+                <IconStar className="w-5 h-5 text-white/60" />
+              )}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
+          >
+            <IconX className="w-5 h-5 text-white/60" />
+          </button>
+        </div>
 
-        <div className="p-8">
+        <div className="p-10">
           {/* Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              {toTitleCase(phrase.phrase)}
-            </h2>
-            <p className="text-white/50 text-sm">
-              {phrase.suggestionCount} suggestions • {phrase.exactMatchCount} exact • {phrase.topicMatchCount} topic match
+          <div className="mb-8">
+            <div className="flex items-start gap-3">
+              <h2 className="text-2xl font-bold text-white mb-3 pr-16">
+                {toTitleCase(phrase.phrase)}
+              </h2>
+            </div>
+            <p className="text-white/50 text-base">
+              {phrase.suggestionCount} suggestions • {phrase.exactMatchCount} exact match • {phrase.topicMatchCount} topic match • {wordCount} words
             </p>
           </div>
 
-          {/* Score Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Score Cards - Side by Side */}
+          <div className="grid grid-cols-2 gap-6 mb-8">
             {/* Demand Card */}
-            <ScoreCard
-              title="Demand"
-              score={phrase.demand ?? 0}
-              label={demandTier.label}
-              color={demandTier.color}
-            >
-              <div className="text-white/60 text-sm space-y-1">
-                <p>{phrase.exactMatchCount} of {phrase.suggestionCount} exact match</p>
-                <p>{phrase.topicMatchCount} of {phrase.suggestionCount} topic match</p>
+            <div className={`p-6 rounded-2xl border ${demandStyle.bgColor} ${demandStyle.borderColor}`}>
+              <p className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+                Demand
+              </p>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold" style={{ color: demandStyle.color }}>
+                  {getScoreLabel(demandScore, 'demand')}
+                </span>
+                <span className="text-4xl font-bold" style={{ color: demandStyle.color }}>
+                  {demandScore}
+                </span>
               </div>
-            </ScoreCard>
+            </div>
 
             {/* Opportunity Card */}
-            <ScoreCard
-              title="Opportunity"
-              score={result.score}
-              label={oppTier.label}
-              color={oppTier.color}
-            >
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {result.hasLowCompSignal && (
-                  <Badge color="#FFD700">🎯 Low Comp</Badge>
-                )}
-                {result.hasLongTermPotential && (
-                  <Badge color="#2BD899">📈 Long-Term</Badge>
-                )}
+            <div className={`p-6 rounded-2xl border ${oppStyle.bgColor} ${oppStyle.borderColor}`}>
+              <p className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+                Opportunity
+              </p>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-bold" style={{ color: oppStyle.color }}>
+                  {getScoreLabel(oppScore, 'opportunity')}
+                </span>
+                <span className="text-4xl font-bold" style={{ color: oppStyle.color }}>
+                  {oppScore}
+                </span>
               </div>
-              
-              {/* Breakdown */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-white/60 text-sm">
-                <BreakdownItem 
-                  label="Demand base" 
-                  value={result.breakdown.demandBase}
-                  icon={<IconFlame className="w-3 h-3" />}
-                />
-                <BreakdownItem 
-                  label="Low comp signal" 
-                  value={result.breakdown.lowCompSignal}
-                  icon={<IconTarget className="w-3 h-3" />}
-                />
-                <BreakdownItem 
-                  label="Long-term" 
-                  value={result.breakdown.longTermViews}
-                  icon={<IconTrendingUp className="w-3 h-3" />}
-                />
-                <BreakdownItem 
-                  label="Hot anchor" 
-                  value={result.breakdown.hotAnchor}
-                  icon={<IconSparkles className="w-3 h-3" />}
-                />
-                <BreakdownItem 
-                  label="Related" 
-                  value={result.breakdown.relatedPhrase}
-                  icon={<IconLink className="w-3 h-3" />}
-                />
-              </div>
-            </ScoreCard>
+            </div>
           </div>
+
+          {/* Opportunity Breakdown */}
+          {breakdownItems.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-white/90 mb-4">Score Breakdown</h3>
+              <div className="space-y-3">
+                {breakdownItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-base text-white/70">{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      {/* Progress bar */}
+                      <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full bg-[#6B9BD1]"
+                          style={{ width: `${(item.value / item.max) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-base font-medium text-white/80 w-12 text-right">
+                        +{item.value}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Warnings */}
           {result.warnings.length > 0 && (
-            <div className="mb-6 p-4 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/30">
-              <p className="text-[#F59E0B] text-sm">
-                ⚠️ {result.warnings[0]}
-              </p>
+            <div className="mb-8 p-5 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/30">
+              <div className="flex items-start gap-3">
+                <span className="text-lg">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-[#F59E0B] text-base mb-2">
+                    {wordCount} words with high demand may face more competition.
+                  </p>
+                  <p className="text-white/60 text-sm mb-4">
+                    The upside? Short phrases leave room for compelling titles — you can add your own words to stand out.
+                  </p>
+                  
+                  {/* Drill Down CTA */}
+                  {suggestions.length === 0 && !isLoadingSuggestions && (
+                    <button
+                      onClick={handleExploreSuggestions}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#F59E0B]/20 hover:bg-[#F59E0B]/30 border border-[#F59E0B]/40 text-[#F59E0B] text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <IconArrowDown className="w-4 h-4" />
+                      <span>Drill Deeper — See Long-Tail Variations</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Loading State */}
+              {isLoadingSuggestions && (
+                <div className="flex items-center gap-3 mt-4 p-4 rounded-xl bg-black/20">
+                  <IconLoader2 className="w-5 h-5 text-[#F59E0B] animate-spin" />
+                  <span className="text-white/60">Fetching longer variations...</span>
+                </div>
+              )}
+              
+              {/* Error State */}
+              {suggestionsError && (
+                <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                  <p className="text-red-400 text-sm">{suggestionsError}</p>
+                  <button
+                    onClick={handleExploreSuggestions}
+                    className="mt-2 text-sm text-[#F59E0B] hover:text-[#FBBF24]"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              
+              {/* Suggestions List */}
+              {suggestions.length > 0 && (
+                <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                  {suggestions.map((s, i) => (
+                    <div 
+                      key={i}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        s.inSession 
+                          ? 'bg-[#6B9BD1]/10 border border-[#6B9BD1]/30' 
+                          : 'bg-black/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {s.vibeIcon && (
+                          <span className="text-base" title={s.vibe}>{s.vibeIcon}</span>
+                        )}
+                        <span className="text-white/80">{toTitleCase(s.phrase)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {s.isExactMatch && (
+                          <span className="flex items-center gap-1 text-xs text-[#4DD68A]">
+                            <IconCircleCheck className="w-4 h-4" />
+                            <span>Exact</span>
+                          </span>
+                        )}
+                        {s.isTopicMatch && !s.isExactMatch && (
+                          <span className="flex items-center gap-1 text-xs text-[#6B9BD1]">
+                            <IconCircleDot className="w-4 h-4" />
+                            <span>Topic</span>
+                          </span>
+                        )}
+                        {s.inSession && (
+                          <span className="px-2 py-0.5 bg-[#6B9BD1]/20 text-[#6B9BD1] text-xs rounded-full">
+                            In Session
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Why This Works - Insights */}
+          {result.insights.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-white/90 mb-4">Why This Works</h3>
+              <ul className="space-y-3">
+                {result.insights.map((insight, i) => (
+                  <li key={i} className="flex items-start gap-3 text-base text-white/70">
+                    <IconCheck className="w-5 h-5 text-[#4DD68A] flex-shrink-0 mt-0.5" />
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Explore Deeper - shows when NO warnings (for longer phrases) */}
+          {result.warnings.length === 0 && (
+            <div className="mb-8 p-5 rounded-xl bg-[#6B9BD1]/10 border border-[#6B9BD1]/30">
+              <div className="flex items-start gap-3">
+                <IconSearch className="w-5 h-5 text-[#6B9BD1] flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[#6B9BD1] text-base mb-2">
+                    {wordCount} words — great length for specific intent!
+                  </p>
+                  <p className="text-white/60 text-sm mb-4">
+                    Longer phrases often signal clearer viewer intent and less competition.
+                  </p>
+                  
+                  {/* Explore CTA */}
+                  {suggestions.length === 0 && !isLoadingSuggestions && (
+                    <button
+                      onClick={handleExploreSuggestions}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#6B9BD1]/20 hover:bg-[#6B9BD1]/30 border border-[#6B9BD1]/40 text-[#6B9BD1] text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <IconArrowDown className="w-4 h-4" />
+                      <span>See What YouTube Suggests</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Loading State */}
+              {isLoadingSuggestions && (
+                <div className="flex items-center gap-3 mt-4 p-4 rounded-xl bg-black/20">
+                  <IconLoader2 className="w-5 h-5 text-[#6B9BD1] animate-spin" />
+                  <span className="text-white/60">Fetching suggestions...</span>
+                </div>
+              )}
+              
+              {/* Error State */}
+              {suggestionsError && (
+                <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                  <p className="text-red-400 text-sm">{suggestionsError}</p>
+                  <button
+                    onClick={handleExploreSuggestions}
+                    className="mt-2 text-sm text-[#6B9BD1] hover:text-[#8BB5E0]"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              
+              {/* Suggestions List */}
+              {suggestions.length > 0 && (
+                <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                  {suggestions.map((s, i) => (
+                    <div 
+                      key={i}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        s.inSession 
+                          ? 'bg-[#6B9BD1]/20 border border-[#6B9BD1]/40' 
+                          : 'bg-black/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {s.vibeIcon && (
+                          <span className="text-base" title={s.vibe}>{s.vibeIcon}</span>
+                        )}
+                        <span className="text-white/80">{toTitleCase(s.phrase)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {s.isExactMatch && (
+                          <span className="flex items-center gap-1 text-xs text-[#4DD68A]">
+                            <IconCircleCheck className="w-4 h-4" />
+                            <span>Exact</span>
+                          </span>
+                        )}
+                        {s.isTopicMatch && !s.isExactMatch && (
+                          <span className="flex items-center gap-1 text-xs text-[#6B9BD1]">
+                            <IconCircleDot className="w-4 h-4" />
+                            <span>Topic</span>
+                          </span>
+                        )}
+                        {s.inSession && (
+                          <span className="px-2 py-0.5 bg-[#6B9BD1]/30 text-[#6B9BD1] text-xs rounded-full">
+                            In Session
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Related Phrases */}
           {(result.relatedPhrases.shorter.length > 0 || result.relatedPhrases.longer.length > 0) && (
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white/80 mb-4">Related Phrases in Session</h3>
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-white/90 mb-4">Related in Session</h3>
               
               {result.relatedPhrases.shorter.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-white/50 text-sm mb-2">
-                    SHORTER (ranking ladder potential):
+                  <p className="text-sm font-medium text-white/50 uppercase tracking-wider mb-2">
+                    Shorter Variants
                   </p>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {result.relatedPhrases.shorter.map((p, i) => (
-                      <p key={i} className="text-white/70 text-sm">
+                      <p key={i} className="text-base text-white/70">
                         • {toTitleCase(p.phrase)} 
                         {p.demand !== null && (
-                          <span className="text-white/40 ml-2">({p.demand} demand)</span>
+                          <span className="text-white/40 ml-2">({p.demand})</span>
                         )}
                       </p>
                     ))}
@@ -278,21 +559,21 @@ export function OpportunityModal({
               
               {result.relatedPhrases.longer.length > 0 && (
                 <div>
-                  <p className="text-white/50 text-sm mb-2">
-                    LONGER (drill-down opportunities):
+                  <p className="text-sm font-medium text-white/50 uppercase tracking-wider mb-2">
+                    Longer Variants
                   </p>
-                  <div className="space-y-1">
-                    {result.relatedPhrases.longer.slice(0, 5).map((p, i) => (
-                      <p key={i} className="text-white/70 text-sm">
+                  <div className="space-y-2">
+                    {result.relatedPhrases.longer.slice(0, 4).map((p, i) => (
+                      <p key={i} className="text-base text-white/70">
                         • {toTitleCase(p.phrase)}
                         {p.demand !== null && (
-                          <span className="text-white/40 ml-2">({p.demand} demand)</span>
+                          <span className="text-white/40 ml-2">({p.demand})</span>
                         )}
                       </p>
                     ))}
-                    {result.relatedPhrases.longer.length > 5 && (
-                      <p className="text-white/40 text-sm">
-                        +{result.relatedPhrases.longer.length - 5} more...
+                    {result.relatedPhrases.longer.length > 4 && (
+                      <p className="text-base text-white/40">
+                        +{result.relatedPhrases.longer.length - 4} more...
                       </p>
                     )}
                   </div>
@@ -303,90 +584,35 @@ export function OpportunityModal({
 
           {/* Hot Anchors */}
           {result.matchedAnchors.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white/80 mb-3">Hot Anchors in This Phrase</h3>
-              <div className="space-y-2">
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-white/90 mb-4">Hot Anchors</h3>
+              <div className="flex flex-wrap gap-2">
                 {result.matchedAnchors.map((a, i) => (
-                  <p key={i} className="text-white/60 text-sm">
-                    • <span className="text-[#FFD700] font-medium">"{a.word}"</span>
-                    <span className="text-white/40 ml-2">
-                      — appears in {a.count} session phrases, avg demand {a.avgDemand}
-                    </span>
-                  </p>
+                  <span 
+                    key={i} 
+                    className="px-3 py-1.5 rounded-lg bg-[#FFD700]/10 border border-[#FFD700]/30 text-[#FFD700] text-sm font-medium"
+                  >
+                    {a.word} <span className="text-[#FFD700]/60">({a.count}×)</span>
+                  </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Insights */}
-          {result.insights.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white/80 mb-3">Why This Works</h3>
-              <ul className="space-y-2">
-                {result.insights.map((insight, i) => (
-                  <li key={i} className="text-white/70 text-sm flex items-start gap-2">
-                    <span className="text-[#2BD899]">✓</span>
-                    {insight}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {/* YouTube Link */}
-          <div className="mb-8">
+          <div>
             <a
               href={`https://www.youtube.com/results?search_query=${encodeURIComponent(phrase.phrase)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-[#6B9BD1] hover:text-[#8BB5E0] text-sm transition-colors"
+              className="inline-flex items-center gap-2 text-[#6B9BD1] hover:text-[#8BB5E0] text-base transition-colors"
             >
               <span>Check competition on YouTube</span>
               <IconExternalLink className="w-4 h-4" />
             </a>
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-4">
-            {onSelect && (
-              <button
-                onClick={() => {
-                  onSelect(phrase.id);
-                  onClose();
-                }}
-                className="flex-1 py-3 px-6 bg-[#6B9BD1] hover:bg-[#7BA8DA] text-white font-semibold rounded-xl transition-colors"
-              >
-                Select Topic
-              </button>
-            )}
-            {onPass && (
-              <button
-                onClick={() => {
-                  onPass(phrase.id);
-                  onClose();
-                }}
-                className="flex-1 py-3 px-6 bg-white/10 hover:bg-white/20 text-white/70 font-semibold rounded-xl transition-colors"
-              >
-                Pass
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
   );
-}
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-function getDemandTier(demand: number | null): { label: string; color: string } {
-  if (demand === null) return { label: 'Unknown', color: '#666' };
-  if (demand >= 90) return { label: 'Extreme', color: '#FF6B5B' };
-  if (demand >= 75) return { label: 'Very High', color: '#4DD68A' };
-  if (demand >= 60) return { label: 'High', color: '#A3E635' };
-  if (demand >= 45) return { label: 'Moderate', color: '#CDDC39' };
-  if (demand >= 30) return { label: 'Low', color: '#FB923C' };
-  return { label: 'Very Low', color: '#F87171' };
 }

@@ -704,11 +704,15 @@ GRAPHITE GRADIENT (PILLS & BUTTONS)
 - To:   #1E2228
 
 TEXT OPACITIES
-- Headings:          100%
-- Body text:         80% or 70%
-- Secondary text:    60%
-- Muted/helper:      50%
-- Subtle/disabled:   40%
+- Hero headlines:      100% (main page titles only)
+- Card headings:       90% (softer, easier on eyes)
+- Body text:           70%
+- Secondary text:      60%
+- Muted/helper:        50%
+- Subtle/disabled:     40%
+
+Note: Hierarchy is driven by opacity rather than harsh contrast.
+Card headings use 90% white to avoid glare against dark backgrounds.
 
 FONT SIZES
 - Hero headline:        3.4rem / 4.2rem

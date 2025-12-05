@@ -162,93 +162,73 @@ const SIGNAL_CONFIG: Record<SignalLevel, SignalConfig> = {
 };
 
 /**
- * Calculate signal score using Low Competition Discovery Method
+ * Calculate signal score using Weighted Match Method
  * 
- * OLD LOGIC (wrong): (exactMatch × 2) + topicMatch
- *   - Rewarded high exact match
- *   - Punished long-tail phrases that are actually opportunities
+ * KEY INSIGHT: Not all matches are equal.
+ * - EXACT MATCH (starts with seed phrase) = 3 points each
+ *   → Direct evidence people search for YOUR phrase + extensions
+ * - TOPIC MATCH (shares keywords but doesn't start with seed) = 1 point each
+ *   → Weak signal - could be related or could be noise
  * 
- * NEW LOGIC (Low Comp Method):
- *   - High suggestions = demand exists
- *   - Low exact match = low competition (GOOD)
- *   - High topic match = semantic demand (GOOD)
- *   - Low Comp Signal = High topic + Low exact = OPPORTUNITY
+ * Examples:
+ * - "how to introduce yourself on youtube" → 13 suggestions, 12 exact match
+ *   → Score: (12 × 3) + (1 × 1) = 37 points = STRONG
+ * - "video topics" → 5 suggestions, 1 exact match, 4 topic-only
+ *   → Score: (1 × 3) + (4 × 1) = 7 points = WEAK
  * 
- * Returns score 0-100 where higher = better opportunity
+ * Scale: 0-42 points (14 exact matches × 3 = 42 max)
+ * Thresholds:
+ * - 30+ = Go (strong demand)
+ * - 18+ = Caution (moderate, worth checking)  
+ * - <18 = Stop (weak signal)
+ * 
+ * Returns score 0-100 (normalized from 0-42 scale)
  */
 function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, suggestionCount?: number): number {
-  const total = suggestionCount ?? 14;
+  const total = suggestionCount ?? 0;
   
-  // If no suggestions, no demand
+  // No suggestions = no signal
   if (total === 0) return 0;
   
-  const exactPct = (exactMatchCount / total) * 100;
-  const topicPct = (topicMatchCount / total) * 100;
+  // Topic-only matches (not exact matches)
+  const topicOnlyCount = Math.max(0, topicMatchCount - exactMatchCount);
   
-  // Base demand score from suggestion count (0-40 points)
-  // 14 suggestions = 40 points, 7 = 20 points, 0 = 0 points
-  const demandScore = (total / 14) * 40;
+  // Weighted score: Exact × 3, Topic-only × 1
+  const rawScore = (exactMatchCount * 3) + (topicOnlyCount * 1);
   
-  // Topic relevance bonus (0-30 points)
-  // High topic match = strong semantic demand
-  const topicBonus = (topicPct / 100) * 30;
+  // Max possible score is 42 (14 exact matches × 3)
+  // Normalize to 0-100 scale
+  const normalizedScore = Math.round((rawScore / 42) * 100);
   
-  // Competition penalty/bonus based on exact match (−10 to +30 points)
-  // Low exact = opportunity (bonus), High exact = competition (penalty)
-  let competitionScore: number;
-  if (exactPct <= 20) {
-    // Low comp signal: very low competition = +30 bonus
-    competitionScore = 30;
-  } else if (exactPct <= 40) {
-    // Good: low competition = +20 bonus
-    competitionScore = 20;
-  } else if (exactPct <= 60) {
-    // Moderate: neutral
-    competitionScore = 10;
-  } else if (exactPct <= 80) {
-    // High: slight penalty
-    competitionScore = 0;
-  } else {
-    // Very high: penalty
-    competitionScore = -10;
-  }
-  
-  // Low Comp Bonus: Low exact + High topic = extra points
-  // This is the key insight: this combination is OPPORTUNITY, not caution
-  let lowCompBonus = 0;
-  if (exactPct <= 30 && topicPct >= 60 && total >= 5) {
-    lowCompBonus = 15; // Big bonus for low comp pattern
-  } else if (exactPct <= 40 && topicPct >= 50 && total >= 3) {
-    lowCompBonus = 8; // Smaller bonus for good pattern
-  }
-  
-  const finalScore = demandScore + topicBonus + competitionScore + lowCompBonus;
-  
-  // Clamp to 0-100
-  return Math.max(0, Math.min(100, Math.round(finalScore)));
+  return Math.max(0, Math.min(100, normalizedScore));
 }
 
 /**
- * Get signal level and message based on score (0-100 scale)
+ * Get signal level and message based on score (0-100 scale, from 0-42 raw)
  * 
- * Low Comp Method Thresholds:
- * - 70+ = Excellent opportunity (Go)
- * - 50+ = Good opportunity (Go)  
- * - 35+ = Moderate, worth checking (Caution)
- * - 20+ = Limited interest (Caution)
- * - <20 = Low demand (Stop)
+ * Weighted Match Thresholds (raw → normalized):
+ * - 30+ raw (71+) = Strong demand, go signal
+ * - 21-29 raw (50-70) = Good signal, worth pursuing
+ * - 12-20 raw (29-49) = Moderate, check competition
+ * - 6-11 raw (14-28) = Limited signal, proceed with caution
+ * - <6 raw (<14) = Weak signal, likely not worth it
  */
 function getSignalFromScore(score: number): { level: SignalLevel; message: string } {
-  if (score >= 70) {
-    return { level: 'go', message: 'This could be an excellent opportunity. High topic interest with low phrase competition. Viewers want to learn about this topic. Educational content will resonate. Check competition to confirm.' };
+  if (score >= 71) {
+    // 30+ raw points = strong exact match demand
+    return { level: 'go', message: 'Strong demand signal. Many viewers search for this exact phrase and extensions. Check competition on YouTube to confirm ranking potential.' };
   } else if (score >= 50) {
-    return { level: 'go', message: 'Good opportunity. Solid viewer interest with room to compete. Worth pursuing.' };
-  } else if (score >= 35) {
-    return { level: 'caution', message: 'Moderate interest. Check YouTube manually to assess competition.' };
-  } else if (score >= 20) {
-    return { level: 'caution', message: 'Limited interest detected. Consider a broader angle or different phrasing.' };
+    // 21-29 raw points = good signal
+    return { level: 'go', message: 'Good demand signal. Solid viewer interest in this phrase. Worth pursuing.' };
+  } else if (score >= 29) {
+    // 12-20 raw points = moderate
+    return { level: 'caution', message: 'Moderate interest. Some viewers search for this, but signal is mixed. Check YouTube manually.' };
+  } else if (score >= 14) {
+    // 6-11 raw points = limited
+    return { level: 'caution', message: 'Limited interest detected. Few exact matches suggest weak demand for this specific phrase.' };
   } else {
-    return { level: 'stop', message: 'Very low interest. This phrase may be too obscure or niche.' };
+    // <6 raw points = weak
+    return { level: 'stop', message: 'Weak signal. Very few viewers search for this phrase. Consider a different angle.' };
   }
 }
 
@@ -507,10 +487,10 @@ function generateInsightWithOpportunity(
   exactMatchPercent: number,
   topicMatchPercent: number
 ): string {
-  // OPPORTUNITY: Low exact match + high topic match
+  // OPPORTUNITY: Good weighted score with room to rank
   if (isOpportunity) {
     const vibeMessage = getSimpleVibeMessage(dominantVibe, vibeDistribution);
-    return `This could be an excellent opportunity. High topic interest with low phrase competition. ${vibeMessage} Check competition to confirm.`;
+    return `Good demand with ranking potential. ${vibeMessage} Check competition on YouTube to confirm.`;
   }
   
   // Check for mixed learning + frustrated (common pattern)
@@ -676,44 +656,57 @@ export function analyzeViewerLandscape(
   suggestions: string[]
 ): ViewerLandscape {
   const seedLower = seed.toLowerCase().trim();
-  const count = suggestions.length;
+  
+  // IMPORTANT: Filter out the seed phrase itself from suggestions
+  // Apify often returns the seed as suggestion #1, which inflates exact match count
+  const filteredSuggestions = suggestions.filter(s => 
+    s.toLowerCase().trim() !== seedLower
+  );
+  const count = filteredSuggestions.length;
   
   // Extract key words from seed for topic matching
   const seedKeyWords = extractKeyWords(seed);
   
-  // Count exact matches (suggestions that start with exact seed)
+  // Count exact matches: suggestions that START WITH the exact seed phrase
+  // e.g., "video topics" → "video topics for youtube" ✓ but NOT "japan video topics" ✗
   let exactMatchCount = 0;
-  for (const suggestion of suggestions) {
+  for (const suggestion of filteredSuggestions) {
     if (suggestion.toLowerCase().startsWith(seedLower)) {
       exactMatchCount++;
     }
   }
   const exactMatchPercent = count > 0 ? Math.round((exactMatchCount / count) * 100) : 0;
   
-  // Count topic matches (suggestions about the same topic)
+  // Count topic matches (suggestions about the same topic - share key words)
   let topicMatchCount = 0;
-  for (const suggestion of suggestions) {
+  for (const suggestion of filteredSuggestions) {
     if (isTopicMatch(seedKeyWords, suggestion)) {
       topicMatchCount++;
     }
   }
   const topicMatchPercent = count > 0 ? Math.round((topicMatchCount / count) * 100) : 0;
   
-  // Is this an opportunity? Low exact match + high topic match
-  const isOpportunity = exactMatchPercent < 30 && topicMatchPercent >= 60 && count >= 5;
+  // Calculate the weighted score for opportunity detection
+  const topicOnlyCount = Math.max(0, topicMatchCount - exactMatchCount);
+  const rawWeightedScore = (exactMatchCount * 3) + (topicOnlyCount * 1);
   
-  // Competition signal
-  const isLowCompetition = exactMatchPercent < 30 && count >= 5;
-  const competitionLabel = isLowCompetition ? 'Potential Low Competition' : null;
+  // Is this an opportunity? 
+  // Need: Good weighted score (18+ raw = decent demand) + room to rank (not all exact matches)
+  // The "opportunity" is when there's demand but YOU can still rank for it
+  const isOpportunity = rawWeightedScore >= 18 && exactMatchPercent < 50 && exactMatchPercent > 0 && count >= 8;
+  
+  // Low competition signal - only valid with enough data and good weighted score
+  const isLowCompetition = rawWeightedScore >= 12 && exactMatchPercent < 40 && count >= 8;
+  const competitionLabel = isLowCompetition ? 'Low Competition Signal' : null;
   
   // Generate YouTube search URL
   const youtubeSearchUrl = getYouTubeSearchUrl(seed);
   
-  // Extract anchor words
-  const anchorWords = extractAnchorWords(suggestions, seed);
+  // Extract anchor words (use filtered suggestions)
+  const anchorWords = extractAnchorWords(filteredSuggestions, seed);
   
-  // Analyze each suggestion with position weighting
-  const rankedSuggestions: RankedSuggestion[] = suggestions.map((phrase, index) => {
+  // Analyze each suggestion with position weighting (use filtered suggestions)
+  const rankedSuggestions: RankedSuggestion[] = filteredSuggestions.map((phrase, index) => {
     const position = index + 1;
     const vibe = detectVibe(phrase);
     return {
@@ -861,8 +854,8 @@ export function analyzeViewerLandscape(
     // YouTube search URL
     youtubeSearchUrl,
     
-    // Raw data
-    suggestions,
+    // Raw data (filtered - excludes the seed phrase itself)
+    suggestions: filteredSuggestions,
   };
 }
 

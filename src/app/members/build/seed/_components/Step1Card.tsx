@@ -16,9 +16,10 @@ interface Step1CardProps {
   };
   isExpanding: boolean;
   hasSeedPhrase: boolean;
+  isFull?: boolean;
 }
 
-export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, hasSeedPhrase }: Step1CardProps) {
+export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, hasSeedPhrase, isFull = true }: Step1CardProps) {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -88,7 +89,7 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
     }
     return (
       <>
-        Click &quot;Expand Topic&quot; above to begin.<br />
+        Click &quot;Start Expansion&quot; above to begin.<br />
         We&apos;ll map out related topics for you.
       </>
     );
@@ -146,68 +147,73 @@ export function Step1Card({ sessionId, topicCount, sourceCounts, isExpanding, ha
 
   return (
     <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl flex flex-col relative z-20">
-      {/* Top Section: Bucket Info */}
-      <div className="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex-1 space-y-3 text-center md:text-left max-w-md">
-          <h2 className="text-3xl font-bold text-white">Step 1 • Topic Expansion</h2>
-          <p className="text-text-secondary text-lg font-light leading-relaxed">
-            {getDescription()}
-          </p>
-        </div>
+      {/* Top Section: Bucket Info - Only show in Detailed mode */}
+      {isFull && (
+        <div className="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex-1 space-y-3 text-center md:text-left max-w-md">
+            <h2 className="text-3xl font-bold text-white">Step 1 • Topic Expansion</h2>
+            <p className="text-text-secondary text-lg font-light leading-relaxed">
+              {getDescription()}
+            </p>
+          </div>
 
-        <div className="flex flex-col items-end gap-3 flex-shrink-0 pt-4">
-          {/* Pills row - aligned tops */}
-          <div className="flex items-start gap-4">
-            {/* Your Topics Pill */}
-            <div className="px-7 py-4 bg-gradient-to-b from-[#2E3338] to-[#1E2228] rounded-full text-white font-bold border-2 border-[#6B9BD1]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              Your Topics: {topicCount}
+          <div className="flex flex-col items-end gap-3 flex-shrink-0 pt-4">
+            {/* Pills row - aligned tops */}
+            <div className="flex items-start gap-4">
+              {/* Your Topics Pill */}
+              <div className="px-7 py-4 bg-gradient-to-b from-[#2E3338] to-[#1E2228] rounded-full text-white font-bold border-2 border-[#6B9BD1]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                Your Topics: {topicCount}
+              </div>
+
+              {/* Status indicator */}
+              {getStatusIndicator()}
             </div>
-
-            {/* Status indicator */}
-            {getStatusIndicator()}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Divider */}
-      <div className="h-px w-full bg-white/5"></div>
+      {/* Divider - Only show in Detailed mode */}
+      {isFull && <div className="h-px w-full bg-white/5"></div>}
 
       {/* Bottom Section: Session & Sources */}
-      <div className="px-10 py-10 md:px-12 bg-black/20 rounded-b-3xl flex flex-col md:flex-row justify-between items-center gap-6 overflow-visible">
+      <div className={`px-10 py-10 md:px-12 bg-black/20 ${isFull ? 'rounded-b-3xl' : 'rounded-3xl'} flex flex-col md:flex-row justify-between items-center gap-6 overflow-visible`}>
         <div className="flex items-center gap-3">
           <SessionMenu />
         </div>
-        <div className="flex flex-wrap justify-center items-baseline gap-x-3 gap-y-2">
-          <span className="text-white/[0.68] font-bold text-base mr-2">Topic Sources:</span>
-          <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
-            sourceCounts.top10 > 0 
-              ? "from-[#2A2E34] to-[#1E2228] text-[#FF8A3D] border-[#FF8A3D]/45" 
-              : "from-[#252930] to-[#1A1E24] text-[#FF8A3D]/50 border-[#FF8A3D]/25"
-          }`}>
-            Top 10 ({sourceCounts.top10})
-          </span>
-          <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
-            sourceCounts.child > 0 
-              ? "from-[#2A2E34] to-[#1E2228] text-[#D4E882] border-[#D4E882]/45" 
-              : "from-[#252930] to-[#1A1E24] text-[#D4E882]/50 border-[#D4E882]/25"
-          }`}>
-            Child ({sourceCounts.child})
-          </span>
-          <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
-            sourceCounts.az > 0 
-              ? "from-[#2A2E34] to-[#1E2228] text-[#4DD68A] border-[#4DD68A]/45" 
-              : "from-[#252930] to-[#1A1E24] text-[#4DD68A]/50 border-[#4DD68A]/25"
-          }`}>
-            A–Z ({sourceCounts.az})
-          </span>
-          <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
-            sourceCounts.prefix > 0 
-              ? "from-[#2A2E34] to-[#1E2228] text-[#39C7D8] border-[#39C7D8]/45" 
-              : "from-[#252930] to-[#1A1E24] text-[#39C7D8]/50 border-[#39C7D8]/25"
-          }`}>
-            Prefix ({sourceCounts.prefix})
-          </span>
-        </div>
+        {/* Topic Sources - Only show in Detailed mode */}
+        {isFull && (
+          <div className="flex flex-wrap justify-center items-baseline gap-x-3 gap-y-2">
+            <span className="text-white/[0.68] font-bold text-base mr-2">Topic Sources:</span>
+            <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
+              sourceCounts.top10 > 0 
+                ? "from-[#2A2E34] to-[#1E2228] text-[#FF8A3D] border-[#FF8A3D]/45" 
+                : "from-[#252930] to-[#1A1E24] text-[#FF8A3D]/50 border-[#FF8A3D]/25"
+            }`}>
+              Top 10 ({sourceCounts.top10})
+            </span>
+            <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
+              sourceCounts.child > 0 
+                ? "from-[#2A2E34] to-[#1E2228] text-[#D4E882] border-[#D4E882]/45" 
+                : "from-[#252930] to-[#1A1E24] text-[#D4E882]/50 border-[#D4E882]/25"
+            }`}>
+              Child ({sourceCounts.child})
+            </span>
+            <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
+              sourceCounts.az > 0 
+                ? "from-[#2A2E34] to-[#1E2228] text-[#4DD68A] border-[#4DD68A]/45" 
+                : "from-[#252930] to-[#1A1E24] text-[#4DD68A]/50 border-[#4DD68A]/25"
+            }`}>
+              A–Z ({sourceCounts.az})
+            </span>
+            <span className={`px-3.5 py-1.5 bg-gradient-to-b rounded-full text-sm font-medium border transition-all ${
+              sourceCounts.prefix > 0 
+                ? "from-[#2A2E34] to-[#1E2228] text-[#39C7D8] border-[#39C7D8]/45" 
+                : "from-[#252930] to-[#1A1E24] text-[#39C7D8]/50 border-[#39C7D8]/25"
+            }`}>
+              Prefix ({sourceCounts.prefix})
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

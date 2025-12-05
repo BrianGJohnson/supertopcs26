@@ -395,7 +395,7 @@ export default function TargetPage() {
           <Modal
               isOpen={phraseModalOpen}
               onClose={() => setPhraseModalOpen(false)}
-              title="Pick a Seed Phrase"
+              title="Pick Your Topic"
               footer={
                 <button
                   onClick={handleRefreshPhrases}
