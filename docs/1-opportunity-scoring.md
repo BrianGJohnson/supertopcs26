@@ -34,14 +34,14 @@ We don't just ask "is it hard?" - we ask "is this a *good* opportunity?"
 ## The Six Opportunity Components
 
 ```
-Opportunity Score = Demand Base + Depth + Sweet Spot + Position + Relevancy + Long-Term
+Opportunity Score = Demand Base + Depth + Low Comp Signal + Position + Relevancy + Long-Term
 ```
 
 | Component | Max Points | What It Measures |
 |-----------|------------|------------------|
 | Demand Base | 30 | Baseline from viewer interest |
 | Depth Boost | 38 | Long-tail = easier to rank |
-| Sweet Spot | 25 | Untapped demand pattern |
+| Low Comp Signal | 25 | Low competition pattern |
 | Position Power | 18 | YouTube's relevance signal |
 | Relevancy Boost | 18 | Ranking ladder potential |
 | Long-Term Views | 14 | Evergreen topic indicators |
@@ -115,22 +115,22 @@ This phrase doesn't need depth - it IS the specific, rankable phrase.
 
 ---
 
-## Component 3: Sweet Spot Boost (0-25 points)
+## Component 3: Low Comp Signal (0-25 points)
 
-**Purpose:** Identify hidden opportunities competitors missed.
+**Purpose:** Identify low competition opportunities.
 
-### The Sweet Spot Pattern
+### The Low Comp Pattern
 
 ```
-Low Exact Match + High Topic Match = Untapped Demand
+Low Exact Match + High Topic Match = Low Competition Signal
 ```
 
-- **Low Exact Match:** Few videos use these exact words
-- **High Topic Match:** Everyone wants the same thing
+- **Low Exact Match:** Few phrases start with these exact words
+- **High Topic Match:** High semantic demand for this topic
 
-**Translation:** Demand exists, but no one has claimed it.
+**Translation:** The topic has demand, but this exact phrase has room.
 
-### Sweet Spot Scoring
+### Low Comp Signal Scoring
 
 | Exact Match | Topic Match | Points |
 |-------------|-------------|--------|
@@ -144,7 +144,7 @@ Low Exact Match + High Topic Match = Untapped Demand
 **"How to introduce yourself on YouTube"**
 - Exact Match: 7% (almost no one uses these words)
 - Topic Match: 100% (all suggestions are about introductions)
-- **Result:** 25 points (Perfect Sweet Spot 🎯)
+- **Result:** 25 points (Strong Low Comp Signal 🎯)
 
 ---
 
@@ -279,14 +279,14 @@ Phrases with emotional triggers have higher engagement:
 
 ## Pattern Badges
 
-### 🎯 Sweet Spot Badge
+### 🎯 Low Comp Badge
 
 Shown when:
 - Exact match ≤ 30%
 - Topic match ≥ 60%
 - Suggestions ≥ 5
 
-**Meaning:** Hidden opportunity - competitors haven't found this yet.
+**Meaning:** Low competition signal - this exact phrase has room.
 
 ### 📈 Long-Term Views Badge
 
@@ -322,7 +322,7 @@ Shown when:
 |-----------|--------|-------------|
 | Demand Base | 30 | 14 suggestions |
 | Depth Boost | 10 | 6 words + "how to" + 10+ suggestions |
-| Sweet Spot | 25 | 7% exact + 100% topic |
+| Low Comp Signal | 25 | 7% exact + 100% topic |
 | Position | 0 | No parent (seed) |
 | Relevancy | 0 | No parent (seed) |
 | Long-Term | 14 | Evergreen prefix + 6 words |
@@ -368,7 +368,7 @@ Full implementation: `/src/components/ui/ViewerLandscapeModal.tsx`
 1. **Opportunity is positive** - We score what's good, not what's hard
 2. **Six components** work together for complete picture
 3. **Depth = Opportunity** - Long-tail phrases are easier to rank
-4. **Sweet Spot = Gold** - Low exact + high topic = untapped demand
+4. **Low Comp Signal = Gold** - Low exact + high topic = opportunity
 5. **Evergreen patterns** indicate long-term views potential
 6. **Already-specific phrases** (like "how to introduce yourself") can be high opportunity at Level 1
 7. **Emotional context** (future) will add engagement prediction
@@ -378,10 +378,10 @@ Full implementation: `/src/components/ui/ViewerLandscapeModal.tsx`
 ## Related Documentation
 
 | Document | Purpose |
-|----------|---------|
+|----------|---------||
 | [Autocomplete Scoring Algorithm](/docs/1-autocomplete-scoring-algorithm.md) | Full technical implementation |
 | [Demand Scoring](/docs/1-demand-scoring.md) | Viewer interest measurement |
-| [Sweet Spot Discovery](/docs/1-sweet-spot-discovery-whitepaper.md) | The hidden opportunity pattern |
+| [Opportunity Scoring - Builder](/docs/1-opportunity-scoring-builder.md) | Builder Module scoring approach |
 
 ---
 

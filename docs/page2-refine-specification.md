@@ -405,17 +405,17 @@ Uses weighted scoring to auto-select top phrases. Weights adjust based on which 
 score = topic * 1.0
 ```
 
-### After Round 2 (Topic + P&C)
+### After Round 2 (Topic + Demand/Opportunity)
 ```typescript
-// Note: Popularity already includes LTV boost
-score = (topic * 0.4) + (popularity * 0.3) + ((100 - competition) * 0.3)
+// Note: Demand already includes LTV boost
+score = (topic * 0.4) + (demand * 0.3) + ((100 - opportunity) * 0.3)
 ```
 
-### After Round 3 (Topic + P&C + Fit)
+### After Round 3 (Topic + Demand/Opportunity + Fit)
 ```typescript
 score = (topic * 0.25) + (fit * 0.35) + (spread * 0.40)
-// where spread = popularity - competition
-// popularity already boosted by LTV
+// where spread = demand - opportunity
+// demand already boosted by LTV
 ```
 
 ---

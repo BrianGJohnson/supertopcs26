@@ -43,7 +43,7 @@ seed: "content creation"
 ### Tagging
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `simple_top10` |
+| `demandSource` | `simple_top10` |
 | `tagDisplay` | `Top-10` |
 | `tagSortPriority` | `1` (highest) |
 
@@ -86,7 +86,7 @@ const CHILD_PREFIXES = ['how to', 'what does'];
 ### Tagging
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `child_phrase` or `child_prefix_how_to` or `child_prefix_what_does` |
+| `demandSource` | `child_phrase` or `child_prefix_how_to` or `child_prefix_what_does` |
 | `tagDisplay` | `Child` |
 | `tagSortPriority` | `2` |
 
@@ -119,7 +119,7 @@ seed: "content creation"
 ### Tagging
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `a2z_complete` |
+| `demandSource` | `a2z_complete` |
 | `tagDisplay` | `A-to-Z -` |
 | `tagSortPriority` | `3` |
 
@@ -197,7 +197,7 @@ Ordered by value (best first, no shuffle needed):
 ### Tagging
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `prefix_complete` |
+| `demandSource` | `prefix_complete` |
 | `tagDisplay` | `Prefix -` |
 | `tagSortPriority` | `4` |
 

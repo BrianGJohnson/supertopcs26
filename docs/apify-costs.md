@@ -93,8 +93,8 @@ This creates varied timing patterns:
 
 ### Database Storage
 
-- **Column**: `seed_analysis.popularity` (0-100 score)
-- **Raw data**: `seed_analysis.popularity_base` (pre-multiplier score)
+- **Column**: `seed_analysis.demand` (0-100 score)
+- **Raw data**: `seed_analysis.demand_base` (pre-multiplier score)
 - **Details**: `seed_analysis.extra.demand_v2` (full breakdown)
 
 ---

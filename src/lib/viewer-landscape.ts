@@ -162,17 +162,17 @@ const SIGNAL_CONFIG: Record<SignalLevel, SignalConfig> = {
 };
 
 /**
- * Calculate signal score using Sweet Spot Discovery Method
+ * Calculate signal score using Low Competition Discovery Method
  * 
  * OLD LOGIC (wrong): (exactMatch × 2) + topicMatch
  *   - Rewarded high exact match
  *   - Punished long-tail phrases that are actually opportunities
  * 
- * NEW LOGIC (Sweet Spot Method):
+ * NEW LOGIC (Low Comp Method):
  *   - High suggestions = demand exists
  *   - Low exact match = low competition (GOOD)
  *   - High topic match = semantic demand (GOOD)
- *   - Sweet Spot = High topic + Low exact = OPPORTUNITY
+ *   - Low Comp Signal = High topic + Low exact = OPPORTUNITY
  * 
  * Returns score 0-100 where higher = better opportunity
  */
@@ -197,7 +197,7 @@ function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, 
   // Low exact = opportunity (bonus), High exact = competition (penalty)
   let competitionScore: number;
   if (exactPct <= 20) {
-    // Sweet spot: very low competition = +30 bonus
+    // Low comp signal: very low competition = +30 bonus
     competitionScore = 30;
   } else if (exactPct <= 40) {
     // Good: low competition = +20 bonus
@@ -213,16 +213,16 @@ function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, 
     competitionScore = -10;
   }
   
-  // Sweet Spot Bonus: Low exact + High topic = extra points
+  // Low Comp Bonus: Low exact + High topic = extra points
   // This is the key insight: this combination is OPPORTUNITY, not caution
-  let sweetSpotBonus = 0;
+  let lowCompBonus = 0;
   if (exactPct <= 30 && topicPct >= 60 && total >= 5) {
-    sweetSpotBonus = 15; // Big bonus for sweet spot pattern
+    lowCompBonus = 15; // Big bonus for low comp pattern
   } else if (exactPct <= 40 && topicPct >= 50 && total >= 3) {
-    sweetSpotBonus = 8; // Smaller bonus for good pattern
+    lowCompBonus = 8; // Smaller bonus for good pattern
   }
   
-  const finalScore = demandScore + topicBonus + competitionScore + sweetSpotBonus;
+  const finalScore = demandScore + topicBonus + competitionScore + lowCompBonus;
   
   // Clamp to 0-100
   return Math.max(0, Math.min(100, Math.round(finalScore)));
@@ -231,7 +231,7 @@ function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, 
 /**
  * Get signal level and message based on score (0-100 scale)
  * 
- * Sweet Spot Method Thresholds:
+ * Low Comp Method Thresholds:
  * - 70+ = Excellent opportunity (Go)
  * - 50+ = Good opportunity (Go)  
  * - 35+ = Moderate, worth checking (Caution)
@@ -275,7 +275,7 @@ const DEMAND_LEVELS: Record<DemandLevel, DemandConfig> = {
 
 /**
  * Map signal level to legacy demand level for backward compatibility
- * Updated for 0-100 scale (Sweet Spot Method)
+ * Updated for 0-100 scale (Low Comp Method)
  */
 function signalToDemandLevel(signal: SignalLevel, score: number): DemandLevel {
   if (signal === 'go') {
@@ -786,7 +786,7 @@ export function analyzeViewerLandscape(
     }
   }
   
-  // Calculate signal score using Sweet Spot Discovery Method
+  // Calculate signal score using Low Comp Discovery Method
   const signalScore = calculateSignalScore(exactMatchCount, topicMatchCount, count);
   const { level: signal, message: signalMessage } = getSignalFromScore(signalScore);
   const signalConfig = SIGNAL_CONFIG[signal];

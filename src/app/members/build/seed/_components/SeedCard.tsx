@@ -43,7 +43,7 @@ const PROGRESS_MESSAGES: Record<string, string[]> = {
   child: [
     "Expanding Your Top Picks Into Related Topics",
     "Finding Variations With Less Competition",
-    "Discovering The Sweet Spot Topics",
+    "Discovering Low Competition Topics",
   ],
   az: [
     "Exploring Every Topic Variation A to Z",

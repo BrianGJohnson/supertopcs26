@@ -194,13 +194,13 @@ export interface SeedAnalysis {
   // Scores
   topic_strength: number | null;
   audience_fit: number | null;
-  popularity: number | null;
-  popularity_base: number | null; // Before LTV boost
-  competition: number | null;
+  demand: number | null; // Autocomplete-based demand score (0-99)
+  demand_base: number | null; // Before session size multiplier
+  opportunity: number | null; // Opportunity score (0-99) - to be implemented
   overall_score: number | null;
   
   // LTV (Long-Term Views) - measures Top 10 alignment
-  // Hidden on Page 2, boosts Popularity, badge on Page 3 for score >= 50
+  // Hidden on Page 2, boosts Demand, badge on Page 3 for score >= 50
   ltv_score: number | null;
   ltv_strategy: 'FULL_TOP10' | 'FULL_ANCHOR' | 'BIGRAM' | 'SINGLE' | null;
   ltv_match: string | null;
@@ -218,8 +218,8 @@ export interface SeedAnalysis {
   // Reasons
   topic_strength_reason: string | null;
   audience_fit_reason: string | null;
-  popularity_reason: string | null;
-  competition_reason: string | null;
+  demand_reason: string | null;
+  opportunity_reason: string | null;
   overall_reason: string | null;
   primary_emotion_reason: string | null;
   viewer_intent_reason: string | null;
@@ -237,9 +237,9 @@ export interface SeedAnalysisInsert {
   seed_id: string;
   topic_strength?: number | null;
   audience_fit?: number | null;
-  popularity?: number | null;
-  popularity_base?: number | null;
-  competition?: number | null;
+  demand?: number | null;
+  demand_base?: number | null;
+  opportunity?: number | null;
   overall_score?: number | null;
   ltv_score?: number | null;
   ltv_strategy?: 'FULL_TOP10' | 'FULL_ANCHOR' | 'BIGRAM' | 'SINGLE' | null;
@@ -252,8 +252,8 @@ export interface SeedAnalysisInsert {
   is_rare_modifier?: boolean;
   topic_strength_reason?: string | null;
   audience_fit_reason?: string | null;
-  popularity_reason?: string | null;
-  competition_reason?: string | null;
+  demand_reason?: string | null;
+  opportunity_reason?: string | null;
   overall_reason?: string | null;
   primary_emotion_reason?: string | null;
   viewer_intent_reason?: string | null;
@@ -265,9 +265,9 @@ export interface SeedAnalysisInsert {
 export interface SeedAnalysisUpdate {
   topic_strength?: number | null;
   audience_fit?: number | null;
-  popularity?: number | null;
-  popularity_base?: number | null;
-  competition?: number | null;
+  demand?: number | null;
+  demand_base?: number | null;
+  opportunity?: number | null;
   overall_score?: number | null;
   ltv_score?: number | null;
   ltv_strategy?: 'FULL_TOP10' | 'FULL_ANCHOR' | 'BIGRAM' | 'SINGLE' | null;
@@ -280,8 +280,8 @@ export interface SeedAnalysisUpdate {
   is_rare_modifier?: boolean;
   topic_strength_reason?: string | null;
   audience_fit_reason?: string | null;
-  popularity_reason?: string | null;
-  competition_reason?: string | null;
+  demand_reason?: string | null;
+  opportunity_reason?: string | null;
   overall_reason?: string | null;
   primary_emotion_reason?: string | null;
   viewer_intent_reason?: string | null;
@@ -311,10 +311,10 @@ export interface SuperTopic {
   topic_strength: number | null;
   audience_fit: number | null;
   search_volume: number | null;
-  popularity: number | null;
-  popularity_base: number | null; // Before LTV boost
-  competition: number | null;
-  opportunity_score: number | null;
+  demand: number | null;
+  demand_base: number | null; // Before LTV boost
+  opportunity: number | null;
+  overall_score: number | null;
   
   // LTV preserved for Page 3 badge display
   ltv_score: number | null;
@@ -360,10 +360,10 @@ export interface SuperTopicInsert {
   topic_strength?: number | null;
   audience_fit?: number | null;
   search_volume?: number | null;
-  popularity?: number | null;
-  popularity_base?: number | null;
-  competition?: number | null;
-  opportunity_score?: number | null;
+  demand?: number | null;
+  demand_base?: number | null;
+  opportunity?: number | null;
+  overall_score?: number | null;
   ltv_score?: number | null;
   ltv_strategy?: 'FULL_TOP10' | 'FULL_ANCHOR' | 'BIGRAM' | 'SINGLE' | null;
   ltv_match?: string | null;
@@ -450,8 +450,8 @@ export interface PCBreakdown {
   seedPlus1Score: number;
   seedPlus2Score: number;
   suffixScore: number;
-  popularityFormula: string; // e.g., "20*45 + 30*72 + 30*68 + 20*55 = 62"
-  competitionFormula: string;
+  demandFormula: string; // e.g., "20*45 + 30*72 + 30*68 + 20*55 = 62"
+  opportunityFormula: string;
 }
 
 // ============================================================
@@ -480,8 +480,8 @@ export interface LTVResult {
 }
 
 /**
- * LTV score tiers and their Popularity boosts
- * | LTV Score | Popularity Boost |
+ * LTV score tiers and their Demand boosts
+ * | LTV Score | Demand Boost |
  * |-----------|------------------|
  * | 0-19      | +0               |
  * | 20-29     | +3               |

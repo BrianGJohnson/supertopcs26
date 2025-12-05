@@ -6,12 +6,14 @@ import { RefineTable } from "./RefineTable";
 import { FilterToolbar, FilterState, phraseMatchesFilter, phraseBelowThreshold, PhraseScores } from "./FilterToolbar";
 import { ActionToolbar } from "./ActionToolbar";
 import { JumpToTitleModal } from "./JumpToTitleModal";
+import { OpportunityModal } from "@/components/ui/OpportunityModal";
+import { calculateOpportunityScore, buildHotAnchors, type SessionContext } from "@/lib/opportunity-scoring";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
 import { supabase } from "@/lib/supabase";
 import type { Seed, IntakeStats } from "@/types/database";
-// NOTE: DEM column now uses the dedicated 'demand' column from Apify scoring
-// The legacy 'popularity' column is kept for the old heuristic scoring
-// See docs/diagnostic-troubleshooting-guide.md for details
+// NOTE: DEM column uses the 'demand' column from Apify scoring
+// OPP column uses the 'opportunity' column
+// See docs/1-gemini-demand-scoring.md for the scoring algorithm
 
 // =============================================================================
 // TYPES
@@ -22,9 +24,15 @@ interface SeedAnalysis {
   topic_strength: number | null;
   audience_fit: number | null;
   demand: number | null; // Apify autocomplete-based demand score
-  popularity: number | null; // Legacy heuristic-based scoring (kept for reference)
-  competition: number | null;
+  opportunity: number | null; // Opportunity score (lower competition = higher opportunity)
   is_hidden?: boolean;
+  extra?: {
+    demand_v2?: {
+      suggestionCount?: number;
+      exactMatchCount?: number;
+      topicMatchCount?: number;
+    };
+  };
 }
 
 interface RefinePhrase {
@@ -39,6 +47,11 @@ interface RefinePhrase {
   isStarred: boolean;
   isRejected: boolean;
   isHidden: boolean;
+  // For opportunity modal
+  suggestionCount: number;
+  exactMatchCount: number;
+  topicMatchCount: number;
+  generationMethod: string | null;
 }
 
 // =============================================================================
@@ -74,12 +87,12 @@ function mapSeedToRefinePhrase(
   if (analysis?.topic_strength != null && 
       analysis?.audience_fit != null && 
       demandScore != null && 
-      analysis?.competition != null) {
+      analysis?.opportunity != null) {
     const scores = [
       analysis.topic_strength,
       analysis.audience_fit,
       demandScore,
-      analysis.competition,
+      analysis.opportunity,
     ];
     spread = Math.max(...scores) - Math.min(...scores);
   }
@@ -91,11 +104,16 @@ function mapSeedToRefinePhrase(
     topic: analysis?.topic_strength ?? null,
     fit: analysis?.audience_fit ?? null,
     pop: demandScore,  // From 'demand' column (Apify autocomplete)
-    comp: analysis?.competition ?? null,
+    comp: analysis?.opportunity ?? null,
     spread,
     isStarred: seed.is_selected || false,
     isRejected: false,
     isHidden: analysis?.is_hidden ?? false,
+    // For opportunity modal
+    suggestionCount: analysis?.extra?.demand_v2?.suggestionCount ?? 0,
+    exactMatchCount: analysis?.extra?.demand_v2?.exactMatchCount ?? 0,
+    topicMatchCount: analysis?.extra?.demand_v2?.topicMatchCount ?? 0,
+    generationMethod: seed.generation_method,
   };
 }
 
@@ -117,6 +135,8 @@ export function RefinePageContent() {
   const [scoringProgress, setScoringProgress] = useState<{ current: number; total: number } | undefined>();
   const [sessionName, setSessionName] = useState("Session");
   const [isJumpModalOpen, setIsJumpModalOpen] = useState(false);
+  const [opportunityPhrase, setOpportunityPhrase] = useState<RefinePhrase | null>(null);
+  const [seedPhrase, setSeedPhrase] = useState("");
   
   // Filter state with defaults: Medium + Long, English only, Topic metric
   // scoreThreshold starts at 0 and will be auto-set when scores load
@@ -165,11 +185,17 @@ export function RefinePageContent() {
       // Fetch seeds
       const seeds = await getSeedsBySession(sessionId);
       
-      // Fetch analysis for all seeds
+      // Find the seed phrase (generation_method = 'seed')
+      const seedPhraseRecord = seeds.find(s => s.generation_method === 'seed');
+      if (seedPhraseRecord) {
+        setSeedPhrase(seedPhraseRecord.phrase);
+      }
+      
+      // Fetch analysis for all seeds (including extra for autocomplete data)
       const seedIds = seeds.map(s => s.id);
       const { data: analyses } = await supabase
         .from("seed_analysis")
-        .select("seed_id, topic_strength, audience_fit, demand, popularity, competition, is_hidden")
+        .select("seed_id, topic_strength, audience_fit, demand, opportunity, is_hidden, extra")
         .in("seed_id", seedIds);
       
       // Create lookup map
@@ -458,6 +484,76 @@ export function RefinePageContent() {
     }
   }, [sessionId, isScoring, phrases, filterState]);
   
+  // Opportunity Scoring Handler (uses existing session data, no API calls)
+  const handleRunOpportunityScoring = useCallback(async () => {
+    console.log("[RefinePageContent] handleRunOpportunityScoring called");
+    
+    if (!sessionId || isScoring) {
+      console.log("[RefinePageContent] Early return - no sessionId or already scoring");
+      return;
+    }
+    
+    setIsScoring(true);
+    
+    try {
+      // Build session context for opportunity scoring
+      const sessionPhrases = phrases.map(p => ({
+        phrase: p.phrase,
+        demand: p.pop,
+      }));
+      
+      const hotAnchors = buildHotAnchors(sessionPhrases);
+      
+      const context: SessionContext = {
+        allPhrases: sessionPhrases,
+        hotAnchors,
+        seedPhrase,
+      };
+      
+      // Calculate opportunity scores for visible phrases with demand scores
+      const visible = phrases.filter(p => !p.isRejected && !p.isHidden && p.pop !== null);
+      const updates: { id: string; opportunity: number }[] = [];
+      
+      for (const p of visible) {
+        const input = {
+          phrase: p.phrase,
+          demand: p.pop,
+          suggestionCount: p.suggestionCount,
+          exactMatchCount: p.exactMatchCount,
+          topicMatchCount: p.topicMatchCount,
+          generationMethod: p.generationMethod,
+        };
+        
+        const result = calculateOpportunityScore(input, context);
+        updates.push({ id: p.id, opportunity: result.score });
+      }
+      
+      console.log(`[RefinePageContent] Calculated opportunity scores for ${updates.length} phrases`);
+      
+      // Save to database
+      for (const update of updates) {
+        await supabase
+          .from("seed_analysis")
+          .update({ opportunity: update.opportunity })
+          .eq("seed_id", update.id);
+      }
+      
+      // Update local state - opportunity maps to 'comp' field in RefinePhrase
+      const scoreMap = new Map(updates.map(u => [u.id, u.opportunity]));
+      setPhrases(prev => prev.map(p => ({
+        ...p,
+        comp: scoreMap.get(p.id) ?? p.comp,
+      })));
+      
+      console.log(`[RefinePageContent] Opportunity scoring complete`);
+      
+    } catch (error) {
+      console.error("[RefinePageContent] Opportunity scoring failed:", error);
+    } finally {
+      setIsScoring(false);
+    }
+  }, [sessionId, isScoring, phrases, seedPhrase]);
+  
   const handleAutoPick = useCallback(() => {
     // TODO: Implement auto-pick logic
     console.log("Auto-Pick clicked");
@@ -606,6 +702,17 @@ export function RefinePageContent() {
     return result;
   }, [visiblePhrases]);
   
+  // Check if Demand scoring is complete (enables Opportunity)
+  // Consider complete if 95%+ of visible phrases have demand (pop) scores
+  const demandComplete = useMemo(() => {
+    if (visiblePhrases.length === 0) return false;
+    const withDemand = visiblePhrases.filter(p => p.pop !== null).length;
+    const percentage = (withDemand / visiblePhrases.length) * 100;
+    const result = percentage >= 95; // 95% threshold
+    console.log(`[RefinePageContent] Demand check: ${withDemand}/${visiblePhrases.length} (${percentage.toFixed(0)}%) have demand scores, complete=${result}`);
+    return result;
+  }, [visiblePhrases]);
+  
   // Build score data for threshold calculation
   // Build score data for percentile-based color coding
   // IMPORTANT: Use ALL phrases (including rejected/hidden) so colors stay stable
@@ -717,6 +824,7 @@ export function RefinePageContent() {
           onRunTopicScoring={handleRunTopicScoring}
           onRunFitScoring={handleRunAudienceFitScoring}
           onRunDemandScoring={handleRunDemandScoring}
+          onRunOpportunityScoring={handleRunOpportunityScoring}
           onAutoPick={handleAutoPick}
           onContinue={handleContinue}
           onJumpToTitle={handleJumpToTitle}
@@ -725,6 +833,7 @@ export function RefinePageContent() {
           scoringProgress={scoringProgress}
           topicStrengthComplete={topicStrengthComplete}
           audienceFitComplete={audienceFitComplete}
+          demandComplete={demandComplete}
           visiblePhraseCount={visiblePhrases.length}
         />
       </div>
@@ -737,6 +846,7 @@ export function RefinePageContent() {
           onToggleStar={handleToggleStar}
           onToggleReject={handleToggleReject}
           onToggleSelect={handleToggleSelect}
+          onPhraseClick={(phrase) => setOpportunityPhrase(phrase)}
           selectedIds={selectedIds}
           starredCount={starredCount}
         />
@@ -748,6 +858,28 @@ export function RefinePageContent() {
         onClose={() => setIsJumpModalOpen(false)}
         starredPhrases={starredPhrases.map(p => ({ id: p.id, phrase: p.phrase }))}
         onGo={handleJumpModalGo}
+      />
+      
+      {/* Opportunity Modal */}
+      <OpportunityModal
+        isOpen={opportunityPhrase !== null}
+        onClose={() => setOpportunityPhrase(null)}
+        phrase={opportunityPhrase ? {
+          id: opportunityPhrase.id,
+          phrase: opportunityPhrase.phrase,
+          demand: opportunityPhrase.pop,
+          suggestionCount: opportunityPhrase.suggestionCount,
+          exactMatchCount: opportunityPhrase.exactMatchCount,
+          topicMatchCount: opportunityPhrase.topicMatchCount,
+          generationMethod: opportunityPhrase.generationMethod,
+        } : null}
+        sessionPhrases={phrases.map(p => ({ phrase: p.phrase, demand: p.pop }))}
+        seedPhrase={seedPhrase}
+        onSelect={(id) => {
+          handleToggleStar(id);
+          setOpportunityPhrase(null);
+        }}
+        onPass={(_id) => setOpportunityPhrase(null)}
       />
     </div>
   );

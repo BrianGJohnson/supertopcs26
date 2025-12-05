@@ -47,7 +47,7 @@ export interface BulkTopicResult {
 export interface TaggedPhrase {
   text: string;
   textNormalized: string;
-  popularitySource: string;
+  demandSource: string;
   tagDisplay: string;
   tagSortPriority: number;
   sources: string[];
@@ -157,32 +157,32 @@ export const CHILD_PREFIXES = ['how to', 'what does'] as const;
  */
 export const TAG_CONFIG = {
   simple_top10: {
-    popularitySource: 'simple_top10',
+    demandSource: 'simple_top10',
     tagDisplay: 'Top-15',
     tagSortPriority: 1,
   },
   child_phrase: {
-    popularitySource: 'child_phrase',
+    demandSource: 'child_phrase',
     tagDisplay: 'Child',
     tagSortPriority: 2,
   },
   child_prefix_how_to: {
-    popularitySource: 'child_prefix_how_to',
+    demandSource: 'child_prefix_how_to',
     tagDisplay: 'Child',
     tagSortPriority: 2,
   },
   child_prefix_what_does: {
-    popularitySource: 'child_prefix_what_does',
+    demandSource: 'child_prefix_what_does',
     tagDisplay: 'Child',
     tagSortPriority: 2,
   },
   a2z_complete: {
-    popularitySource: 'a2z_complete',
+    demandSource: 'a2z_complete',
     tagDisplay: 'A-to-Z -',
     tagSortPriority: 3,
   },
   prefix_complete: {
-    popularitySource: 'prefix_complete',
+    demandSource: 'prefix_complete',
     tagDisplay: 'Prefix -',
     tagSortPriority: 4,
   },
@@ -518,7 +518,7 @@ export async function fetchTop10(seed: string): Promise<{
   const phrases: TaggedPhrase[] = result.suggestions.map(text => ({
     text,
     textNormalized: text.toLowerCase().trim(),
-    popularitySource: TAG_CONFIG.simple_top10.popularitySource,
+    demandSource: TAG_CONFIG.simple_top10.demandSource,
     tagDisplay: TAG_CONFIG.simple_top10.tagDisplay,
     tagSortPriority: TAG_CONFIG.simple_top10.tagSortPriority,
     sources: ['simple_top10'],
@@ -552,7 +552,7 @@ export async function fetchAZComplete(seed: string): Promise<{
   const phrases: TaggedPhrase[] = uniqueSuggestions.map(text => ({
     text,
     textNormalized: text.toLowerCase().trim(),
-    popularitySource: TAG_CONFIG.a2z_complete.popularitySource,
+    demandSource: TAG_CONFIG.a2z_complete.demandSource,
     tagDisplay: TAG_CONFIG.a2z_complete.tagDisplay,
     tagSortPriority: TAG_CONFIG.a2z_complete.tagSortPriority,
     sources: ['a2z_complete'],
@@ -589,7 +589,7 @@ export async function fetchPrefixComplete(
   const phrases: TaggedPhrase[] = uniqueSuggestions.map(text => ({
     text,
     textNormalized: text.toLowerCase().trim(),
-    popularitySource: TAG_CONFIG.prefix_complete.popularitySource,
+    demandSource: TAG_CONFIG.prefix_complete.demandSource,
     tagDisplay: TAG_CONFIG.prefix_complete.tagDisplay,
     tagSortPriority: TAG_CONFIG.prefix_complete.tagSortPriority,
     sources: ['prefix_complete'],
@@ -674,7 +674,7 @@ export async function fetchChildExpansion(
         allPhrases.push({
           text,
           textNormalized,
-          popularitySource: TAG_CONFIG.child_phrase.popularitySource,
+          demandSource: TAG_CONFIG.child_phrase.demandSource,
           tagDisplay: TAG_CONFIG.child_phrase.tagDisplay,
           tagSortPriority: TAG_CONFIG.child_phrase.tagSortPriority,
           sources: ['child_phrase'],

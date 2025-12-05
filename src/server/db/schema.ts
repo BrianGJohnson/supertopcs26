@@ -173,18 +173,16 @@ export const seed_analysis = pgTable('seed_analysis', {
   // Core scores (0-100)
   topic_strength: integer('topic_strength'),
   audience_fit: integer('audience_fit'),
-  popularity: integer('popularity'), // Legacy heuristic-based scoring
-  popularity_base: integer('popularity_base'), // Before LTV boost
-  demand: integer('demand'), // Apify autocomplete-based demand score (0-99)
+  demand: integer('demand'), // Autocomplete-based demand score (0-99) - Gemini algorithm
   demand_base: integer('demand_base'), // Raw demand score before session size multiplier
-  competition: integer('competition'),
+  opportunity: integer('opportunity'), // Opportunity score (0-99) - to be implemented
   overall_score: integer('overall_score'),
   
   // Visibility state (for Refine page bulk hide)
   is_hidden: boolean('is_hidden').default(false),
   
   // LTV (Long-Term Views) - measures Top 10 alignment
-  // Hidden on Page 2, boosts Popularity, badge on Page 3 for score >= 50
+  // Hidden on Page 2, boosts Demand, badge on Page 3 for score >= 50
   ltv_score: integer('ltv_score').default(0),
   ltv_strategy: text('ltv_strategy'), // FULL_TOP10, FULL_ANCHOR, BIGRAM, SINGLE, or null
   ltv_match: text('ltv_match'), // The text that matched
@@ -204,8 +202,8 @@ export const seed_analysis = pgTable('seed_analysis', {
   // Reasons/explanations (3-5 sentences each)
   topic_strength_reason: text('topic_strength_reason'),
   audience_fit_reason: text('audience_fit_reason'),
-  popularity_reason: text('popularity_reason'),
-  competition_reason: text('competition_reason'),
+  demand_reason: text('demand_reason'),
+  opportunity_reason: text('opportunity_reason'),
   overall_reason: text('overall_reason'),
   primary_emotion_reason: text('primary_emotion_reason'),
   viewer_intent_reason: text('viewer_intent_reason'),
@@ -245,9 +243,9 @@ export const super_topics = pgTable('super_topics', {
   topic_strength: integer('topic_strength'),
   audience_fit: integer('audience_fit'),
   search_volume: integer('search_volume'),
-  popularity: integer('popularity'),
-  popularity_base: integer('popularity_base'), // Before LTV boost
-  competition: integer('competition'),
+  demand: integer('demand'), // Autocomplete-based demand score
+  demand_base: integer('demand_base'), // Before LTV boost
+  opportunity: integer('opportunity'), // Opportunity score
   opportunity_score: integer('opportunity_score'), // Composite for Page 3
   
   // LTV preserved for Page 3 badge display
@@ -305,6 +303,32 @@ export const seed_phrases = pgTable('seed_phrases', {
   updated_at: timestamp('updated_at').defaultNow(),
 });
 
+// ------------------------------------------------------------
+// SCORING_LOGS - Track scoring runs (keeps last 50 only)
+// ------------------------------------------------------------
+export const scoring_logs = pgTable('scoring_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  session_id: uuid('session_id').notNull(),
+  
+  // What was scored
+  scoring_type: text('scoring_type').notNull(), // 'demand', 'topic_strength', 'audience_fit', etc.
+  phrases_scored: integer('phrases_scored').notNull(),
+  
+  // Timing
+  duration_ms: integer('duration_ms').notNull(),
+  started_at: timestamp('started_at').notNull(),
+  finished_at: timestamp('finished_at').notNull(),
+  
+  // API usage
+  api_calls: integer('api_calls').default(0),
+  estimated_cost_usd: text('estimated_cost_usd'), // stored as text to avoid float issues
+  
+  // Optional details
+  details: jsonb('details'), // any extra info like error counts, batch sizes, etc.
+  
+  created_at: timestamp('created_at').defaultNow(),
+});
+
 // ============================================================
 // TYPE EXPORTS - Use these in your app code
 // ============================================================
@@ -328,3 +352,6 @@ export type NewSuperTopic = typeof super_topics.$inferInsert;
 
 export type SeedPhrase = typeof seed_phrases.$inferSelect;
 export type NewSeedPhrase = typeof seed_phrases.$inferInsert;
+
+export type ScoringLog = typeof scoring_logs.$inferSelect;
+export type NewScoringLog = typeof scoring_logs.$inferInsert;

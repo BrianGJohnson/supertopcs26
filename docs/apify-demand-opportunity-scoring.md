@@ -1,12 +1,12 @@
-# Apify Demand & Competition Scoring
+# Apify Demand & Opportunity Scoring
 
 ## Overview
 
-This document describes our methodology for scoring **demand** (viewer interest) and **competition** (content saturation) for YouTube topic phrases using **Apify actors** exclusively.
+This document describes our methodology for scoring **demand** (viewer interest) and **opportunity** (ranking potential) for YouTube topic phrases using **Apify actors** exclusively.
 
 **Goal**: Move completely away from direct YouTube/Google API calls to avoid IP blocking risks at scale.
 
-> **UPDATE (December 3, 2025)**: We now use our own custom Apify actor (`forward_flight~my-actor`) instead of third-party actors. See `/docs/apify-integration-guide.md` for the latest configuration.
+> **UPDATE (December 5, 2025)**: The database now uses `demand` and `opportunity` columns. The old `popularity` and `competition` columns have been removed.
 
 ---
 

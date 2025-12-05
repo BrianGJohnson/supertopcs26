@@ -47,8 +47,6 @@ All demand scores are stored in the `seed_analysis` table:
 | `demand_base` | integer | Raw score before size multiplier |
 | `extra.demand_v2` | jsonb | Full scoring breakdown |
 
-**Note:** The `popularity` and `popularity_base` columns are legacy and no longer used for DEM column display.
-
 ### Extra Field Structure
 
 ```json

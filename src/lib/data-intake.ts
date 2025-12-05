@@ -1,9 +1,9 @@
 /**
- * Data Intake - Pattern Extraction for P&C Scoring
+ * Data Intake - Pattern Extraction for Demand & Opportunity Scoring
  * 
  * Runs after Page 1 (Seed) expansion completes.
  * Extracts patterns from all generated phrases to enable
- * FREE Popularity & Competition scoring without external APIs.
+ * FREE Demand & Opportunity scoring without external APIs.
  * 
  * NEW: Position-weighted demand scores based on topic hierarchy.
  */
@@ -593,7 +593,7 @@ export function getDemandScore(phrase: string, stats: IntakeStats): number {
 }
 
 /**
- * Calculate the FULL demand/popularity score for a phrase
+ * Calculate the FULL demand score for a phrase
  * 
  * Hierarchy-based scoring:
  * 1. SEED: Base score from session size (90-99)
@@ -612,11 +612,11 @@ export function getDemandScore(phrase: string, stats: IntakeStats): number {
  * @returns Final demand score 0-100
  */
 /**
- * POPULARITY SCORING CONSTANTS
+ * DEMAND SCORING CONSTANTS
  * 
  * Philosophy: "Could this phrase be popular with YOUR viewers?"
  * 
- * HIERARCHY (from popularity-algorithm-v2.md):
+ * HIERARCHY (from demand algorithm):
  * - SEED: Ceiling based on session size (91-97)
  * - TOP_10: Position 1 = 87, decays to 79 for position 9. Only anchor bonus applies.
  * - T10_CHILD: To be defined
@@ -663,7 +663,7 @@ function getLengthAdjustment(phrase: string): number {
   const wordCount = phrase.trim().split(/\s+/).length;
   
   if (wordCount <= 2) return 0;   // No adjustment for short phrases
-  if (wordCount === 3) return 5;  // Sweet spot - specific but concise
+  if (wordCount === 3) return 5;  // Optimal length - specific but concise
   if (wordCount === 4) return 4;  // Still great
   if (wordCount === 5) return 2;  // Good specificity
   if (wordCount === 6) return 0;  // Neutral
@@ -915,12 +915,12 @@ function getNaturalLanguageAdjustment(phrase: string): number {
 }
 
 /**
- * Calculate POPULARITY score
+ * Calculate DEMAND score
  * 
  * Philosophy: "Could this phrase be popular with YOUR viewers?"
  * 
  * Formula:
- *   popularityScore = baseFromTag + variation + openerBoost + lengthPoints + nlAdjustment
+ *   demandScore = baseFromTag + variation + openerBoost + lengthPoints + nlAdjustment
  * 
  * Tags are determined by relationship to Top 10 topic results:
  *   - TOP_10: Is one of the Top 9 topic results (base 90)
@@ -984,7 +984,7 @@ export function calculateFullDemandScore(
   
   // ===========================================
   // STEP 2: Calculate base score from tag
-  // Per popularity-algorithm-v2.md
+  // Per demand algorithm
   // ===========================================
   let baseScore: number;
   let anchorBonus = 0;
@@ -1191,13 +1191,13 @@ export function extractPhraseComponents(phrase: string, seedPhrase: string): {
 }
 
 /**
- * Calculate Popularity score for a phrase (0-100)
- * High popularity = phrase uses common patterns
+ * Calculate Demand score for a phrase (0-100)
+ * High demand = phrase uses common patterns
  */
-export function calculatePopularity(phrase: string, seedPhrase: string, stats: IntakeStats): number {
+export function calculateDemand(phrase: string, seedPhrase: string, stats: IntakeStats): number {
   const { prefix, seedPlus1, seedPlus2, suffix } = extractPhraseComponents(phrase, seedPhrase);
   
-  // Get percentiles (high percentile = common = high popularity)
+  // Get percentiles (high percentile = common = high demand)
   // Default to 50 if pattern not found (neutral)
   const prefixPct = prefix ? (stats.prefixPercentiles[prefix] ?? 50) : 50;
   const seedPlus1Pct = seedPlus1 ? (stats.seedPlus1Percentiles[seedPlus1] ?? 50) : 50;
@@ -1207,49 +1207,49 @@ export function calculatePopularity(phrase: string, seedPhrase: string, stats: I
   // Weighted average
   // Seed+1 and Seed+2 matter most (30% each)
   // Prefix and suffix matter less (20% each)
-  const popularity = Math.round(
+  const demand = Math.round(
     prefixPct * 0.20 +
     seedPlus1Pct * 0.30 +
     seedPlus2Pct * 0.30 +
     suffixPct * 0.20
   );
   
-  return Math.max(0, Math.min(100, popularity));
+  return Math.max(0, Math.min(100, demand));
 }
 
 /**
- * Calculate Competition score for a phrase (0-100)
- * High competition = phrase uses common patterns (same data, different interpretation)
+ * Calculate Opportunity score for a phrase (0-100)
+ * High opportunity = phrase uses common patterns (same data, different interpretation)
  * 
- * Note: Competition uses equal weighting because ALL components
- * contribute equally to how "competitive" a phrase is
+ * Note: Opportunity uses equal weighting because ALL components
+ * contribute equally to how "opportune" a phrase is
  */
-export function calculateCompetition(phrase: string, seedPhrase: string, stats: IntakeStats): number {
+export function calculateOpportunity(phrase: string, seedPhrase: string, stats: IntakeStats): number {
   const { prefix, seedPlus1, seedPlus2, suffix } = extractPhraseComponents(phrase, seedPhrase);
   
-  // Get percentiles (high percentile = common = high competition)
+  // Get percentiles (high percentile = common = high opportunity)
   const prefixPct = prefix ? (stats.prefixPercentiles[prefix] ?? 50) : 50;
   const seedPlus1Pct = seedPlus1 ? (stats.seedPlus1Percentiles[seedPlus1] ?? 50) : 50;
   const seedPlus2Pct = seedPlus2 ? (stats.seedPlus2Percentiles[seedPlus2] ?? 50) : 50;
   const suffixPct = suffix ? (stats.suffixPercentiles[suffix] ?? 50) : 50;
   
-  // Equal weighting for competition
-  const competition = Math.round(
+  // Equal weighting for opportunity
+  const opportunity = Math.round(
     prefixPct * 0.25 +
     seedPlus1Pct * 0.25 +
     seedPlus2Pct * 0.25 +
     suffixPct * 0.25
   );
   
-  return Math.max(0, Math.min(100, competition));
+  return Math.max(0, Math.min(100, opportunity));
 }
 
 /**
- * Calculate P&C scores for a phrase and return breakdown
+ * Calculate Demand & Opportunity scores for a phrase and return breakdown
  */
-export function calculatePCScores(phrase: string, seedPhrase: string, stats: IntakeStats): {
-  popularity: number;
-  competition: number;
+export function calculateDemandOpportunityScores(phrase: string, seedPhrase: string, stats: IntakeStats): {
+  demand: number;
+  opportunity: number;
   spread: number;
   breakdown: {
     prefixScore: number;
@@ -1269,14 +1269,14 @@ export function calculatePCScores(phrase: string, seedPhrase: string, stats: Int
   const seedPlus2Score = seedPlus2 ? (stats.seedPlus2Percentiles[seedPlus2] ?? 50) : 50;
   const suffixScore = suffix ? (stats.suffixPercentiles[suffix] ?? 50) : 50;
   
-  const popularity = Math.round(
+  const demand = Math.round(
     prefixScore * 0.20 +
     seedPlus1Score * 0.30 +
     seedPlus2Score * 0.30 +
     suffixScore * 0.20
   );
   
-  const competition = Math.round(
+  const opportunity = Math.round(
     prefixScore * 0.25 +
     seedPlus1Score * 0.25 +
     seedPlus2Score * 0.25 +
@@ -1284,9 +1284,9 @@ export function calculatePCScores(phrase: string, seedPhrase: string, stats: Int
   );
   
   return {
-    popularity: Math.max(0, Math.min(100, popularity)),
-    competition: Math.max(0, Math.min(100, competition)),
-    spread: popularity - competition,
+    demand: Math.max(0, Math.min(100, demand)),
+    opportunity: Math.max(0, Math.min(100, opportunity)),
+    spread: demand - opportunity,
     breakdown: {
       prefixScore,
       seedPlus1Score,
@@ -1301,21 +1301,21 @@ export function calculatePCScores(phrase: string, seedPhrase: string, stats: Int
 }
 
 /**
- * Batch calculate P&C scores for all phrases
+ * Batch calculate Demand & Opportunity scores for all phrases
  */
-export function calculateAllPCScores(
+export function calculateAllDemandOpportunityScores(
   phrases: string[],
   seedPhrase: string,
   stats: IntakeStats
 ): Array<{
   phrase: string;
-  popularity: number;
-  competition: number;
+  demand: number;
+  opportunity: number;
   spread: number;
 }> {
   return phrases.map(phrase => {
-    const { popularity, competition, spread } = calculatePCScores(phrase, seedPhrase, stats);
-    return { phrase, popularity, competition, spread };
+    const { demand, opportunity, spread } = calculateDemandOpportunityScores(phrase, seedPhrase, stats);
+    return { phrase, demand, opportunity, spread };
   });
 }
 
@@ -1491,9 +1491,9 @@ export function calculateLTV(phrase: string, anchors: LTVAnchors): LTVResult {
 }
 
 /**
- * Get Popularity boost based on LTV score
+ * Get Demand boost based on LTV score
  * 
- * | LTV Score | Popularity Boost |
+ * | LTV Score | Demand Boost |
  * |-----------|------------------|
  * | 0-19      | +0               |
  * | 20-29     | +3               |
@@ -1517,17 +1517,17 @@ export function shouldShowLTVBadge(ltvScore: number): boolean {
 }
 
 /**
- * Calculate Popularity with LTV boost applied
+ * Calculate Demand with LTV boost applied
  */
-export function calculatePopularityWithLTV(
+export function calculateDemandWithLTV(
   phrase: string, 
   seedPhrase: string, 
   stats: IntakeStats, 
   ltvScore: number
 ): number {
-  const basePopularity = calculatePopularity(phrase, seedPhrase, stats);
+  const baseDemand = calculateDemand(phrase, seedPhrase, stats);
   const boost = getLTVBoost(ltvScore);
-  return Math.min(100, basePopularity + boost);
+  return Math.min(100, baseDemand + boost);
 }
 
 /**
@@ -1558,7 +1558,7 @@ export function calculateAllLTVScores(
 }
 
 /**
- * Calculate all scores for a phrase including LTV-boosted Popularity
+ * Calculate all scores for a phrase including LTV-boosted Demand
  */
 export function calculateAllScores(
   phrase: string,
@@ -1566,9 +1566,9 @@ export function calculateAllScores(
   stats: IntakeStats,
   anchors: LTVAnchors
 ): {
-  popularity: number;
-  popularityBase: number;
-  competition: number;
+  demand: number;
+  demandBase: number;
+  opportunity: number;
   spread: number;
   ltvScore: number;
   ltvBoost: number;
@@ -1580,17 +1580,17 @@ export function calculateAllScores(
   const ltvResult = calculateLTV(phrase, anchors);
   const ltvBoost = getLTVBoost(ltvResult.score);
   
-  // Calculate base P&C
-  const { popularity: popularityBase, competition, spread: baseSpread } = calculatePCScores(phrase, seedPhrase, stats);
+  // Calculate base Demand & Opportunity
+  const { demand: demandBase, opportunity, spread: baseSpread } = calculateDemandOpportunityScores(phrase, seedPhrase, stats);
   
-  // Apply LTV boost to Popularity
-  const popularity = Math.min(100, popularityBase + ltvBoost);
-  const spread = popularity - competition;
+  // Apply LTV boost to Demand
+  const demand = Math.min(100, demandBase + ltvBoost);
+  const spread = demand - opportunity;
   
   return {
-    popularity,
-    popularityBase,
-    competition,
+    demand,
+    demandBase,
+    opportunity,
     spread,
     ltvScore: ltvResult.score,
     ltvBoost,

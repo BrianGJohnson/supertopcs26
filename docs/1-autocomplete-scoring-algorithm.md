@@ -64,8 +64,6 @@ Final Score = min(99, Raw Score × Session Size Multiplier)
 | `demand` | integer | Final demand score (0-99) |
 | `demand_base` | integer | Raw score before multiplier |
 
-**Note:** The `popularity` column is legacy and no longer used for DEM display.
-
 ### Suggestion Count → Points Mapping (Max 40)
 
 | Suggestions | Points |

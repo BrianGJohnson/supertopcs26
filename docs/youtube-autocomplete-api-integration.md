@@ -101,7 +101,7 @@ A single seed phrase generates **300–500+ unique keyword phrases** across all 
 │  Stored fields:                                                          │
 │    • textNormalized     - lowercase cleaned text                        │
 │    • sources[]          - array of discovery methods                    │
-│    • popularitySource   - immutable classification tag                  │
+│    • demandSource   - immutable classification tag                  │
 │    • tagDisplay         - UI display label                              │
 │    • tagSortPriority    - sort order (1=Top10, 2=Child, 3=A-Z, 4=Prefix)│
 │    • parentBucketItemId - parent phrase linkage                         │
@@ -194,7 +194,7 @@ Returns YouTube's most popular autocomplete suggestions for a seed phrase.
 #### Tag Assignment
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `simple_top10` |
+| `demandSource` | `simple_top10` |
 | `tagDisplay` | `Top-10` |
 | `tagSortPriority` | `1` |
 
@@ -240,7 +240,7 @@ Expands each Top-10 phrase to discover child phrases and prefix variations.
 
 #### Tag Assignment
 
-| Relationship | `popularitySource` | `tagDisplay` | `tagSortPriority` |
+| Relationship | `demandSource` | `tagDisplay` | `tagSortPriority` |
 |--------------|-------------------|--------------|-------------------|
 | Direct child | `child_phrase` | `Child` | `2` |
 | "how to" prefix | `child_prefix_how_to` | `Child` | `2` |
@@ -309,7 +309,7 @@ Appends each letter of the alphabet to the seed phrase for comprehensive coverag
 #### Tag Assignment
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `a2z_complete` |
+| `demandSource` | `a2z_complete` |
 | `tagDisplay` | `A-to-Z -` |
 | `tagSortPriority` | `3` |
 
@@ -383,7 +383,7 @@ help with, strategy, plan for
 #### Tag Assignment
 | Field | Value |
 |-------|-------|
-| `popularitySource` | `prefix_complete` |
+| `demandSource` | `prefix_complete` |
 | `tagDisplay` | `Prefix -` |
 | `tagSortPriority` | `4` |
 
@@ -493,7 +493,7 @@ Response: ["content creation", ["content creation tips", "content creation softw
 
 Tags are **immutable** once assigned. The first method to discover a phrase determines its tag.
 
-| Priority | Tag Display | `popularitySource` | Source Method |
+| Priority | Tag Display | `demandSource` | Source Method |
 |----------|-------------|-------------------|---------------|
 | 1 | `Top-10` | `simple_top10` | Simple Search |
 | 2 | `Child` | `child_phrase` | Second-Pass (direct) |
@@ -511,19 +511,19 @@ Tags are **immutable** once assigned. The first method to discover a phrase dete
 ### 6.3 Tag Assignment Pseudocode
 
 ```
-FUNCTION applyTag(phrase, popularitySource, tagDisplay, priority):
+FUNCTION applyTag(phrase, demandSource, tagDisplay, priority):
     existingPhrase = findByNormalizedText(phrase.textNormalized)
     
     IF existingPhrase EXISTS:
         // Preserve existing tag, merge sources
-        existingPhrase.sources.push(popularitySource)
+        existingPhrase.sources.push(demandSource)
         RETURN existingPhrase
     ELSE:
         // New phrase, apply tag
-        phrase.popularitySource = popularitySource
+        phrase.demandSource = demandSource
         phrase.tagDisplay = tagDisplay
         phrase.tagSortPriority = priority
-        phrase.sources = [popularitySource]
+        phrase.sources = [demandSource]
         RETURN phrase
 ```
 
@@ -749,7 +749,7 @@ return [];
 | `sessionId` | UUID | Foreign key to sessions |
 | `channelId` | UUID | Foreign key to channels |
 | `phraseId` | UUID | Foreign key to phrases |
-| `popularitySource` | VARCHAR | Immutable classification tag |
+| `demandSource` | VARCHAR | Immutable classification tag |
 | `tagDisplay` | VARCHAR | UI display label |
 | `tagSortPriority` | INTEGER | Sort order (1-4) |
 | `sources` | VARCHAR[] | Array of discovery methods |
@@ -798,7 +798,7 @@ const phraseBucket = bucketData?.items || [];
       "id": "uuid-string",
       "phraseId": "uuid-string",
       "phrase": "content creation tips",
-      "popularitySource": "simple_top10",
+      "demandSource": "simple_top10",
       "tagDisplay": "Top-10",
       "tagSortPriority": 1,
       "sources": ["Simple Search"],
@@ -809,7 +809,7 @@ const phraseBucket = bucketData?.items || [];
       "id": "uuid-string",
       "phraseId": "uuid-string",
       "phrase": "content creation tips for beginners",
-      "popularitySource": "child_phrase",
+      "demandSource": "child_phrase",
       "tagDisplay": "Child",
       "tagSortPriority": 2,
       "sources": ["Second-Pass"],

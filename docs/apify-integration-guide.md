@@ -327,7 +327,7 @@ async function fetchPrefixComplete(seed: string): Promise<string[]> {
 
 The tagging system is the backbone of scoring. All tags must remain exactly as they were:
 
-| Priority | `popularitySource` | `tagDisplay` | `tagSortPriority` |
+| Priority | `demandSource` | `tagDisplay` | `tagSortPriority` |
 |----------|-------------------|--------------|-------------------|
 | 1 | `simple_top10` | `Top-10` | 1 |
 | 2 | `child_phrase` | `Child` | 2 |
@@ -364,7 +364,7 @@ function assignTag(
   return {
     text: phrase,
     textNormalized: normalized,
-    popularitySource: tagConfig.popularitySource,
+    demandSource: tagConfig.demandSource,
     tagDisplay: tagConfig.tagDisplay,
     tagSortPriority: tagConfig.priority,
     sources: [source],

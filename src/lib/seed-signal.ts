@@ -1,7 +1,7 @@
 /**
  * Seed Signal Validator
  * 
- * Provides instant validation of seed phrase popularity by checking
+ * Provides instant validation of seed phrase demand by checking
  * Topic response volume AND quality.
  * 
  * The insight: Not all suggestions are equal. We need to distinguish:

@@ -30,7 +30,7 @@ This document outlines the plan to migrate from direct YouTube/Google autocomple
 
 ### Tagging System
 
-| Priority | `popularitySource` | `tagDisplay` | `tagSortPriority` |
+| Priority | `demandSource` | `tagDisplay` | `tagSortPriority` |
 |----------|-------------------|--------------|-------------------|
 | 1 | `simple_top10` | `Top-10` | 1 |
 | 2 | `child_phrase` | `Child` | 2 |
@@ -166,7 +166,7 @@ a {seed}, b {seed}, c {seed}, ... z {seed}
 
 ### Must Preserve
 
-1. **`popularitySource`** - Same values: `simple_top10`, `child_phrase`, `a2z_complete`, `prefix_complete`
+1. **`demandSource`** - Same values: `simple_top10`, `child_phrase`, `a2z_complete`, `prefix_complete`
 2. **`tagDisplay`** - Same UI labels: `Top-10`, `Child`, `A-to-Z -`, `Prefix -`
 3. **`tagSortPriority`** - Same order: 1, 2, 3, 4
 4. **`sources[]`** - Track discovery methods

@@ -272,64 +272,68 @@ WHERE id = $sessionId;
 
 ## P&C Scoring Using Intake Data
 
-### Popularity Score (0-100)
+### Demand Score (0-100)
 
-Popularity = how **common** the phrase patterns are.
+> **Note:** Function renamed from `calculatePopularity` to `calculateDemand` in December 2025.
+
+Demand = how **common** the phrase patterns are.
 
 ```typescript
-function calculatePopularity(phrase: string, seedPhrase: string, stats: IntakeStats): number {
+function calculateDemand(phrase: string, seedPhrase: string, stats: IntakeStats): number {
   const { prefix, seedPlus1, seedPlus2, suffix } = extractPhraseComponents(phrase, seedPhrase);
   
-  // Get percentiles (high percentile = common = high popularity)
+  // Get percentiles (high percentile = common = high demand)
   const prefixPct = stats.prefixPercentiles[prefix] ?? 50;
   const seedPlus1Pct = stats.seedPlus1Percentiles[seedPlus1] ?? 50;
   const seedPlus2Pct = stats.seedPlus2Percentiles[seedPlus2] ?? 50;
   const suffixPct = stats.suffixPercentiles[suffix] ?? 50;
   
   // Weighted average (seed+1 and seed+2 matter most)
-  const popularity = Math.round(
+  const demand = Math.round(
     prefixPct * 0.20 +
     seedPlus1Pct * 0.30 +
     seedPlus2Pct * 0.30 +
     suffixPct * 0.20
   );
   
-  return popularity;
+  return demand;
 }
 ```
 
-### Competition Score (0-100)
+### Opportunity Score (0-100)
 
-Competition = how **common** the patterns are (inverted thinking: common = more competition).
+> **Note:** Function renamed from `calculateCompetition` to `calculateOpportunity` in December 2025.
+
+Opportunity = inverse of how **common** the patterns are (less common = more opportunity).
 
 ```typescript
-function calculateCompetition(phrase: string, seedPhrase: string, stats: IntakeStats): number {
+function calculateOpportunity(phrase: string, seedPhrase: string, stats: IntakeStats): number {
   const { prefix, seedPlus1, seedPlus2, suffix } = extractPhraseComponents(phrase, seedPhrase);
   
-  // Get percentiles (high percentile = common = high competition)
+  // Get percentiles (high percentile = common = lower opportunity)
   const prefixPct = stats.prefixPercentiles[prefix] ?? 50;
   const seedPlus1Pct = stats.seedPlus1Percentiles[seedPlus1] ?? 50;
   const seedPlus2Pct = stats.seedPlus2Percentiles[seedPlus2] ?? 50;
   const suffixPct = stats.suffixPercentiles[suffix] ?? 50;
   
-  // Same formula, different weighting (prefix/suffix matter more for competition)
-  const competition = Math.round(
+  // Equal weighting for opportunity calculation
+  const opportunity = Math.round(
     prefixPct * 0.25 +
     seedPlus1Pct * 0.25 +
     seedPlus2Pct * 0.25 +
     suffixPct * 0.25
   );
   
-  return competition;
+  return opportunity;
 }
 ```
 
 ### Spread (Opportunity Indicator)
 
 ```typescript
-const spread = popularity - competition;
-// Positive spread = good opportunity (popular but less competitive)
-// Negative spread = trap phrase (competitive but less popular)
+const spread = demand - opportunity;
+// Positive spread = good opportunity (high demand but unique phrasing)
+// Negative spread = trap phrase (low demand, common phrasing)
 ```
 
 ---

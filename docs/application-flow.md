@@ -256,8 +256,9 @@ Scoring data per phrase (temporary).
   seed_id: uuid,              // FK to seeds (CASCADE DELETE)
   topic_strength: 0-100,
   audience_fit: 0-100,
-  popularity: 0-100,
-  competition: 0-100,
+  demand: 0-100,              // Renamed from popularity (Dec 2025)
+  demand_base: 0-100,
+  opportunity: 0-100,         // Renamed from competition (Dec 2025)
   overall_score: 0-100,
   primary_emotion: text,
   viewer_intent: text,
@@ -290,9 +291,8 @@ Promoted keyword phrases (survives session deletion).
   topic_strength: 0-100,
   audience_fit: 0-100,
   search_volume: 0-100,
-  popularity: 0-100,
-  competition: 0-100,
-  opportunity_score: 0-100,
+  demand: 0-100,              // Renamed from popularity (Dec 2025)
+  opportunity: 0-100,         // Renamed from competition (Dec 2025)
   pc_breakdown: jsonb,        // Component scores
 
   // Analysis

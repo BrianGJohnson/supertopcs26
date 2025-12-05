@@ -320,7 +320,7 @@ interface DrillDownContext {
  * 
  * Components:
  * 1. Depth Boost (0-30): How many levels deep can we go?
- * 2. Sweet Spot Boost (0-25): Low exact match + high topic match
+ * 2. Low Comp Signal (0-25): Low exact match + high topic match
  * 3. Position Power (0-15): Top positions in parent's suggestions
  * 4. Relevancy Boost (0-15): Does child contain parent phrase?
  * 5. Long-Term Views Boost (0-15): Evergreen topic indicators
@@ -331,9 +331,9 @@ function calculateOpportunityScore(
   suggestionCount: number,
   context: DrillDownContext | null,
   phrase: string
-): { score: number; breakdown: { depth: number; sweetSpot: number; position: number; relevancy: number; longTerm: number } } {
+): { score: number; breakdown: { depth: number; lowComp: number; position: number; relevancy: number; longTerm: number } } {
   let depthBoost = 0;
-  let sweetSpotBoost = 0;
+  let lowCompBoost = 0;
   let positionBoost = 0;
   let relevancyBoost = 0;
   let longTermBoost = 0;
@@ -392,16 +392,16 @@ function calculateOpportunityScore(
     }
   }
 
-  // 2. SWEET SPOT BOOST (0-25)
-  // Low exact match + high topic match = opportunity
+  // 2. LOW COMP SIGNAL (0-25)
+  // Low exact match + high topic match = opportunity signal
   if (exactMatchPercent <= 20 && topicMatchPercent >= 80) {
-    sweetSpotBoost = 25; // Perfect sweet spot
+    lowCompBoost = 25; // Strong low comp signal
   } else if (exactMatchPercent <= 30 && topicMatchPercent >= 60) {
-    sweetSpotBoost = 20; // Great sweet spot
+    lowCompBoost = 20; // Good low comp signal
   } else if (exactMatchPercent <= 40 && topicMatchPercent >= 50) {
-    sweetSpotBoost = 12; // Good pattern
+    lowCompBoost = 12; // Moderate signal
   } else if (exactMatchPercent <= 50 && topicMatchPercent >= 40) {
-    sweetSpotBoost = 5; // Slight pattern
+    lowCompBoost = 5; // Slight signal
   }
 
   // 3. POSITION POWER (0-15)
@@ -512,14 +512,14 @@ function calculateOpportunityScore(
     }
   }
 
-  const totalScore = Math.min(100, demandBaseBoost + depthBoost + sweetSpotBoost + positionBoost + relevancyBoost + longTermBoost);
+  const totalScore = Math.min(100, demandBaseBoost + depthBoost + lowCompBoost + positionBoost + relevancyBoost + longTermBoost);
 
   return {
     score: totalScore,
     breakdown: {
       demandBase: demandBaseBoost,
       depth: depthBoost,
-      sweetSpot: sweetSpotBoost,
+      lowComp: lowCompBoost,
       position: positionBoost,
       relevancy: relevancyBoost,
       longTerm: longTermBoost
@@ -528,9 +528,9 @@ function calculateOpportunityScore(
 }
 
 /**
- * Check if phrase exhibits Sweet Spot pattern
+ * Check if phrase exhibits Low Comp Signal pattern
  */
-function isSweetSpotPattern(exactMatchPercent: number, topicMatchPercent: number, suggestionCount: number): boolean {
+function hasLowCompSignal(exactMatchPercent: number, topicMatchPercent: number, suggestionCount: number): boolean {
   return exactMatchPercent <= 30 && topicMatchPercent >= 60 && suggestionCount >= 5;
 }
 
@@ -620,7 +620,7 @@ export function ViewerLandscapeModal({
    * 
    * NEW ALGORITHM:
    * 
-   * 1. If child has 5+ suggestions → scores on own merits (Sweet Spot formula)
+   * 1. If child has 5+ suggestions → scores on own merits (Low Comp formula)
    *    - Uses sliding scale: 12+ = 100%, 9-11 = 85%, 5-8 = 70%
    * 
    * 2. If child has ≤4 suggestions AND has parent context:
@@ -861,7 +861,7 @@ export function ViewerLandscapeModal({
   const opportunityBreakdown = opportunityResult.breakdown;
   
   // Check for special patterns
-  const hasSweetSpot = isSweetSpotPattern(exactMatchPercent, topicMatchPercent, suggestionCount);
+  const hasLowComp = hasLowCompSignal(exactMatchPercent, topicMatchPercent, suggestionCount);
   const hasLongTermViews = isLongTermViewsPattern(currentPhrase, suggestionCount, currentContext);
   
   // Current depth level
@@ -1034,7 +1034,7 @@ export function ViewerLandscapeModal({
                         const breakdownItems = [
                           opportunityBreakdown.demandBase > 0 ? { label: 'Demand base', value: opportunityBreakdown.demandBase } : null,
                           opportunityBreakdown.depth > 0 ? { label: `Level ${currentLevel} depth`, value: opportunityBreakdown.depth } : null,
-                          opportunityBreakdown.sweetSpot > 0 ? { label: 'Sweet spot', value: opportunityBreakdown.sweetSpot } : null,
+                          opportunityBreakdown.lowComp > 0 ? { label: 'Low comp signal', value: opportunityBreakdown.lowComp } : null,
                           opportunityBreakdown.position > 0 ? { label: 'Position power', value: opportunityBreakdown.position } : null,
                           opportunityBreakdown.relevancy > 0 ? { label: 'Relevancy', value: opportunityBreakdown.relevancy } : null,
                           opportunityBreakdown.longTerm > 0 ? { label: 'Long-term', value: opportunityBreakdown.longTerm } : null,
@@ -1055,8 +1055,8 @@ export function ViewerLandscapeModal({
                             </div>
                             {/* Show patterns detected - BIGGER PILLS */}
                             <div className="flex flex-wrap gap-2 mb-4">
-                              {hasSweetSpot && (
-                                <span className="px-3 py-1.5 rounded-full bg-[#FFD700]/20 text-[#FFD700] text-sm font-medium">🎯 Sweet Spot</span>
+                              {hasLowComp && (
+                                <span className="px-3 py-1.5 rounded-full bg-[#FFD700]/20 text-[#FFD700] text-sm font-medium">🎯 Low Comp</span>
                               )}
                               {hasLongTermViews && (
                                 <span className="px-3 py-1.5 rounded-full bg-[#2BD899]/20 text-[#2BD899] text-sm font-medium">📈 Long-Term</span>
@@ -1237,7 +1237,7 @@ export function ViewerLandscapeModal({
                   <h3 className="text-2xl font-bold text-white/80 mb-3">Why This Works</h3>
                   <p className="text-white/70 text-xl leading-relaxed">
                     {isSuperTopic 
-                      ? "This phrase has strong viewer demand with manageable competition. The Sweet Spot pattern suggests viewers are searching but not finding enough quality content."
+                      ? "This phrase has strong viewer demand with a low competition signal. High topic match with low exact match indicates an opportunity worth exploring."
                       : landscape.insight
                     }
                   </p>

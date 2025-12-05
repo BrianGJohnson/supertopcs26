@@ -1,43 +1,45 @@
-# Competition Scoring
+# Opportunity Scoring (Competition Analysis)
+
+> **Terminology Note:** The database column is `opportunity` (higher = better). 
+> This document analyzes YouTube's competitive landscape to determine opportunity.
+> Low competition on YouTube = High opportunity score.
 
 ## Philosophy: What We're Actually Measuring
 
 ### The Core Insight
 
-Competition scoring answers: **"If I create a video on this topic, how hard will it be to get discovered?"**
+Opportunity scoring answers: **"If I create a video on this topic, how easy will it be to get discovered?"**
 
 This is NOT just about search rankings. A video can be discovered through:
 - **Search** (20-40% of views) - Traditional SEO competition
 - **Browse/Suggested** (60-80%) - Algorithm recommendation
 
-But here's the key: **Autocomplete data reveals competition signals** beyond just SEO.
+But here's the key: **Autocomplete data reveals opportunity signals** beyond just SEO.
 
 ---
 
-## The Autocomplete Competition Signal
+## The Autocomplete Opportunity Signal
 
 ### Key Observation: Result Count Tells a Story
 
 When you enter a phrase into YouTube autocomplete:
 
-**High Competition Example:** "how to edit videos"
+**Low Opportunity Example:** "how to edit videos"
 - Returns: 9+ suggestions
 - All are variations/expansions
 - Indicates: MANY people searching, MANY videos competing
 
-**Low Competition Example:** "what does the youtube algorithm favor"
+**High Opportunity Example:** "what does the youtube algorithm favor"
 - Returns: 1 suggestion (exact match only)
 - No related phrases appear
-- Indicates: Specific niche, fewer competitors
+- Indicates: Specific niche, fewer competitors = HIGH OPPORTUNITY
 
-**Medium Competition Example:** "how to introduce yourself on youtube"
+**Medium Opportunity Example:** "how to introduce yourself on youtube"
 - Returns: 9+ suggestions, but they're "topic matches"
 - "how to introduce yourself on youtube channel"
 - "how to introduce myself on youtube"
 - "how to introduce yourself in youtube video"
-- Same damn thing, different words
-
-### The Topic Match Concept
+- Same topic, different words = viewers want THIS
 
 When autocomplete returns variations that are semantically identical:
 

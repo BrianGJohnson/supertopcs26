@@ -1,5 +1,9 @@
-# Popularity Algorithm v2
+# Demand Algorithm v2 (Formerly Popularity)
 ## Complete Implementation - December 2025
+
+> **Note:** This algorithm is now implemented as the Gemini Demand Scoring system.
+> See `1-gemini-demand-scoring.md` for the current authoritative documentation.
+> The term "popularity" has been replaced with "demand" throughout the codebase.
 
 ---
 
@@ -7,7 +11,7 @@
 
 **Question we're answering:** "Could this phrase be popular with YOUR viewers?"
 
-**What we score:** Every phrase in the session gets a popularity score 0-99.
+**What we score:** Every phrase in the session gets a demand score 0-99.
 
 **Key insight:** We use session-wide frequency patterns to identify what viewers are searching for in THIS niche.
 

@@ -115,9 +115,9 @@ Don't jump to solutions. First, list ALL possible reasons the issue could exist:
 
 ---
 
-## Demand Column Architecture (Updated Jan 2025)
+## Demand Column Architecture (Updated Dec 2025)
 
-**Key Change:** We now use a DEDICATED `demand` column, separate from the legacy `popularity` column.
+**Database columns for scoring:**
 
 ### Database Schema:
 
@@ -125,13 +125,12 @@ Don't jump to solutions. First, list ALL possible reasons the issue could exist:
 |--------|---------|--------|
 | `demand` | Apify autocomplete-based score (0-99) | score-demand API |
 | `demand_base` | Raw score before session multiplier | score-demand API |
-| `popularity` | Legacy heuristic-based score (unused) | Old algorithm |
-| `popularity_base` | Legacy base score (unused) | Old algorithm |
+| `opportunity` | Opportunity score (0-100) | Derived from demand analysis |
 
 ### Current Data Flow:
 1. User clicks "Run Analysis → Demand"
 2. API calls Apify for autocomplete data
-3. Scores saved to `demand` column (not `popularity`)
+3. Scores saved to `demand` column
 4. RefinePageContent reads from `demand` column
 5. DEM column displays the value
 
@@ -139,11 +138,6 @@ Don't jump to solutions. First, list ALL possible reasons the issue could exist:
 - **Write:** `/api/sessions/[sessionId]/score-demand/route.ts` → `demand` column
 - **Read:** `RefinePageContent.tsx` → `analysis?.demand`
 - **Display:** `RefineTable.tsx` → `pop` prop (mapped from demand)
-
-### Why Two Columns?
-- `popularity` = Old heuristic scoring (pattern matching, no API)
-- `demand` = New Apify scoring (real autocomplete data)
-- Keeping both avoids migration issues and maintains backward compatibility
 
 ### Quick Database Check:
 ```bash
@@ -155,12 +149,6 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.
 supabase.from('seed_analysis').select('demand, demand_base').not('demand', 'is', null).limit(5).then(r => console.log(r.data));
 "
 ```
-
-### Clear Demand Scores:
-```bash
-node scripts/clear-popularity.mjs
-```
-(Script name is legacy - it now clears `demand` column)
 
 ---
 

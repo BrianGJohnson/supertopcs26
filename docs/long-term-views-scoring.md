@@ -279,10 +279,10 @@ ltv_match TEXT
 2. Call \`extractLTVAnchors(top10, seedPhrase)\`
 3. Store anchors in session or calculate on-demand
 
-### Page 2 (Refine) - During P&C Scoring
+### Page 2 (Refine) - During Demand Scoring
 1. Calculate LTV for each phrase
-2. Apply boost to Popularity: \`popularity = base + getLTVBoost(ltv)\`
-3. Display only Topic, Fit, P, C (LTV hidden)
+2. Apply boost to Demand: `demand = base + getLTVBoost(ltv)`
+3. Display only Topic, Fit, Dem, Opp (LTV hidden)
 
 ### Page 3 (Super) - Badge Display
 1. Check \`shouldShowLTVBadge(phrase.ltv_score)\`

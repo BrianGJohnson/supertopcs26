@@ -60,8 +60,8 @@ When a user drills down from a parent phrase to a child with sparse data:
 
 1. **Demand** is inherited from the parent
 2. **Position bonus** rewards being higher in autocomplete (#1 = +17, #5 = +5)
-3. **Competition bonus** rewards being in a larger sibling pool (1 of 14 = +10)
-4. **Final score** = (parent × 0.85) + position bonus + competition bonus
+3. **Sibling bonus** rewards being in a larger sibling pool (1 of 14 = +10)
+4. **Final score** = (parent × 0.85) + position bonus + sibling bonus
 5. **Signal caps at "Go"** - cannot become SuperTopic
 
 This reflects reality: if "YouTube topics" scores 80, and "YouTube topics that get the most views" appears as #3 of 14 suggestions, the child has proven demand through its parent.
@@ -116,22 +116,22 @@ What YouTube recommends → views from browse/suggested
 
 ---
 
-### 2. Competition (COMP Score) - Future
+### 2. Opportunity (OPP Score)
 
-**What it measures:** How hard it is to get discovered
+**What it measures:** Ranking potential - how easy it is to get discovered
 
 **Signals used:**
-- Autocomplete result count (more = more competition)
+- Autocomplete result count (fewer = less competition = higher opportunity)
 - Topic match density (semantic variations)
-- Anchor rarity (rare = less crowded)
-- Phrase length/specificity
+- Exact match percentage (low = high opportunity)
+- Phrase length/specificity (longer = more specific = higher opportunity)
 
-**Key insight:** Enter your phrase into autocomplete:
-- 9 results → high competition
-- 1-2 results → low competition
+**Key insight:** The Opportunity score is the INVERSE of competition. Enter your phrase into autocomplete:
+- 9 results + high exact match → low opportunity (crowded)
+- 1-2 results + low exact match → high opportunity (room to rank)
 - 0 results → no demand
 
-**Display:** 0-100 score, higher = MORE competition (harder)
+**Display:** 0-100 score, higher = MORE opportunity (better)
 
 ---
 

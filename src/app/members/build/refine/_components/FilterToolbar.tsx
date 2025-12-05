@@ -47,8 +47,8 @@ interface FilterToolbarProps {
 const SCORE_METRIC_OPTIONS: { id: ScoreMetric; label: string; shortLabel: string }[] = [
   { id: "topic", label: "Topic Strength", shortLabel: "Topic" },
   { id: "fit", label: "Audience Fit", shortLabel: "Fit" },
-  { id: "pop", label: "Popularity", shortLabel: "Pop" },
-  { id: "comp", label: "Competition", shortLabel: "Comp" },
+  { id: "pop", label: "Demand", shortLabel: "Dem" },
+  { id: "comp", label: "Opportunity", shortLabel: "Opp" },
   { id: "spread", label: "Spread", shortLabel: "Spread" },
 ];
 

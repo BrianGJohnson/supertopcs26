@@ -17,6 +17,7 @@ interface ActionToolbarProps {
   onRunTopicScoring: () => void;
   onRunFitScoring?: () => void;
   onRunDemandScoring?: () => void;
+  onRunOpportunityScoring?: () => void;
   onAutoPick: () => void;
   onContinue: () => void;
   onJumpToTitle: () => void;
@@ -27,6 +28,8 @@ interface ActionToolbarProps {
   topicStrengthComplete?: boolean;
   // Audience Fit completion status - enables Demand
   audienceFitComplete?: boolean;
+  // Demand completion status - enables Opportunity
+  demandComplete?: boolean;
   // For demand scoring: require ≤75 visible phrases
   visiblePhraseCount?: number;
 }
@@ -49,6 +52,7 @@ export function ActionToolbar({
   onRunTopicScoring,
   onRunFitScoring,
   onRunDemandScoring,
+  onRunOpportunityScoring,
   onAutoPick,
   onContinue,
   onJumpToTitle,
@@ -57,6 +61,7 @@ export function ActionToolbar({
   scoringProgress,
   topicStrengthComplete = false,
   audienceFitComplete = false,
+  demandComplete = false,
   visiblePhraseCount = 0,
 }: ActionToolbarProps) {
   const router = useRouter();
@@ -260,9 +265,9 @@ export function ActionToolbar({
       icon: <IconFlame className="w-4 h-4" />,
       // Opportunity becomes available after Demand is scored
       // Uses existing data - no additional API calls needed
-      enabled: false, // TODO: Enable when demand scoring is complete
+      enabled: demandComplete && !!onRunOpportunityScoring,
       action: () => {
-        // TODO: Wire up opportunity scoring
+        onRunOpportunityScoring?.();
         setIsDropdownOpen(false);
       },
     },

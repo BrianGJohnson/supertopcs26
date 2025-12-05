@@ -44,6 +44,7 @@ interface RefineTableProps {
   onToggleStar: (id: string) => void;
   onToggleReject: (id: string) => void;
   onToggleSelect: (id: string) => void;
+  onPhraseClick?: (phrase: RefinePhrase) => void; // Opens opportunity modal
   selectedIds: Set<string>;
   starredCount: number;
 }
@@ -104,11 +105,11 @@ const SOURCE_STYLES: Record<string, { label: string; textColor: string; bgColor:
 // Top 10% = Dark Green, 10-25% = Lime, 25-35% = Yellow-Green, 35-65% = Orange, Bottom 35% = Red
 
 const SCORE_COLORS = {
-  darkGreen: "text-[#4DD68A]",   // Top 10% - Elite
-  lime: "text-[#A3E635]",        // 10-25% - Strong
-  yellowGreen: "text-[#CDDC39]", // 25-35% - Good
-  orange: "text-[#FB923C]",      // 35-65% - Moderate
-  red: "text-[#F87171]",         // Bottom 35% - Weak
+  darkGreen: "text-[#4DD68A]/80",   // Top 10% - Elite
+  lime: "text-[#A3E635]/80",        // 10-25% - Strong
+  yellowGreen: "text-[#CDDC39]/80", // 25-35% - Good
+  orange: "text-[#FB923C]/80",      // 35-65% - Moderate
+  red: "text-[#F87171]/80",         // Bottom 35% - Weak
   null: "text-white/30",
 };
 
@@ -180,6 +181,7 @@ export function RefineTable({
   onToggleStar,
   onToggleReject,
   onToggleSelect,
+  onPhraseClick,
   selectedIds,
   starredCount,
 }: RefineTableProps) {
@@ -195,7 +197,7 @@ export function RefineTable({
       topic: calculatePercentileThresholds(allScores.topic, false),
       fit: calculatePercentileThresholds(allScores.fit, false),
       pop: calculatePercentileThresholds(allScores.pop, false),
-      comp: calculatePercentileThresholds(allScores.comp, true), // Inverted: lower is better
+      comp: calculatePercentileThresholds(allScores.comp, false), // Opportunity: higher is better
     };
     
     // DEBUG: Log thresholds to understand the distribution
@@ -390,8 +392,11 @@ export function RefineTable({
                       </button>
                     </td>
                     
-                    {/* Phrase */}
-                    <td className="pl-3 py-4 text-white/[0.75] group-hover:text-white/[0.85] transition-colors truncate border-r border-white/[0.10]">
+                    {/* Phrase - clickable to open modal */}
+                    <td 
+                      className="pl-3 py-4 text-white/[0.80] group-hover:text-white/[0.90] transition-colors truncate border-r border-white/[0.10] cursor-pointer hover:text-[#6B9BD1]"
+                      onClick={() => onPhraseClick?.(phrase)}
+                    >
                       {toTitleCase(phrase.phrase)}
                     </td>
                     
@@ -404,7 +409,7 @@ export function RefineTable({
                         {phrase.isStarred ? (
                           <IconStarFilled className="w-[18px] h-[18px] text-yellow-400" />
                         ) : (
-                          <IconStar className="w-[18px] h-[18px] text-yellow-400/50 hover:text-yellow-400" />
+                          <IconStar className="w-[18px] h-[18px] text-yellow-400/75 hover:text-yellow-400" />
                         )}
                       </button>
                     </td>
@@ -415,16 +420,16 @@ export function RefineTable({
                         onClick={() => onToggleReject(phrase.id)}
                         className="p-1.5 hover:bg-red-500/20 rounded transition-colors"
                       >
-                        <IconX className="w-[18px] h-[18px] text-red-400/60 hover:text-red-400" />
+                        <IconX className="w-[18px] h-[18px] text-red-400/80 hover:text-red-400" />
                       </button>
                     </td>
                     
                     {/* Source */}
                     <td className="py-4 text-center border-r border-white/[0.10]">
                       <span className={`
-                        inline-block min-w-[60px] text-center px-3 py-1 
+                        inline-block min-w-[60px] text-center px-3 py-1.5 
                         ${sourceStyle.bgColor}
-                        rounded text-xs ${sourceStyle.textColor} 
+                        rounded text-sm ${sourceStyle.textColor} 
                         border ${sourceStyle.borderColor} font-medium
                       `}>
                         {sourceStyle.label}
@@ -446,8 +451,8 @@ export function RefineTable({
                       {phrase.pop ?? "—"}
                     </td>
                     
-                    {/* Opp (Opportunity) - inverted colors (low is good), no right border - last column */}
-                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, true)}`}>
+                    {/* Opp (Opportunity) - higher is better, no right border - last column */}
+                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, false)}`}>
                       {phrase.comp ?? "—"}
                     </td>
                   </tr>
