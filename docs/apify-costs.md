@@ -1,6 +1,6 @@
 # Apify Costs
 
-> Last updated: December 3, 2025
+> Last updated: December 4, 2025
 
 ---
 
@@ -53,14 +53,63 @@ Quick validation of a seed phrase (Top-10 only).
 
 ---
 
-## 3. (Future) TBD
+## 3. Demand Scoring
 
-_Reserved for future methods_
+Score demand for up to 75 phrases using YouTube autocomplete.
 
 | Metric | Value |
 |--------|-------|
-| **Cost** | TBD |
-| **API calls** | TBD |
+| **Cost** | ~$0.013 (1.3 cents) |
+| **API calls** | ~13 (6 phrases per batch) |
+| **Duration** | ~30-45 seconds |
+| **Max phrases** | 75 |
+
+### How It Works
+
+1. Phrases are batched (6 per API call for natural pacing)
+2. Each batch queries YouTube autocomplete
+3. Suggestions are analyzed for exact/topic matches
+4. Scores calculated and saved to database
+
+### Cost Calculation
+
+```
+75 phrases ÷ 6 per batch = 12.5 → 13 API calls
+13 calls × $0.001 = $0.013 (~1.3 cents)
+```
+
+### Pacing (Natural Pattern Variation)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Base delay | 1.5-3.5s | Random jitter between batches |
+| Extra delay | +2s | 30% chance per batch |
+| Total time | 30-45s | Varies by randomness |
+
+This creates varied timing patterns:
+- Some batches: 1.5s delay (fast)
+- Some batches: 3.5s delay (normal)  
+- Some batches: 5.5s delay (slow, with extra thinking time)
+
+### Database Storage
+
+- **Column**: `seed_analysis.popularity` (0-100 score)
+- **Raw data**: `seed_analysis.popularity_base` (pre-multiplier score)
+- **Details**: `seed_analysis.extra.demand_v2` (full breakdown)
+
+---
+
+## 4. Opportunity Scoring
+
+Calculate opportunity scores from existing demand data.
+
+| Metric | Value |
+|--------|-------|
+| **Cost** | $0.00 (no API calls) |
+| **Duration** | <1 second |
+
+Opportunity scoring uses data already collected during Demand scoring.
+No additional API calls needed - just computation.
 
 ---
 
@@ -81,6 +130,7 @@ Based on Keyword Expansion at $0.04 cost / $0.05 price:
 Apify provides $5/month free:
 - ~125 Keyword Expansions
 - ~5,000 Seed Signal Checks
+- ~500 Demand Scoring runs
 - Resets monthly
 
 ---

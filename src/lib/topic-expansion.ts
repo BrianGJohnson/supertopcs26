@@ -158,7 +158,7 @@ export const CHILD_PREFIXES = ['how to', 'what does'] as const;
 export const TAG_CONFIG = {
   simple_top10: {
     popularitySource: 'simple_top10',
-    tagDisplay: 'Top-10',
+    tagDisplay: 'Top-15',
     tagSortPriority: 1,
   },
   child_phrase: {

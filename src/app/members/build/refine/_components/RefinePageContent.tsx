@@ -8,8 +8,10 @@ import { ActionToolbar } from "./ActionToolbar";
 import { JumpToTitleModal } from "./JumpToTitleModal";
 import { getSeedsBySession } from "@/hooks/useSeedPhrases";
 import { supabase } from "@/lib/supabase";
-import { calculateFullDemandScore } from "@/lib/data-intake";
 import type { Seed, IntakeStats } from "@/types/database";
+// NOTE: DEM column now uses the dedicated 'demand' column from Apify scoring
+// The legacy 'popularity' column is kept for the old heuristic scoring
+// See docs/diagnostic-troubleshooting-guide.md for details
 
 // =============================================================================
 // TYPES
@@ -19,7 +21,8 @@ interface SeedAnalysis {
   seed_id: string;
   topic_strength: number | null;
   audience_fit: number | null;
-  popularity: number | null;
+  demand: number | null; // Apify autocomplete-based demand score
+  popularity: number | null; // Legacy heuristic-based scoring (kept for reference)
   competition: number | null;
   is_hidden?: boolean;
 }
@@ -44,8 +47,7 @@ interface RefinePhrase {
 
 function mapSeedToRefinePhrase(
   seed: Seed, 
-  analysis?: SeedAnalysis, 
-  intakeStats?: IntakeStats | null
+  analysis?: SeedAnalysis
 ): RefinePhrase {
   // Map generation_method to source type
   // Child variations (child_phrase, child_prefix_how_to, child_prefix_what_does) all map to "child"
@@ -63,11 +65,9 @@ function mapSeedToRefinePhrase(
   
   const source = getSource(seed.generation_method);
   
-  // Calculate demand score if we have intake stats
-  let demandScore: number | null = null;
-  if (intakeStats) {
-    demandScore = calculateFullDemandScore(seed.phrase, source, intakeStats);
-  }
+  // Use database 'demand' column (from Apify autocomplete scoring)
+  // No fallback - if not scored, show dash
+  const demandScore: number | null = analysis?.demand ?? null;
   
   // Calculate spread (if we have all scores)
   let spread: number | null = null;
@@ -90,7 +90,7 @@ function mapSeedToRefinePhrase(
     source,
     topic: analysis?.topic_strength ?? null,
     fit: analysis?.audience_fit ?? null,
-    pop: demandScore,  // Now calculated from demand algorithm
+    pop: demandScore,  // From 'demand' column (Apify autocomplete)
     comp: analysis?.competition ?? null,
     spread,
     isStarred: seed.is_selected || false,
@@ -169,16 +169,16 @@ export function RefinePageContent() {
       const seedIds = seeds.map(s => s.id);
       const { data: analyses } = await supabase
         .from("seed_analysis")
-        .select("seed_id, topic_strength, audience_fit, popularity, competition, is_hidden")
+        .select("seed_id, topic_strength, audience_fit, demand, popularity, competition, is_hidden")
         .in("seed_id", seedIds);
       
       // Create lookup map
       const analysisMap = new Map<string, SeedAnalysis>();
       analyses?.forEach(a => analysisMap.set(a.seed_id, a));
       
-      // Map seeds to RefinePhrase with analysis AND intake stats for demand scoring
+      // Map seeds to RefinePhrase - DEM uses 'demand' column from Apify scoring
       const refinePhrases = seeds.map(seed => 
-        mapSeedToRefinePhrase(seed, analysisMap.get(seed.id), loadedIntakeStats)
+        mapSeedToRefinePhrase(seed, analysisMap.get(seed.id))
       );
       
       // Log demand score distribution
@@ -373,6 +373,91 @@ export function RefinePageContent() {
     }
   }, [sessionId, isScoring, phrases, filterState]);
   
+  // Demand Scoring Handler (uses Apify autocomplete)
+  const handleRunDemandScoring = useCallback(async () => {
+    console.log("[RefinePageContent] handleRunDemandScoring called");
+    console.log("[RefinePageContent] sessionId:", sessionId, "isScoring:", isScoring);
+    
+    if (!sessionId || isScoring) {
+      console.log("[RefinePageContent] Early return - no sessionId or already scoring");
+      return;
+    }
+    
+    // Get visible phrase IDs - only score what's currently shown
+    const nonHidden = phrases.filter(p => !p.isRejected && !p.isHidden);
+    console.log("[RefinePageContent] nonHidden count:", nonHidden.length);
+    
+    const visible = nonHidden.filter(p => {
+      const scores: PhraseScores = { topic: p.topic, fit: p.fit, pop: p.pop, comp: p.comp, spread: p.spread };
+      return phraseMatchesFilter(p.phrase, filterState, scores);
+    });
+    const visibleIds = visible.map(p => p.id);
+    console.log("[RefinePageContent] visible count:", visible.length);
+    
+    // Validate 75 phrase limit
+    if (visibleIds.length > 75) {
+      console.error(`[RefinePageContent] Too many phrases for demand scoring: ${visibleIds.length}. Max is 75.`);
+      // TODO: Show error toast
+      return;
+    }
+    
+    if (visibleIds.length === 0) {
+      console.log("[RefinePageContent] No visible phrases to score");
+      return;
+    }
+    
+    setIsScoring(true);
+    setScoringProgress({ current: 0, total: visibleIds.length });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3 * 60 * 1000); // 3 min timeout
+    
+    try {
+      console.log(`[RefinePageContent] Starting Demand scoring for ${visibleIds.length} visible phrases`);
+      
+      const response = await fetch(`/api/sessions/${sessionId}/score-demand`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seedIds: visibleIds }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      console.log(`[RefinePageContent] Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Demand scoring failed");
+      }
+      
+      const result = await response.json();
+      
+      console.log(`[RefinePageContent] Demand scoring complete:`, result.distribution);
+      console.log(`[RefinePageContent] Cost: ~$${result.estimatedCostUsd?.toFixed(3)}`);
+      
+      // Update local state with new scores
+      const scoreMap = new Map<string, number>();
+      result.results.forEach((r: { seedId: string; score: number }) => {
+        scoreMap.set(r.seedId, r.score);
+      });
+      
+      setPhrases(prev => prev.map(p => ({
+        ...p,
+        pop: scoreMap.get(p.id) ?? p.pop,
+      })));
+      
+      console.log(`[RefinePageContent] Updated ${result.totalScored} phrases with Demand scores`);
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("[RefinePageContent] Demand scoring failed:", error);
+      // TODO: Show error toast
+    } finally {
+      setIsScoring(false);
+      setScoringProgress(undefined);
+    }
+  }, [sessionId, isScoring, phrases, filterState]);
+  
   const handleAutoPick = useCallback(() => {
     // TODO: Implement auto-pick logic
     console.log("Auto-Pick clicked");
@@ -510,10 +595,15 @@ export function RefinePageContent() {
     return visiblePhrases.every(p => p.topic !== null);
   }, [visiblePhrases]);
   
-  // Check if Audience Fit scoring is complete (for P&C - future)
+  // Check if Audience Fit scoring is complete (enables Demand)
+  // Consider complete if 95%+ of visible phrases have fit scores (allows for edge cases)
   const audienceFitComplete = useMemo(() => {
     if (visiblePhrases.length === 0) return false;
-    return visiblePhrases.every(p => p.fit !== null);
+    const withFit = visiblePhrases.filter(p => p.fit !== null).length;
+    const percentage = (withFit / visiblePhrases.length) * 100;
+    const result = percentage >= 95; // 95% threshold instead of 100%
+    console.log(`[RefinePageContent] Audience Fit check: ${withFit}/${visiblePhrases.length} (${percentage.toFixed(0)}%) have fit scores, complete=${result}`);
+    return result;
   }, [visiblePhrases]);
   
   // Build score data for threshold calculation
@@ -525,7 +615,6 @@ export function RefinePageContent() {
       fit: [] as number[],
       pop: [] as number[],
       comp: [] as number[],
-      spread: [] as number[],
     };
     // Use ALL phrases, not just nonHiddenPhrases, so color coding is stable
     phrases.forEach(p => {
@@ -533,7 +622,6 @@ export function RefinePageContent() {
       if (p.fit !== null) data.fit.push(p.fit);
       if (p.pop !== null) data.pop.push(p.pop);
       if (p.comp !== null) data.comp.push(p.comp);
-      if (p.spread !== null) data.spread.push(p.spread);
     });
     console.log('[RefinePageContent] scoreData from ALL phrases:', {
       totalPhrases: phrases.length,
@@ -628,6 +716,7 @@ export function RefinePageContent() {
           sessionName={sessionName}
           onRunTopicScoring={handleRunTopicScoring}
           onRunFitScoring={handleRunAudienceFitScoring}
+          onRunDemandScoring={handleRunDemandScoring}
           onAutoPick={handleAutoPick}
           onContinue={handleContinue}
           onJumpToTitle={handleJumpToTitle}
@@ -636,6 +725,7 @@ export function RefinePageContent() {
           scoringProgress={scoringProgress}
           topicStrengthComplete={topicStrengthComplete}
           audienceFitComplete={audienceFitComplete}
+          visiblePhraseCount={visiblePhrases.length}
         />
       </div>
       

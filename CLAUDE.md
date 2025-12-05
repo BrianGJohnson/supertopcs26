@@ -143,6 +143,53 @@ src/
 
 ---
 
+## 📊 Autocomplete Scoring Algorithm
+
+SuperTopics uses a proprietary scoring algorithm for YouTube autocomplete data. This powers the Viewer Landscape Modal and topic analysis.
+
+**Full documentation:** `/docs/1-autocomplete-scoring-algorithm.md`
+
+### Quick Overview
+
+**Two Core Metrics:**
+- **Demand Score (0-100):** How much do viewers want this topic?
+- **Opportunity Score (0-100):** How likely are you to rank and get views?
+
+### Demand Score Formula
+```
+Demand = Parent Points + Child Points
+```
+- Maps suggestion count (0-14) to points (0-50 each)
+- Level 1 (seed phrases): `Child Points × 2`
+
+### Opportunity Score Components
+
+| Component | Max | Purpose |
+|-----------|-----|---------|
+| Demand Base | 30 | Baseline from demand signal |
+| Depth Boost | 38 | Long-tail = easier to rank |
+| Sweet Spot | 25 | Low competition + high demand |
+| Position Power | 18 | YouTube relevance signal |
+| Relevancy Boost | 18 | Ranking ladder potential |
+| Long-Term Views | 14 | Evergreen topic indicators |
+
+### Key Implementation Files
+
+| File | Purpose |
+|------|---------|
+| `/src/components/ui/ViewerLandscapeModal.tsx` | Main scoring algorithm |
+| `/src/lib/youtube-autocomplete.ts` | YouTube API client |
+| `/docs/1-autocomplete-scoring-algorithm.md` | Complete algorithm documentation |
+| `/docs/1-sweet-spot-discovery-whitepaper.md` | Sweet Spot concept overview |
+
+### Pattern Badges
+
+- **🏆 SuperTopic:** Demand ≥92, Suggestions ≥10
+- **🎯 Sweet Spot:** Exact ≤30%, Topic ≥60%, Suggestions ≥5
+- **📈 Long-Term Views:** Evergreen pattern detected
+
+---
+
 ## 🔧 Development Commands
 
 ```bash

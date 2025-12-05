@@ -98,6 +98,7 @@ export interface ViewerLandscape {
   // Ranked suggestions with vibes
   rankedSuggestions: RankedSuggestion[];
   topFive: RankedSuggestion[];
+  topFourteen: RankedSuggestion[];  // For expanded Popular Topics display
   
   // Anchor words extracted from suggestions (sucks, broken, explained, etc.)
   anchorWords: string[];
@@ -161,29 +162,93 @@ const SIGNAL_CONFIG: Record<SignalLevel, SignalConfig> = {
 };
 
 /**
- * Calculate signal score: (exactMatch × 2) + (topicMatch × 1)
- * Max score = 42 (14×2 + 14×1)
+ * Calculate signal score using Sweet Spot Discovery Method
+ * 
+ * OLD LOGIC (wrong): (exactMatch × 2) + topicMatch
+ *   - Rewarded high exact match
+ *   - Punished long-tail phrases that are actually opportunities
+ * 
+ * NEW LOGIC (Sweet Spot Method):
+ *   - High suggestions = demand exists
+ *   - Low exact match = low competition (GOOD)
+ *   - High topic match = semantic demand (GOOD)
+ *   - Sweet Spot = High topic + Low exact = OPPORTUNITY
+ * 
+ * Returns score 0-100 where higher = better opportunity
  */
-function calculateSignalScore(exactMatchCount: number, topicMatchCount: number): number {
-  return (exactMatchCount * 2) + topicMatchCount;
+function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, suggestionCount?: number): number {
+  const total = suggestionCount ?? 14;
+  
+  // If no suggestions, no demand
+  if (total === 0) return 0;
+  
+  const exactPct = (exactMatchCount / total) * 100;
+  const topicPct = (topicMatchCount / total) * 100;
+  
+  // Base demand score from suggestion count (0-40 points)
+  // 14 suggestions = 40 points, 7 = 20 points, 0 = 0 points
+  const demandScore = (total / 14) * 40;
+  
+  // Topic relevance bonus (0-30 points)
+  // High topic match = strong semantic demand
+  const topicBonus = (topicPct / 100) * 30;
+  
+  // Competition penalty/bonus based on exact match (−10 to +30 points)
+  // Low exact = opportunity (bonus), High exact = competition (penalty)
+  let competitionScore: number;
+  if (exactPct <= 20) {
+    // Sweet spot: very low competition = +30 bonus
+    competitionScore = 30;
+  } else if (exactPct <= 40) {
+    // Good: low competition = +20 bonus
+    competitionScore = 20;
+  } else if (exactPct <= 60) {
+    // Moderate: neutral
+    competitionScore = 10;
+  } else if (exactPct <= 80) {
+    // High: slight penalty
+    competitionScore = 0;
+  } else {
+    // Very high: penalty
+    competitionScore = -10;
+  }
+  
+  // Sweet Spot Bonus: Low exact + High topic = extra points
+  // This is the key insight: this combination is OPPORTUNITY, not caution
+  let sweetSpotBonus = 0;
+  if (exactPct <= 30 && topicPct >= 60 && total >= 5) {
+    sweetSpotBonus = 15; // Big bonus for sweet spot pattern
+  } else if (exactPct <= 40 && topicPct >= 50 && total >= 3) {
+    sweetSpotBonus = 8; // Smaller bonus for good pattern
+  }
+  
+  const finalScore = demandScore + topicBonus + competitionScore + sweetSpotBonus;
+  
+  // Clamp to 0-100
+  return Math.max(0, Math.min(100, Math.round(finalScore)));
 }
 
 /**
- * Get signal level and message based on score
+ * Get signal level and message based on score (0-100 scale)
+ * 
+ * Sweet Spot Method Thresholds:
+ * - 70+ = Excellent opportunity (Go)
+ * - 50+ = Good opportunity (Go)  
+ * - 35+ = Moderate, worth checking (Caution)
+ * - 20+ = Limited interest (Caution)
+ * - <20 = Low demand (Stop)
  */
 function getSignalFromScore(score: number): { level: SignalLevel; message: string } {
-  if (score >= 35) {
-    return { level: 'go', message: 'Outstanding. Viewers are highly interested in this topic.' };
-  } else if (score >= 28) {
-    return { level: 'go', message: 'Strong topic with solid viewer interest.' };
+  if (score >= 70) {
+    return { level: 'go', message: 'This could be an excellent opportunity. High topic interest with low phrase competition. Viewers want to learn about this topic. Educational content will resonate. Check competition to confirm.' };
+  } else if (score >= 50) {
+    return { level: 'go', message: 'Good opportunity. Solid viewer interest with room to compete. Worth pursuing.' };
+  } else if (score >= 35) {
+    return { level: 'caution', message: 'Moderate interest. Check YouTube manually to assess competition.' };
   } else if (score >= 20) {
-    return { level: 'go', message: 'Good topic. Viewers are interested.' };
-  } else if (score >= 12) {
-    return { level: 'caution', message: 'Some interest exists. Consider refining your angle.' };
-  } else if (score >= 5) {
-    return { level: 'caution', message: 'Limited interest. This may be too niche.' };
+    return { level: 'caution', message: 'Limited interest detected. Consider a broader angle or different phrasing.' };
   } else {
-    return { level: 'stop', message: 'Very low interest. Reconsider this topic.' };
+    return { level: 'stop', message: 'Very low interest. This phrase may be too obscure or niche.' };
   }
 }
 
@@ -210,14 +275,15 @@ const DEMAND_LEVELS: Record<DemandLevel, DemandConfig> = {
 
 /**
  * Map signal level to legacy demand level for backward compatibility
+ * Updated for 0-100 scale (Sweet Spot Method)
  */
 function signalToDemandLevel(signal: SignalLevel, score: number): DemandLevel {
   if (signal === 'go') {
-    if (score >= 35) return 'extreme';
-    if (score >= 28) return 'high';
+    if (score >= 70) return 'extreme';
+    if (score >= 50) return 'high';
     return 'strong';
   } else if (signal === 'caution') {
-    if (score >= 12) return 'moderate';
+    if (score >= 35) return 'moderate';
     return 'low';
   }
   return 'very-low';
@@ -720,8 +786,8 @@ export function analyzeViewerLandscape(
     }
   }
   
-  // Calculate signal score using point system
-  const signalScore = calculateSignalScore(exactMatchCount, topicMatchCount);
+  // Calculate signal score using Sweet Spot Discovery Method
+  const signalScore = calculateSignalScore(exactMatchCount, topicMatchCount, count);
   const { level: signal, message: signalMessage } = getSignalFromScore(signalScore);
   const signalConfig = SIGNAL_CONFIG[signal];
   
@@ -775,9 +841,10 @@ export function analyzeViewerLandscape(
     // Opportunity flag
     isOpportunity,
     
-    // Ranked suggestions - top 5
+    // Ranked suggestions - all of them and top 14 for display
     rankedSuggestions,
     topFive: rankedSuggestions.slice(0, 5),
+    topFourteen: rankedSuggestions.slice(0, 14),
     
     // Anchor words
     anchorWords,

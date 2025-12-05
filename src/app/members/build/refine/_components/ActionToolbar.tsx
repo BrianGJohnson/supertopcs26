@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IconPlayerPlay, IconWand, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconCoin, IconSelector, IconStar, IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck } from "@tabler/icons-react";
+import { IconPlayerPlay, IconWand, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconCoin, IconSelector, IconStar, IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck, IconBolt } from "@tabler/icons-react";
 import { listSessions, createSession } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { Modal, ModalButton } from "@/components/ui/Modal";
@@ -16,7 +16,7 @@ interface ActionToolbarProps {
   sessionName?: string;
   onRunTopicScoring: () => void;
   onRunFitScoring?: () => void;
-  onRunPnCScoring?: () => void;
+  onRunDemandScoring?: () => void;
   onAutoPick: () => void;
   onContinue: () => void;
   onJumpToTitle: () => void;
@@ -25,16 +25,19 @@ interface ActionToolbarProps {
   scoringProgress?: { current: number; total: number };
   // Topic Strength completion status - enables A. Fit
   topicStrengthComplete?: boolean;
-  // Audience Fit completion status - enables P&C (future)
+  // Audience Fit completion status - enables Demand
   audienceFitComplete?: boolean;
+  // For demand scoring: require ≤75 visible phrases
+  visiblePhraseCount?: number;
 }
 
 type AnalysisOption = {
-  id: "topic" | "fit" | "pnc";
+  id: "topic" | "fit" | "demand" | "opportunity";
   label: string;
   tokenCost: number;
   icon: React.ReactNode;
   enabled: boolean;
+  disabledReason?: string;
   action: () => void;
 };
 
@@ -45,7 +48,7 @@ export function ActionToolbar({
   sessionName = "Session",
   onRunTopicScoring,
   onRunFitScoring,
-  onRunPnCScoring,
+  onRunDemandScoring,
   onAutoPick,
   onContinue,
   onJumpToTitle,
@@ -54,6 +57,7 @@ export function ActionToolbar({
   scoringProgress,
   topicStrengthComplete = false,
   audienceFitComplete = false,
+  visiblePhraseCount = 0,
 }: ActionToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,6 +208,16 @@ export function ActionToolbar({
   const displaySessions = sessions.slice(0, 10);
   const hasMoreSessions = sessions.length > 10;
   
+  // Demand scoring requires ≤75 visible phrases after A. Fit is complete
+  // TEMPORARILY: Enable demand if we have any phrases with fit scores (for testing)
+  const hasAnyFitScores = visiblePhraseCount > 0; // Temporary override
+  const canRunDemand = hasAnyFitScores && !!onRunDemandScoring && visiblePhraseCount <= 75;
+  const demandDisabledReason = visiblePhraseCount === 0
+    ? "No phrases loaded"
+    : visiblePhraseCount > 75 
+      ? `Reduce to ≤75 phrases (currently ${visiblePhraseCount})`
+      : undefined;
+
   const analysisOptions: AnalysisOption[] = [
     {
       id: "topic",
@@ -228,13 +242,27 @@ export function ActionToolbar({
       },
     },
     {
-      id: "pnc",
-      label: "3. P & C",
+      id: "demand",
+      label: "3. Demand",
       tokenCost: 100,
-      icon: <IconFlame className="w-4 h-4" />,
-      enabled: audienceFitComplete && !!onRunPnCScoring,
+      icon: <IconBolt className="w-4 h-4" />,
+      enabled: canRunDemand,
+      disabledReason: demandDisabledReason,
       action: () => {
-        onRunPnCScoring?.();
+        onRunDemandScoring?.();
+        setIsDropdownOpen(false);
+      },
+    },
+    {
+      id: "opportunity",
+      label: "4. Opportunity",
+      tokenCost: 10,
+      icon: <IconFlame className="w-4 h-4" />,
+      // Opportunity becomes available after Demand is scored
+      // Uses existing data - no additional API calls needed
+      enabled: false, // TODO: Enable when demand scoring is complete
+      action: () => {
+        // TODO: Wire up opportunity scoring
         setIsDropdownOpen(false);
       },
     },

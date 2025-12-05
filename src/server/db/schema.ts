@@ -173,8 +173,10 @@ export const seed_analysis = pgTable('seed_analysis', {
   // Core scores (0-100)
   topic_strength: integer('topic_strength'),
   audience_fit: integer('audience_fit'),
-  popularity: integer('popularity'),
+  popularity: integer('popularity'), // Legacy heuristic-based scoring
   popularity_base: integer('popularity_base'), // Before LTV boost
+  demand: integer('demand'), // Apify autocomplete-based demand score (0-99)
+  demand_base: integer('demand_base'), // Raw demand score before session size multiplier
   competition: integer('competition'),
   overall_score: integer('overall_score'),
   

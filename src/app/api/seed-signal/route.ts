@@ -4,6 +4,56 @@ import { fetchAutocomplete } from "@/lib/topic-service";
 import { calculateSeedSignal } from "@/lib/seed-signal";
 import { analyzeViewerLandscape } from "@/lib/viewer-landscape";
 
+// ============================================================================
+// IN-MEMORY CACHE FOR AUTOCOMPLETE RESULTS
+// ============================================================================
+
+interface CacheEntry {
+  suggestions: string[];
+  timestamp: number;
+}
+
+// Cache autocomplete results for 30 minutes (Apify cold starts are expensive)
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const autocompleteCache = new Map<string, CacheEntry>();
+
+/**
+ * Get cached suggestions or null if expired/missing
+ */
+function getCachedSuggestions(seed: string): string[] | null {
+  const entry = autocompleteCache.get(seed.toLowerCase());
+  if (!entry) return null;
+  
+  const age = Date.now() - entry.timestamp;
+  if (age > CACHE_TTL_MS) {
+    autocompleteCache.delete(seed.toLowerCase());
+    return null;
+  }
+  
+  return entry.suggestions;
+}
+
+/**
+ * Cache suggestions for a seed phrase
+ */
+function cacheSuggestions(seed: string, suggestions: string[]): void {
+  // Limit cache size to prevent memory bloat
+  if (autocompleteCache.size > 1000) {
+    // Delete oldest 100 entries
+    const entries = Array.from(autocompleteCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp)
+      .slice(0, 100);
+    for (const [key] of entries) {
+      autocompleteCache.delete(key);
+    }
+  }
+  
+  autocompleteCache.set(seed.toLowerCase(), {
+    suggestions,
+    timestamp: Date.now(),
+  });
+}
+
 /**
  * POST /api/seed-signal
  * 
@@ -23,6 +73,8 @@ import { analyzeViewerLandscape } from "@/lib/viewer-landscape";
  * }
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Require authentication
     const { userId } = await createAuthenticatedSupabase(request);
@@ -50,8 +102,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch topic suggestions
-    const suggestions = await fetchAutocomplete(trimmedSeed);
+    // Check cache first
+    let suggestions = getCachedSuggestions(trimmedSeed);
+    let cacheHit = false;
+    
+    if (suggestions) {
+      cacheHit = true;
+      console.log(`[seed-signal] Cache HIT for "${trimmedSeed}" (${suggestions.length} suggestions)`);
+    } else {
+      // Fetch from Apify (expensive!)
+      console.log(`[seed-signal] Cache MISS for "${trimmedSeed}" - fetching from Apify...`);
+      suggestions = await fetchAutocomplete(trimmedSeed);
+      
+      // Cache the result
+      cacheSuggestions(trimmedSeed, suggestions);
+      console.log(`[seed-signal] Fetched ${suggestions.length} suggestions in ${Date.now() - startTime}ms`);
+    }
     
     // Calculate legacy signal (for backward compatibility)
     const signal = calculateSeedSignal(trimmedSeed, suggestions);
@@ -66,6 +132,12 @@ export async function POST(request: NextRequest) {
       
       // New viewer landscape fields
       landscape,
+      
+      // Debug info (can be removed in production)
+      _meta: {
+        cacheHit,
+        durationMs: Date.now() - startTime,
+      },
     });
   } catch (error) {
     console.error("[seed-signal] Error:", error);

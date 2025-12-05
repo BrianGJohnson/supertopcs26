@@ -401,6 +401,90 @@ Could be 2-3 quick pages:
 
 ---
 
+## Module: Quick Phrase Checker (Budget-Friendly Topic Validator)
+
+**Status**: 💡 Idea - HIGH VALUE  
+**Priority**: 🟡 MEDIUM-HIGH  
+**URL**: `/members/check` or `/members/quick`
+**Cost**: ~$0.001 per phrase (0.1 cents)
+
+### Purpose
+A lightweight, budget-friendly alternative to the full Builder expansion. Users who want to validate topic ideas quickly without running a full expansion (~$0.04) can check individual phrases for ~$0.001 each.
+
+### Why This Matters
+- **Full expansion**: 38 API calls, ~$0.04, generates 300-400 phrases
+- **Quick check**: 1 API call, ~$0.001, validates 1 phrase with rich signal data
+
+For budget-conscious users:
+- Run 40-50 quick checks for the same cost as 1 expansion
+- Get immediate Go/Caution/Stop signal
+- See exact match ratio, topic match ratio, viewer vibes
+- Decide which phrase is worth a full expansion
+
+### The Data We Get (Per Phrase)
+
+Each autocomplete query returns:
+```typescript
+{
+  phrase: "how to introduce yourself on youtube",
+  suggestionCount: 14,          // Total suggestions returned
+  exactMatchCount: 1,           // Start with exact phrase
+  topicMatchCount: 14,          // Semantically related
+  exactMatchRatio: 7%,          // Low = less literal competition
+  topicMatchRatio: 100%,        // High = strong semantic demand
+  signal: "Go" | "Caution" | "Stop",
+  topFive: [...],               // Actual suggestions
+  viewerVibe: {...}             // Emotional breakdown
+}
+```
+
+### The Key Insight: Long-Tail Sweet Spot
+
+**Example: "How to introduce yourself on YouTube"**
+- Exact match: 1 of 14 (7%)
+- Topic match: 14 of 14 (100%)
+- Current algorithm says: "Caution" ❌ WRONG
+
+**Reality**: This is a SWEET SPOT because:
+- **Low exact match** = Few videos target this EXACT phrase = low competition
+- **High topic match** = Many people search variations = high demand
+- **Result**: Easy #1 ranking, 30K views in 10 months
+
+The algorithm needs to recognize:
+- Low exact + High topic = **Opportunity** (not Caution)
+- High exact + High topic = Competitive but in-demand
+- Low exact + Low topic = True low demand
+
+### UI Flow
+
+1. **Enter phrase** (any length, not just 2 words)
+2. **See instant results**:
+   - Traffic light signal (Go/Caution/Stop)
+   - Exact vs Topic match breakdown
+   - Top 5 related searches
+   - Viewer vibe distribution
+3. **Actions**:
+   - "Run Full Expansion" → Go to Builder
+   - "Check Another" → Reset form
+   - "Save to Ideas" → Bookmark for later
+
+### Cost Comparison
+
+| Action | API Calls | Cost |
+|--------|-----------|------|
+| Quick check (1 phrase) | 1 | $0.001 |
+| Quick check (50 phrases) | 50 | $0.05 |
+| Full expansion | 38 | $0.04 |
+
+**Value prop**: Check 50 ideas for the cost of 1.25 expansions.
+
+### Connection to Builder
+- "This phrase looks promising! Run Full Expansion?" → Pre-fills Builder
+- Save checked phrases to a "Validated Ideas" list
+- Show previous quick-check results when entering Builder
+
+---
+
 ## Module Priority Matrix
 
 | Module | Purpose | Priority | Dependencies |
@@ -408,6 +492,7 @@ Could be 2-3 quick pages:
 | **Built for the Viewer** | Core topic research | 🔴 HIGH | None (in progress) |
 | **Step 0 (Pillar Selection)** | Connect pillars to Builder | 🔴 HIGH | Onboarding complete |
 | **Onboarding Completion** | Transition to using app | 🔴 HIGH | Current onboarding |
+| **Quick Phrase Checker** | Budget-friendly validation | 🟡 MED-HIGH | Viewer Landscape API |
 | **Pillar Progress Tracker** | Track content mix | 🟡 MEDIUM | RSS integration |
 | **Just Born Topics** | Fresh trending topics | 🟡 MEDIUM | External APIs |
 | **Niche Pulse** | Competitor monitoring | 🟡 MEDIUM | RSS integration |
@@ -449,6 +534,7 @@ const MODEL_CONFIG = {
 - **Pillar Progress**: `video_tracking` table (user-owned data)
 - **Just Born Topics**: Might be shared cache across all users in a niche
 - **Niche Pulse**: `tracked_channels` + `channel_videos` tables (per-user tracking)
+- **Quick Phrase Checker**: `phrase_checks` table (user's validated ideas)
 
 ---
 
@@ -456,5 +542,6 @@ const MODEL_CONFIG = {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 0.2 | 2025-12-04 | Added Quick Phrase Checker module, updated priority matrix |
 | 0.1 | 2025-12-01 | Initial document with module ideas from pillar-strategy.md and conversation notes |
 

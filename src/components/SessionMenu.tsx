@@ -120,10 +120,10 @@ export function SessionMenu({ currentSessionName }: SessionMenuProps) {
     }
   };
 
-  // Called when user clicks "Pass" in the landscape modal - go back to input
+  // Called when user clicks "Pass" in the landscape modal - just close everything
   const handlePassOnSeed = () => {
     setIsLandscapeModalOpen(false);
-    setIsNewSessionModalOpen(true);
+    setSeedPhraseInput("");
   };
 
   const handleSwitchSessionClick = async (e: React.MouseEvent) => {

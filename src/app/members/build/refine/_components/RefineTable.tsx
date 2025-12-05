@@ -27,7 +27,7 @@ interface RefinePhrase {
   isRejected: boolean;
 }
 
-type SortColumn = "phrase" | "source" | "topic" | "fit" | "pop" | "comp" | "spread" | "starred";
+type SortColumn = "phrase" | "source" | "topic" | "fit" | "pop" | "comp" | "starred";
 type SortDirection = "asc" | "desc";
 
 // All scores from the session for percentile calculation (not just visible phrases)
@@ -36,7 +36,6 @@ interface AllScores {
   fit: number[];
   pop: number[];
   comp: number[];
-  spread: number[];
 }
 
 interface RefineTableProps {
@@ -65,31 +64,36 @@ const SOURCE_ORDER: Record<string, number> = {
 // SOURCE PILL STYLES
 // =============================================================================
 
-const SOURCE_STYLES: Record<string, { label: string; textColor: string; borderColor: string }> = {
+const SOURCE_STYLES: Record<string, { label: string; textColor: string; bgColor: string; borderColor: string }> = {
   seed: {
     label: "Seed",
     textColor: "text-[#FF6B5B]",
-    borderColor: "border-[#FF6B5B]/45",
+    bgColor: "bg-[#FF6B5B]/15",
+    borderColor: "border-[#FF6B5B]/30",
   },
   top10: {
-    label: "Top 10",
+    label: "Top 15",
     textColor: "text-[#FF8A3D]",
-    borderColor: "border-[#FF8A3D]/45",
+    bgColor: "bg-[#FF8A3D]/15",
+    borderColor: "border-[#FF8A3D]/30",
   },
   child: {
     label: "Child",
-    textColor: "text-[#D4E882]",
-    borderColor: "border-[#D4E882]/45",
+    textColor: "text-[#B8C96B]",
+    bgColor: "bg-[#B8C96B]/15",
+    borderColor: "border-[#B8C96B]/30",
   },
   az: {
     label: "A-Z",
     textColor: "text-[#4DD68A]",
-    borderColor: "border-[#4DD68A]/45",
+    bgColor: "bg-[#4DD68A]/15",
+    borderColor: "border-[#4DD68A]/30",
   },
   prefix: {
     label: "Prefix",
     textColor: "text-[#39C7D8]",
-    borderColor: "border-[#39C7D8]/45",
+    bgColor: "bg-[#39C7D8]/15",
+    borderColor: "border-[#39C7D8]/30",
   },
 };
 
@@ -164,22 +168,7 @@ function getScoreColorByPercentile(
   }
 }
 
-/**
- * Get color for spread based on percentile
- */
-function getSpreadColorByPercentile(
-  spread: number | null,
-  thresholds: { p10: number; p25: number; p35: number; p65: number }
-): string {
-  if (spread === null) return SCORE_COLORS.null;
-  
-  // Higher spread is better
-  if (spread >= thresholds.p10) return SCORE_COLORS.darkGreen;
-  if (spread >= thresholds.p25) return SCORE_COLORS.lime;
-  if (spread >= thresholds.p35) return SCORE_COLORS.yellowGreen;
-  if (spread >= thresholds.p65) return SCORE_COLORS.orange;
-  return SCORE_COLORS.red;
-}
+
 
 // =============================================================================
 // COMPONENT
@@ -207,7 +196,6 @@ export function RefineTable({
       fit: calculatePercentileThresholds(allScores.fit, false),
       pop: calculatePercentileThresholds(allScores.pop, false),
       comp: calculatePercentileThresholds(allScores.comp, true), // Inverted: lower is better
-      spread: calculatePercentileThresholds(allScores.spread, false),
     };
     
     // DEBUG: Log thresholds to understand the distribution
@@ -260,8 +248,6 @@ export function RefineTable({
           return dir * ((a.pop ?? -1) - (b.pop ?? -1));
         case "comp":
           return dir * ((a.comp ?? -1) - (b.comp ?? -1));
-        case "spread":
-          return dir * ((a.spread ?? -999) - (b.spread ?? -999));
         case "starred":
           return dir * (Number(a.isStarred) - Number(b.isStarred));
         default:
@@ -305,7 +291,7 @@ export function RefineTable({
     className?: string;
   }) => (
     <th
-      className={`py-3 text-xs font-semibold text-white/60 uppercase tracking-wider cursor-pointer hover:text-white/80 transition-colors ${className}`}
+      className={`py-4 text-base font-semibold text-white/70 uppercase tracking-wide cursor-pointer hover:text-white/90 transition-colors ${className}`}
       onClick={() => handleSort(column)}
     >
       {label}
@@ -325,54 +311,51 @@ export function RefineTable({
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
-            <tr className="border-b border-white/10 bg-white/5">
-              {/* Select circle - 40px */}
-              <th className="w-[40px] pl-4 py-3 border-r border-white/[0.06]">
+            <tr className="border-b border-white/[0.12] bg-white/5">
+              {/* Select circle - 44px */}
+              <th className="w-[44px] pl-4 py-4 border-r border-white/[0.10]">
                 <div className="w-[18px] h-[18px] rounded-full border-2 border-[#6B9BD1]/60 cursor-pointer hover:border-[#6B9BD1] transition-colors" />
               </th>
               
               {/* Phrase - constrained width */}
-              <HeaderCell column="phrase" label="Phrase" className="pl-3 text-left border-r border-white/[0.06] max-w-[240px]" />
+              <HeaderCell column="phrase" label="Phrase" className="pl-3 text-left border-r border-white/[0.10] max-w-[280px]" />
               
-              {/* Star - 56px */}
-              <th className="w-[56px] py-3 text-center border-r border-white/[0.06]">
-                <span className="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center justify-center gap-1">
-                  <span>☆</span>
+              {/* Star - 64px */}
+              <th className="w-[64px] py-4 text-center border-r border-white/[0.10]">
+                <span className="flex items-center justify-center gap-1">
+                  <IconStar className="w-[20px] h-[20px] text-yellow-400/80" strokeWidth={2} />
                   {starredCount > 0 && (
-                    <span className="text-yellow-400 font-bold">{starredCount}</span>
+                    <span className="text-base text-yellow-400 font-bold">{starredCount}</span>
                   )}
                 </span>
               </th>
               
-              {/* Reject - 48px */}
-              <th className="w-[48px] py-3 text-center border-r border-white/[0.06]">
-                <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">✕</span>
+              {/* Reject - 56px */}
+              <th className="w-[56px] py-4 text-center border-r border-white/[0.10]">
+                <IconX className="w-[20px] h-[20px] text-red-400/80 mx-auto" strokeWidth={2.5} />
               </th>
               
-              {/* Source - 72px */}
-              <HeaderCell column="source" label="Source" className="w-[72px] text-center border-r border-white/[0.06]" />
+              {/* Tag - 104px */}
+              <HeaderCell column="source" label="Tag" className="w-[104px] text-center border-r border-white/[0.10]" />
               
-              {/* Topic - 76px */}
-              <HeaderCell column="topic" label="Topic" className="w-[76px] text-center border-r border-white/[0.06]" />
+              {/* Top - 72px */}
+              <HeaderCell column="topic" label="Top" className="w-[72px] text-center border-r border-white/[0.10]" />
               
-              {/* Fit - 76px */}
-              <HeaderCell column="fit" label="Fit" className="w-[76px] text-center border-r border-white/[0.06]" />
+              {/* Fit - 72px */}
+              <HeaderCell column="fit" label="Fit" className="w-[72px] text-center border-r border-white/[0.10]" />
               
-              {/* Pop - 76px */}
-              <HeaderCell column="pop" label="Pop" className="w-[76px] text-center border-r border-white/[0.06]" />
+              {/* Dem (Demand) - 72px */}
+              <HeaderCell column="pop" label="Dem" className="w-[72px] text-center border-r border-white/[0.10]" />
               
-              {/* Comp - 76px */}
-              <HeaderCell column="comp" label="Comp" className="w-[76px] text-center border-r border-white/[0.06]" />
-              
-              {/* Spread - 80px (no right border - last column) */}
-              <HeaderCell column="spread" label="Spread" className="w-[80px] text-center" />
+              {/* Opp (Opportunity) - 72px (no right border - last column) */}
+              <HeaderCell column="comp" label="Opp" className="w-[72px] text-center" />
             </tr>
           </thead>
           
           <tbody>
             {paginatedPhrases.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-white/40">
+                <td colSpan={9} className="py-12 text-center text-white/40">
                   No phrases to display. Complete Step 1 to generate phrases.
                 </td>
               </tr>
@@ -385,12 +368,12 @@ export function RefineTable({
                   <tr
                     key={phrase.id}
                     className={`
-                      hover:bg-white/[0.04] transition-colors group border-b border-white/[0.06]
+                      hover:bg-white/[0.04] transition-colors group border-b border-white/[0.12]
                       ${isSelected ? "bg-primary/10" : ""}
                     `}
                   >
                     {/* Select circle */}
-                    <td className="pl-4 py-4 border-r border-white/[0.06]">
+                    <td className="pl-4 py-4 border-r border-white/[0.10]">
                       <button
                         onClick={() => onToggleSelect(phrase.id)}
                         className={`w-[18px] h-[18px] rounded-full border-2 transition-colors ${
@@ -408,70 +391,64 @@ export function RefineTable({
                     </td>
                     
                     {/* Phrase */}
-                    <td className="pl-3 py-4 text-white/[0.75] group-hover:text-white/[0.85] transition-colors truncate border-r border-white/[0.06] max-w-[240px]">
+                    <td className="pl-3 py-4 text-white/[0.75] group-hover:text-white/[0.85] transition-colors truncate border-r border-white/[0.10]">
                       {toTitleCase(phrase.phrase)}
                     </td>
                     
                     {/* Star */}
-                    <td className="py-4 text-center border-r border-white/[0.06]">
+                    <td className="py-4 text-center border-r border-white/[0.10]">
                       <button
                         onClick={() => onToggleStar(phrase.id)}
                         className="p-1.5 hover:bg-white/10 rounded transition-colors"
                       >
                         {phrase.isStarred ? (
-                          <IconStarFilled className="w-[18px] h-[18px] text-yellow-400/85" />
+                          <IconStarFilled className="w-[18px] h-[18px] text-yellow-400" />
                         ) : (
-                          <IconStar className="w-[18px] h-[18px] text-white/30 hover:text-yellow-400/70" />
+                          <IconStar className="w-[18px] h-[18px] text-yellow-400/50 hover:text-yellow-400" />
                         )}
                       </button>
                     </td>
                     
                     {/* Reject */}
-                    <td className="py-4 text-center border-r border-white/[0.06]">
+                    <td className="py-4 text-center border-r border-white/[0.10]">
                       <button
                         onClick={() => onToggleReject(phrase.id)}
                         className="p-1.5 hover:bg-red-500/20 rounded transition-colors"
                       >
-                        <IconX className="w-[18px] h-[18px] text-white/30 hover:text-red-400" />
+                        <IconX className="w-[18px] h-[18px] text-red-400/60 hover:text-red-400" />
                       </button>
                     </td>
                     
                     {/* Source */}
-                    <td className="py-4 text-center border-r border-white/[0.06]">
+                    <td className="py-4 text-center border-r border-white/[0.10]">
                       <span className={`
-                        inline-block min-w-[52px] text-center px-2 py-1 
-                        bg-gradient-to-b from-[#2A2E34] to-[#1E2228] 
-                        rounded-full text-xs ${sourceStyle.textColor} 
-                        border ${sourceStyle.borderColor} font-medium 
-                        shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]
+                        inline-block min-w-[60px] text-center px-3 py-1 
+                        ${sourceStyle.bgColor}
+                        rounded text-xs ${sourceStyle.textColor} 
+                        border ${sourceStyle.borderColor} font-medium
                       `}>
                         {sourceStyle.label}
                       </span>
                     </td>
                     
                     {/* Topic */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.topic, scoreThresholds.topic, false)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.topic, scoreThresholds.topic, false)}`}>
                       {phrase.topic ?? "—"}
                     </td>
                     
                     {/* Fit */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.fit, scoreThresholds.fit, false)}`}>
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.fit, scoreThresholds.fit, false)}`}>
                       {phrase.fit ?? "—"}
                     </td>
                     
-                    {/* Pop */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.pop, scoreThresholds.pop, false)}`}>
+                    {/* Dem (Demand) */}
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.pop, scoreThresholds.pop, false)}`}>
                       {phrase.pop ?? "—"}
                     </td>
                     
-                    {/* Comp - inverted colors (low is good) */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.06] ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, true)}`}>
+                    {/* Opp (Opportunity) - inverted colors (low is good), no right border - last column */}
+                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, true)}`}>
                       {phrase.comp ?? "—"}
-                    </td>
-                    
-                    {/* Spread (no right border - last column) */}
-                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getSpreadColorByPercentile(phrase.spread, scoreThresholds.spread)}`}>
-                      {phrase.spread ?? "—"}
                     </td>
                   </tr>
                 );
