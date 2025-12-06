@@ -1,17 +1,18 @@
 /**
  * Viewer Landscape Analysis
  * 
- * Provides comprehensive analysis of a seed phrase including:
- * - Traffic Light Signal (Go/Caution/Stop based on point system)
- * - Seed Strength (how many match the exact seed)
- * - Viewer Vibe (emotional landscape weighted by position)
+ * Dual Scoring System:
+ * - DEMAND SCORE (0-100): How many people are searching for this?
+ * - OPPORTUNITY SCORE (0-100): Is this a good phrase to target?
  * 
- * Point System:
- * - Exact Match: 2 points each
- * - Topic Match: 1 point each
- * - Max score: 42 points (14×2 + 14×1)
+ * SuperTopic Qualification:
+ * - Demand ≥ 50 AND Opportunity ≥ 90
  * 
- * Position weighting for vibes: #1 gets 10x the searches of #3
+ * Multipliers:
+ * - Word count (sweet spot at 5-6 words)
+ * - Intent anchors (how to, tutorial, best, review, etc.)
+ * - Exact vs Topic match ratio
+ * - Suggestion count adjusted by word count expectations
  * 
  * @see docs/viewer-landscape-analysis.md
  */
@@ -62,20 +63,40 @@ export interface VibeDistribution {
   brand: number;
 }
 
+// Intent anchor categories for scoring
+export type IntentCategory = 'learning' | 'buyer' | 'problem' | 'discovery' | 'action' | 'current' | 'specific';
+
+export interface IntentMatch {
+  category: IntentCategory;
+  anchor: string;
+  boost: number;
+}
+
 export interface ViewerLandscape {
   seed: string;
   
-  // Traffic Light Signal (new system)
+  // NEW: Dual Scoring System
+  demandScore: number;           // 0-100
+  demandLabel: string;           // "Strong Demand", "High Demand", etc.
+  opportunityScore: number;      // 0-100
+  opportunityLabel: string;      // "Excellent Opportunity", etc.
+  isSuperTopic: boolean;         // Demand ≥ 50 AND Opportunity ≥ 90
+  
+  // Intent anchors detected
+  intentMatches: IntentMatch[];
+  hasEvergreenIntent: boolean;
+  
+  // Traffic Light Signal (derived from combined scores)
   signal: SignalLevel;
   signalLabel: string;
   signalMessage: string;
   signalColor: string;
   signalIcon: string;
-  signalScore: number;  // 0-42 points
+  signalScore: number;  // Legacy: maps to opportunity score
   
-  // Legacy demand fields (mapped from signal for backward compatibility)
+  // Legacy demand fields (mapped from new demandScore)
   demandLevel: DemandLevel;
-  demandLabel: string;
+  legacyDemandLabel: string;  // Old signal-based label
   demandColor: string;
   demandIcon: string;
   suggestionCount: number;
@@ -146,7 +167,381 @@ function getPositionWeight(position: number): number {
 }
 
 // =============================================================================
-// TRAFFIC LIGHT SIGNAL SYSTEM
+// INTENT ANCHOR LIBRARY
+// =============================================================================
+
+/**
+ * Comprehensive library of intent-signaling words and phrases.
+ * These indicate evergreen topics, buyer intent, or high-value searches.
+ */
+const INTENT_ANCHORS: Record<IntentCategory, string[]> = {
+  // LEARNING (Evergreen - people always want to learn)
+  learning: [
+    'how to', 'how do', 'how can', 'how does', 'how is',
+    'tutorial', 'tutorials',
+    'guide', 'guides', 
+    'learn', 'learning',
+    'beginner', 'beginners', "beginner's",
+    'basics', 'basic',
+    'introduction', 'intro', 'introduce',
+    'explained', 'explanation', 'explaining',
+    'tips', 'tip',
+    'tricks', 'trick',
+    'course', 'class',
+    'lesson', 'lessons',
+    'step by step', 'steps',
+    'for beginners', 'for dummies',
+    'made easy', 'made simple',
+    'complete guide', 'ultimate guide',
+    'everything you need',
+    'masterclass', 'master',
+    'training', 'train',
+  ],
+
+  // BUYER INTENT (High commercial value)
+  buyer: [
+    'best', 'top', 'top 10', 'top 5',
+    'review', 'reviews', 'reviewed',
+    'vs', 'versus', 'or',
+    'comparison', 'compare', 'compared',
+    'worth it', 'worth buying',
+    'should i', 'should you',
+    'buy', 'buying', 'purchase',
+    'cheap', 'affordable', 'budget',
+    'premium', 'professional', 'pro',
+    'alternative', 'alternatives',
+    'recommendation', 'recommendations', 'recommend',
+    'honest', 'unbiased',
+  ],
+
+  // PROBLEM-SOLVING (High intent - they need help NOW)
+  problem: [
+    'fix', 'fixed', 'fixing',
+    'solve', 'solved', 'solving', 'solution',
+    'help', 'helping',
+    'issue', 'issues',
+    'problem', 'problems',
+    'error', 'errors',
+    'not working', "doesn't work", "won't work", "cant work",
+    'broken', 'broke',
+    'stuck', "can't",
+    'trouble', 'troubleshoot', 'troubleshooting',
+    'why is', 'why does', "why won't", "why can't",
+    'stop', 'prevent', 'avoid',
+  ],
+
+  // DISCOVERY (Curious - exploring topics)
+  discovery: [
+    'what is', 'what are', 'what does',
+    'meaning', 'definition', 'define',
+    'difference between', 'difference',
+    'why do', 'why does', 'why is',
+    'who is', 'who are',
+    'when to', 'when should',
+    'where to', 'where can',
+    'which', 'which is better',
+    'explain', 'understand', 'understanding',
+  ],
+
+  // ACTION-READY (Ready to do something)
+  action: [
+    'start', 'starting', 'get started', 'getting started',
+    'create', 'creating', 'creation',
+    'make', 'making',
+    'build', 'building',
+    'setup', 'set up', 'setting up',
+    'install', 'installing', 'installation',
+    'download', 'downloading',
+    'use', 'using', 'how to use',
+    'grow', 'growing', 'growth',
+    'improve', 'improving', 'improvement',
+    'increase', 'boost', 'maximize',
+    'optimize', 'optimizing',
+  ],
+
+  // CURRENT/TIMELY (Signals freshness interest)
+  current: [
+    'new', 'latest', 'newest',
+    'update', 'updated', 'updates',
+    '2024', '2025', '2026',
+    'now', 'today',
+    'still', 'anymore',
+    'recently', 'recent',
+  ],
+
+  // SPECIFICITY (Long-tail signals - platform/context specific)
+  specific: [
+    'for youtube', 'on youtube', 'youtube',
+    'for instagram', 'on instagram', 'instagram',
+    'for tiktok', 'on tiktok', 'tiktok',
+    'for facebook', 'on facebook',
+    'for beginners', 'for experts', 'for pros',
+    'at home', 'from home',
+    'without', 'with no',
+    'free', 'paid',
+    'fast', 'quick', 'quickly',
+    'easy', 'simple', 'easily', 'simply',
+    'online', 'offline',
+    'mobile', 'desktop',
+    'first time', 'first',
+  ],
+};
+
+// Boost values for each intent category
+const INTENT_BOOSTS: Record<IntentCategory, number> = {
+  learning: 8,    // Evergreen, high value
+  buyer: 6,       // Commercial intent
+  problem: 7,     // Urgent need
+  discovery: 4,   // Curious but lower intent
+  action: 6,      // Ready to act
+  current: 3,     // Time-sensitive
+  specific: 5,    // Long-tail specificity
+};
+
+/**
+ * Detect intent anchors in a phrase
+ */
+function detectIntentAnchors(phrase: string): IntentMatch[] {
+  const phraseLower = phrase.toLowerCase();
+  const matches: IntentMatch[] = [];
+  const seenCategories = new Set<IntentCategory>();
+  
+  for (const [category, anchors] of Object.entries(INTENT_ANCHORS) as [IntentCategory, string[]][]) {
+    for (const anchor of anchors) {
+      if (phraseLower.includes(anchor) && !seenCategories.has(category)) {
+        matches.push({
+          category,
+          anchor,
+          boost: INTENT_BOOSTS[category],
+        });
+        seenCategories.add(category);
+        break; // Only one match per category
+      }
+    }
+  }
+  
+  return matches;
+}
+
+/**
+ * Check if phrase has evergreen intent (learning, problem-solving, discovery)
+ */
+function hasEvergreenIntent(intentMatches: IntentMatch[]): boolean {
+  const evergreenCategories: IntentCategory[] = ['learning', 'problem', 'discovery', 'action'];
+  return intentMatches.some(m => evergreenCategories.includes(m.category));
+}
+
+// =============================================================================
+// WORD COUNT MULTIPLIER
+// =============================================================================
+
+/**
+ * Get word count multiplier for scoring.
+ * Sweet spot is 5-6 words. Shorter is easier to rank but more competitive.
+ * Longer is less competitive but may have less search volume.
+ */
+function getWordCountMultiplier(wordCount: number): number {
+  switch (wordCount) {
+    case 1: return 0.7;
+    case 2: return 0.8;
+    case 3: return 0.9;
+    case 4: return 1.0;
+    case 5: return 1.1;  // Sweet spot
+    case 6: return 1.1;  // Sweet spot
+    case 7: return 1.0;
+    case 8: return 0.95;
+    default: return wordCount > 8 ? 0.9 : 0.7;
+  }
+}
+
+/**
+ * Get long-tail bonus for opportunity scoring.
+ * Longer phrases have less competition.
+ */
+function getLongTailBonus(wordCount: number): number {
+  switch (wordCount) {
+    case 1: return 0;
+    case 2: return 0;
+    case 3: return 5;
+    case 4: return 12;
+    case 5: return 20;   // Sweet spot
+    case 6: return 22;   // Sweet spot
+    case 7: return 18;
+    case 8: return 15;
+    default: return wordCount > 8 ? 12 : 0;
+  }
+}
+
+// =============================================================================
+// DUAL SCORING SYSTEM
+// =============================================================================
+
+interface DemandScoreResult {
+  score: number;
+  label: string;
+  breakdown: {
+    suggestionBase: number;
+    wordCountAdjusted: number;
+    topicMatchBonus: number;
+    exactMatchBonus: number;
+    intentBonus: number;
+  };
+}
+
+/**
+ * Calculate DEMAND score (0-100)
+ * "How many people are searching for this?"
+ */
+function calculateDemandScore(
+  suggestionCount: number,
+  exactMatchCount: number,
+  topicMatchCount: number,
+  wordCount: number,
+  intentMatches: IntentMatch[]
+): DemandScoreResult {
+  // Suggestion Base (0-50 points)
+  // Scale: 14 suggestions = 50 points, 7 = 25, 0 = 0
+  const suggestionBase = Math.min(50, Math.round((suggestionCount / 14) * 50));
+  
+  // Word count multiplier (adjusts expectations)
+  const wcMultiplier = getWordCountMultiplier(wordCount);
+  const wordCountAdjusted = Math.round(suggestionBase * wcMultiplier);
+  
+  // Topic Match Bonus (0-15 points)
+  // High topic match % means related searches exist
+  const topicPercent = suggestionCount > 0 ? topicMatchCount / suggestionCount : 0;
+  const topicMatchBonus = Math.min(15, Math.round(topicPercent * 15));
+  
+  // Exact Match Bonus (0-25 points)
+  // Exact matches are direct evidence of demand
+  // Multiplier increased from 2 to 3 to better reward high exact match counts
+  const exactMatchBonus = Math.min(25, exactMatchCount * 3);
+  
+  // Intent Anchor Bonus (0-10 points)
+  // Sum of detected intent boosts, capped
+  const intentBonus = Math.min(10, intentMatches.reduce((sum, m) => sum + m.boost, 0));
+  
+  // Calculate total
+  const rawScore = wordCountAdjusted + topicMatchBonus + exactMatchBonus + intentBonus;
+  const score = Math.max(0, Math.min(100, rawScore));
+  
+  // Determine label (recalibrated to be more conservative)
+  let label: string;
+  if (score >= 95) label = 'Extreme Demand';
+  else if (score >= 85) label = 'Very High Demand';
+  else if (score >= 77) label = 'High Demand';
+  else if (score >= 67) label = 'Strong Demand';
+  else if (score >= 57) label = 'Good Demand';
+  else if (score >= 47) label = 'Moderate Demand';
+  else if (score >= 37) label = 'Some Interest';
+  else label = 'Limited Interest';
+  
+  return {
+    score,
+    label,
+    breakdown: {
+      suggestionBase,
+      wordCountAdjusted,
+      topicMatchBonus,
+      exactMatchBonus,
+      intentBonus,
+    },
+  };
+}
+
+interface OpportunityScoreResult {
+  score: number;
+  label: string;
+  isSuperTopic: boolean;
+  breakdown: {
+    lowCompSignal: number;
+    longTailBonus: number;
+    evergreenIntent: number;
+    demandValidation: number;
+  };
+}
+
+/**
+ * Calculate OPPORTUNITY score (0-100)
+ * "Is this a good phrase to target?"
+ */
+function calculateOpportunityScore(
+  suggestionCount: number,
+  exactMatchCount: number,
+  exactMatchPercent: number,
+  wordCount: number,
+  intentMatches: IntentMatch[],
+  demandScore: number
+): OpportunityScoreResult {
+  // Low Competition Signal (0-35 points)
+  // Lower exact match % = less competition = higher opportunity
+  let lowCompSignal: number;
+  if (exactMatchPercent === 0) lowCompSignal = 35;
+  else if (exactMatchPercent <= 15) lowCompSignal = 30;
+  else if (exactMatchPercent <= 30) lowCompSignal = 22;
+  else if (exactMatchPercent <= 50) lowCompSignal = 15;
+  else if (exactMatchPercent <= 70) lowCompSignal = 8;
+  else lowCompSignal = 3;
+  
+  // Long-Tail Bonus (0-22 points)
+  const longTailBonus = getLongTailBonus(wordCount);
+  
+  // Evergreen Intent Bonus (0-25 points)
+  // Phrases with learning/problem intent have long-term value
+  let evergreenIntent = 0;
+  for (const match of intentMatches) {
+    if (match.category === 'learning') evergreenIntent += 14;
+    else if (match.category === 'problem') evergreenIntent += 12;
+    else if (match.category === 'action') evergreenIntent += 10;
+    else if (match.category === 'discovery') evergreenIntent += 8;
+    else if (match.category === 'specific') evergreenIntent += 6;
+    else if (match.category === 'buyer') evergreenIntent += 5;
+  }
+  evergreenIntent = Math.min(25, evergreenIntent);
+  
+  // Demand Validation (0-15 points)
+  // Only an opportunity if there's actual demand
+  let demandValidation: number;
+  if (suggestionCount >= 12) demandValidation = 15;
+  else if (suggestionCount >= 10) demandValidation = 13;
+  else if (suggestionCount >= 8) demandValidation = 11;
+  else if (suggestionCount >= 6) demandValidation = 8;
+  else if (suggestionCount >= 4) demandValidation = 5;
+  else demandValidation = 2;
+  
+  // Calculate total
+  const rawScore = lowCompSignal + longTailBonus + evergreenIntent + demandValidation;
+  const score = Math.max(0, Math.min(100, rawScore));
+  
+  // SuperTopic: Demand ≥ 50 AND Opportunity ≥ 90
+  const isSuperTopic = demandScore >= 50 && score >= 90;
+  
+  // Determine label
+  let label: string;
+  if (isSuperTopic) label = 'SuperTopic';
+  else if (score >= 85) label = 'Excellent Opportunity';
+  else if (score >= 75) label = 'Great Opportunity';
+  else if (score >= 65) label = 'Good Opportunity';
+  else if (score >= 55) label = 'Decent Opportunity';
+  else if (score >= 45) label = 'Moderate Opportunity';
+  else if (score >= 35) label = 'Limited Opportunity';
+  else label = 'Weak Opportunity';
+  
+  return {
+    score,
+    label,
+    isSuperTopic,
+    breakdown: {
+      lowCompSignal,
+      longTailBonus,
+      evergreenIntent,
+      demandValidation,
+    },
+  };
+}
+
+// =============================================================================
+// TRAFFIC LIGHT SIGNAL SYSTEM (derived from dual scores)
 // =============================================================================
 
 interface SignalConfig {
@@ -162,73 +557,286 @@ const SIGNAL_CONFIG: Record<SignalLevel, SignalConfig> = {
 };
 
 /**
- * Calculate signal score using Weighted Match Method
- * 
- * KEY INSIGHT: Not all matches are equal.
- * - EXACT MATCH (starts with seed phrase) = 3 points each
- *   → Direct evidence people search for YOUR phrase + extensions
- * - TOPIC MATCH (shares keywords but doesn't start with seed) = 1 point each
- *   → Weak signal - could be related or could be noise
- * 
- * Examples:
- * - "how to introduce yourself on youtube" → 13 suggestions, 12 exact match
- *   → Score: (12 × 3) + (1 × 1) = 37 points = STRONG
- * - "video topics" → 5 suggestions, 1 exact match, 4 topic-only
- *   → Score: (1 × 3) + (4 × 1) = 7 points = WEAK
- * 
- * Scale: 0-42 points (14 exact matches × 3 = 42 max)
- * Thresholds:
- * - 30+ = Go (strong demand)
- * - 18+ = Caution (moderate, worth checking)  
- * - <18 = Stop (weak signal)
- * 
- * Returns score 0-100 (normalized from 0-42 scale)
+ * Derive signal from demand and opportunity scores
+ * Viewer-focused language - no "rank" terminology
  */
+function getSignalFromDualScores(demandScore: number, opportunityScore: number): { level: SignalLevel; message: string } {
+  const avgScore = (demandScore + opportunityScore) / 2;
+
+  if (opportunityScore >= 90 && demandScore >= 50) {
+    return { level: 'go', message: 'SuperTopic detected! Strong demand with excellent opportunity. This phrase has long-term potential.' };
+  } else if (avgScore >= 65) {
+    return { level: 'go', message: 'Good signal. Solid viewer interest with room to grow. Worth pursuing.' };
+  } else if (avgScore >= 45) {
+    return { level: 'caution', message: 'Moderate signal. Some interest detected but verify on YouTube before committing.' };
+  } else if (avgScore >= 30) {
+    return { level: 'caution', message: 'Limited signal. Consider refining or drilling into more specific variations.' };
+  } else {
+    return { level: 'stop', message: 'Weak signal. Very limited demand or opportunity. Try a different angle.' };
+  }
+}
+
+// Legacy function for backward compatibility
 function calculateSignalScore(exactMatchCount: number, topicMatchCount: number, suggestionCount?: number): number {
   const total = suggestionCount ?? 0;
-  
-  // No suggestions = no signal
   if (total === 0) return 0;
-  
-  // Topic-only matches (not exact matches)
   const topicOnlyCount = Math.max(0, topicMatchCount - exactMatchCount);
-  
-  // Weighted score: Exact × 3, Topic-only × 1
   const rawScore = (exactMatchCount * 3) + (topicOnlyCount * 1);
-  
-  // Max possible score is 42 (14 exact matches × 3)
-  // Normalize to 0-100 scale
   const normalizedScore = Math.round((rawScore / 42) * 100);
-  
   return Math.max(0, Math.min(100, normalizedScore));
 }
 
-/**
- * Get signal level and message based on score (0-100 scale, from 0-42 raw)
- * 
- * Weighted Match Thresholds (raw → normalized):
- * - 30+ raw (71+) = Strong demand, go signal
- * - 21-29 raw (50-70) = Good signal, worth pursuing
- * - 12-20 raw (29-49) = Moderate, check competition
- * - 6-11 raw (14-28) = Limited signal, proceed with caution
- * - <6 raw (<14) = Weak signal, likely not worth it
- */
+// Legacy function - now derived from dual scores
 function getSignalFromScore(score: number): { level: SignalLevel; message: string } {
   if (score >= 71) {
-    // 30+ raw points = strong exact match demand
-    return { level: 'go', message: 'Strong demand signal. Many viewers search for this exact phrase and extensions. Check competition on YouTube to confirm ranking potential.' };
+    return { level: 'go', message: 'Strong demand signal. Check competition on YouTube to confirm ranking potential.' };
   } else if (score >= 50) {
-    // 21-29 raw points = good signal
-    return { level: 'go', message: 'Good demand signal. Solid viewer interest in this phrase. Worth pursuing.' };
+    return { level: 'go', message: 'Good demand signal. Solid viewer interest. Worth pursuing.' };
   } else if (score >= 29) {
-    // 12-20 raw points = moderate
-    return { level: 'caution', message: 'Moderate interest. Some viewers search for this, but signal is mixed. Check YouTube manually.' };
+    return { level: 'caution', message: 'Moderate interest. Check YouTube manually.' };
   } else if (score >= 14) {
-    // 6-11 raw points = limited
-    return { level: 'caution', message: 'Limited interest detected. Few exact matches suggest weak demand for this specific phrase.' };
+    return { level: 'caution', message: 'Limited interest detected.' };
   } else {
-    // <6 raw points = weak
-    return { level: 'stop', message: 'Weak signal. Very few viewers search for this phrase. Consider a different angle.' };
+    return { level: 'stop', message: 'Weak signal. Consider a different angle.' };
+  }
+}
+
+// =============================================================================
+// TEMPLATE-BASED MESSAGE SYSTEM
+// =============================================================================
+
+/**
+ * Build a rich, contextual message by combining template sentences.
+ * Uses BOTH demandScore AND opportunityScore to generate accurate messages.
+ */
+function buildSignalMessage(
+  demandScore: number,
+  opportunityScore: number,
+  suggestionCount: number,
+  wordCount: number,
+  hasEvergreenIntent: boolean,
+  isSuperTopic: boolean,
+  exactMatchPercent: number,
+  level?: number
+): string {
+  const sentences: string[] = [];
+
+  // -----------------------------------------------------------------
+  // SENTENCE 1: SuperTopic or Demand + Opportunity assessment
+  // -----------------------------------------------------------------
+  if (isSuperTopic) {
+    sentences.push('SuperTopic detected! Viewers are actively looking for this content.');
+  } else {
+    // Demand sentence
+    const demandSentence = getDemandSentence(demandScore);
+    sentences.push(demandSentence);
+
+    // Opportunity sentence (only add if different from demand assessment)
+    const opportunitySentence = getOpportunitySentence(opportunityScore, demandScore);
+    if (opportunitySentence) {
+      sentences.push(opportunitySentence);
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // SENTENCE 1.5: Parent inheritance context (Level 2+)
+  // Viewer-focused: no "rank" language, focus on discovery
+  // -----------------------------------------------------------------
+  if (level && level >= 2) {
+    if (level === 2) {
+      sentences.push('This phrase builds on your parent topic—viewers searching broadly may discover this content too.');
+    } else if (level >= 3) {
+      sentences.push('This specific phrase connects to broader topics viewers are exploring.');
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // SENTENCE 2: Word count insight (for sweet spot or notable lengths)
+  // -----------------------------------------------------------------
+  const wordCountSentence = getWordCountSentence(wordCount);
+  if (wordCountSentence) {
+    sentences.push(wordCountSentence);
+  }
+
+  // -----------------------------------------------------------------
+  // SENTENCE 3: Suggestion count context (context-aware)
+  // -----------------------------------------------------------------
+  const suggestionSentence = getSuggestionCountSentence(suggestionCount, level, opportunityScore);
+  if (suggestionSentence) {
+    sentences.push(suggestionSentence);
+  }
+
+  // -----------------------------------------------------------------
+  // SENTENCE 4: Long-term potential (evergreen topics)
+  // -----------------------------------------------------------------
+  if (hasEvergreenIntent && demandScore >= 47) {
+    sentences.push('This topic has long-term view potential.');
+  }
+
+  // -----------------------------------------------------------------
+  // SENTENCE 5: Competition/action recommendation
+  // -----------------------------------------------------------------
+  const actionSentence = getActionSentence(demandScore, opportunityScore, exactMatchPercent);
+  if (actionSentence) {
+    sentences.push(actionSentence);
+  }
+
+  return sentences.join(' ');
+}
+
+/**
+ * Get demand assessment sentence based on demandScore (0-100)
+ */
+function getDemandSentence(demandScore: number): string {
+  if (demandScore >= 95) {
+    return 'Extreme viewer demand detected.';
+  } else if (demandScore >= 85) {
+    return 'Very high viewer demand for this topic.';
+  } else if (demandScore >= 77) {
+    return 'High viewer demand detected.';
+  } else if (demandScore >= 67) {
+    return 'Strong viewer interest in this topic.';
+  } else if (demandScore >= 57) {
+    return 'Good viewer demand detected.';
+  } else if (demandScore >= 47) {
+    return 'Moderate viewer interest.';
+  } else if (demandScore >= 37) {
+    return 'Some viewer interest detected.';
+  } else {
+    return 'Limited viewer interest for this phrase.';
+  }
+}
+
+/**
+ * Get opportunity assessment sentence based on opportunityScore (0-100)
+ * Returns null if the opportunity aligns with demand (avoid redundancy)
+ */
+function getOpportunitySentence(opportunityScore: number, demandScore: number): string | null {
+  // If opportunity is significantly better than demand suggests
+  if (opportunityScore >= 85 && demandScore < 77) {
+    return 'Excellent opportunity despite moderate demand.';
+  } else if (opportunityScore >= 85) {
+    return 'Excellent opportunity to reach viewers.';
+  } else if (opportunityScore >= 75) {
+    return 'Great opportunity for viewer discovery.';
+  } else if (opportunityScore >= 65) {
+    return 'Good opportunity to connect with viewers.';
+  } else if (opportunityScore >= 55) {
+    return 'Decent opportunity, but space may be crowded.';
+  } else if (opportunityScore >= 45) {
+    return 'Moderate opportunity—check YouTube for similar content.';
+  } else {
+    // Limited opportunity
+    if (demandScore >= 67) {
+      return 'High demand but crowded space—many creators covering this.';
+    }
+    return null; // Don't add redundant "limited" message if demand is also low
+  }
+}
+
+/**
+ * Get word count insight sentence
+ * Viewer-focused language - no "rank" terminology
+ */
+function getWordCountSentence(wordCount: number): string | null {
+  if (wordCount === 5 || wordCount === 6) {
+    return `This ${wordCount}-word phrase hits the sweet spot for discoverability.`;
+  } else if (wordCount >= 7) {
+    return `This ${wordCount}-word phrase is highly specific—great for targeted viewers but may have lower volume.`;
+  } else if (wordCount <= 2) {
+    return `This ${wordCount}-word phrase is broad—high competition expected.`;
+  }
+  return null; // 3-4 words: no special mention needed
+}
+
+/**
+ * Get suggestion count context sentence
+ * Context-aware: skips "limited data" warning when:
+ * - Level 2+ (drill-down context where low suggestions are expected)
+ * - High opportunity score (data is meaningful despite low count)
+ */
+function getSuggestionCountSentence(
+  suggestionCount: number,
+  level?: number,
+  opportunityScore?: number
+): string | null {
+  if (suggestionCount >= 12) {
+    return `${suggestionCount} autocomplete suggestions is a strong signal of viewer interest.`;
+  } else if (suggestionCount >= 10) {
+    return `${suggestionCount} autocomplete suggestions indicates solid viewer interest.`;
+  } else if (suggestionCount >= 8) {
+    return `${suggestionCount} suggestions shows good interest.`;
+  } else if (suggestionCount >= 5) {
+    return `${suggestionCount} suggestions—moderate interest.`;
+  } else if (suggestionCount >= 1) {
+    // Skip "limited data" warning if:
+    // 1. Drill-down context (level 2+) - specific phrases naturally have fewer suggestions
+    // 2. Good opportunity (≥65) - the data is meaningful despite low count
+    const isContextMeaningful = (level && level >= 2) || (opportunityScore && opportunityScore >= 65);
+    if (isContextMeaningful) {
+      return `${suggestionCount} suggestion${suggestionCount !== 1 ? 's' : ''} for this specific phrase.`;
+    }
+    return `Only ${suggestionCount} suggestions found—try a broader phrase for more data.`;
+  }
+  return null; // No suggestions: let other messages guide the user
+}
+
+/**
+ * Get action/recommendation sentence
+ */
+function getActionSentence(demandScore: number, opportunityScore: number, exactMatchPercent: number): string | null {
+  // SuperTopic-level: data-focused, not directive
+  if (opportunityScore >= 90 && demandScore >= 50) {
+    return 'Worth considering for browse and search.';
+  }
+
+  // High opportunity: viewers looking + space available
+  if (opportunityScore >= 75 && demandScore >= 47) {
+    return 'Good potential—check YouTube for similar content.';
+  }
+
+  // Low exact match = less crowded
+  if (exactMatchPercent < 15 && demandScore >= 47) {
+    return 'Low competition signal—good potential for discoverability.';
+  }
+
+  // High exact match = crowded space
+  if (exactMatchPercent > 50) {
+    return 'Crowded space—consider a more specific variation.';
+  }
+
+  // Moderate scenario
+  if (demandScore >= 37 && opportunityScore >= 45) {
+    return 'Check YouTube to see what creators are making.';
+  }
+
+  // Low scores: suggest refinement
+  if (demandScore < 37 || opportunityScore < 45) {
+    return 'Try a different angle or more specific phrase.';
+  }
+
+  return null;
+}
+
+// LEGACY: Old function kept for reference (now unused)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyGetMessageFromDemandScore(demandScore: number, opportunityScore: number): string {
+  if (demandScore >= 95) {
+    return 'Extreme viewer demand detected. Excellent opportunity for discovery.';
+  } else if (demandScore >= 85) {
+    return 'Very high viewer demand. Strong potential for views.';
+  } else if (demandScore >= 77) {
+    return 'High viewer demand detected. Good opportunity to pursue.';
+  } else if (demandScore >= 67) {
+    return 'Strong viewer interest. Worth exploring further.';
+  } else if (demandScore >= 57) {
+    return 'Good viewer demand. Moderate opportunity.';
+  } else if (demandScore >= 47) {
+    return 'Moderate viewer interest. Check competition manually.';
+  } else if (demandScore >= 37) {
+    return 'Some viewer interest detected. Consider refining your phrase.';
+  } else {
+    return 'Limited viewer interest. Try a different angle or broader phrase.';
   }
 }
 
@@ -653,7 +1261,9 @@ function extractAnchorWords(suggestions: string[], seed: string): string[] {
 
 export function analyzeViewerLandscape(
   seed: string,
-  suggestions: string[]
+  suggestions: string[],
+  parentDemandScore?: number,
+  level?: number
 ): ViewerLandscape {
   const seedLower = seed.toLowerCase().trim();
   
@@ -676,7 +1286,7 @@ export function analyzeViewerLandscape(
     }
   }
   const exactMatchPercent = count > 0 ? Math.round((exactMatchCount / count) * 100) : 0;
-  
+
   // Count topic matches (suggestions about the same topic - share key words)
   let topicMatchCount = 0;
   for (const suggestion of filteredSuggestions) {
@@ -684,10 +1294,11 @@ export function analyzeViewerLandscape(
       topicMatchCount++;
     }
   }
-  const topicMatchPercent = count > 0 ? Math.round((topicMatchCount / count) * 100) : 0;
-  
-  // Calculate the weighted score for opportunity detection
+
+  // Calculate topic-only matches (exclude exact matches to get complementary percentages)
   const topicOnlyCount = Math.max(0, topicMatchCount - exactMatchCount);
+  // Topic Match % should show only non-exact matches, so exact + topic = 100% (or less)
+  const topicMatchPercent = count > 0 ? Math.round((topicOnlyCount / count) * 100) : 0;
   const rawWeightedScore = (exactMatchCount * 3) + (topicOnlyCount * 1);
   
   // Is this an opportunity? 
@@ -695,8 +1306,10 @@ export function analyzeViewerLandscape(
   // The "opportunity" is when there's demand but YOU can still rank for it
   const isOpportunity = rawWeightedScore >= 18 && exactMatchPercent < 50 && exactMatchPercent > 0 && count >= 8;
   
-  // Low competition signal - only valid with enough data and good weighted score
-  const isLowCompetition = rawWeightedScore >= 12 && exactMatchPercent < 40 && count >= 8;
+  // Low competition signal - valid when:
+  // 1. Very low exact match (< 10%) with decent suggestions (8+) - IDEAL for ranking
+  // 2. OR good weighted score (12+) with moderate exact match (< 40%) and decent suggestions (8+)
+  const isLowCompetition = (count >= 8 && exactMatchPercent < 10) || (rawWeightedScore >= 12 && exactMatchPercent < 40 && count >= 8);
   const competitionLabel = isLowCompetition ? 'Low Competition Signal' : null;
   
   // Generate YouTube search URL
@@ -779,7 +1392,7 @@ export function analyzeViewerLandscape(
     }
   }
   
-  // Calculate signal score using Low Comp Discovery Method
+  // Calculate signal score using Low Comp Discovery Method (legacy)
   const signalScore = calculateSignalScore(exactMatchCount, topicMatchCount, count);
   const { level: signal, message: signalMessage } = getSignalFromScore(signalScore);
   const signalConfig = SIGNAL_CONFIG[signal];
@@ -788,33 +1401,124 @@ export function analyzeViewerLandscape(
   const demandLevel = signalToDemandLevel(signal, signalScore);
   const demandConfig = DEMAND_LEVELS[demandLevel];
   
-  // Build demand label (now uses signal label)
-  const demandLabel = signalConfig.label;
+  // Build demand label (now uses signal label) - legacy
+  const legacyDemandLabel = signalConfig.label;
   
+  // =========================================================================
+  // NEW DUAL SCORING SYSTEM
+  // =========================================================================
+  
+  // Calculate word count for multipliers
+  const wordCount = seed.split(/\s+/).filter(Boolean).length;
+  
+  // Detect intent anchors in the seed phrase
+  const intentMatches = detectIntentAnchors(seed);
+  const evergreenIntent = hasEvergreenIntent(intentMatches);
+  
+  // Calculate Demand Score (0-100) - based on suggestion count + word count multiplier
+  const demandResult = calculateDemandScore(
+    count,
+    exactMatchCount,
+    topicMatchCount,
+    wordCount,
+    intentMatches
+  );
+  let demandScore = demandResult.score;
+  let demandLabel = demandResult.label;
+
+  // PARENT DEMAND INHERITANCE (Level 2+)
+  // Child phrases inherit some of their parent's demand potential
+  // Rationale: If a video ranks for "youtube video editing tips and tricks" (Level 3),
+  // it will also rank for "youtube video editing tips" (Level 2) and "youtube video editing" (Level 1)
+  if (parentDemandScore !== undefined && level !== undefined && level >= 2) {
+    // Inheritance multiplier: decreases with depth
+    // Level 2: 20% of parent demand
+    // Level 3: 15% of parent demand
+    // Level 4+: 10% of parent demand
+    let inheritanceMultiplier: number;
+    if (level === 2) inheritanceMultiplier = 0.20;
+    else if (level === 3) inheritanceMultiplier = 0.15;
+    else inheritanceMultiplier = 0.10;
+
+    const inheritedBonus = Math.round(parentDemandScore * inheritanceMultiplier);
+    const oldScore = demandScore;
+    demandScore = Math.min(100, demandScore + inheritedBonus);
+
+    console.log(`[Demand Inheritance] Level ${level}: Base ${oldScore} + Inherited ${inheritedBonus} (${Math.round(inheritanceMultiplier * 100)}% of parent ${parentDemandScore}) = ${demandScore}`);
+
+    // Update label based on new score
+    if (demandScore >= 95) demandLabel = 'Extreme Demand';
+    else if (demandScore >= 85) demandLabel = 'Very High Demand';
+    else if (demandScore >= 77) demandLabel = 'High Demand';
+    else if (demandScore >= 67) demandLabel = 'Strong Demand';
+    else if (demandScore >= 57) demandLabel = 'Good Demand';
+    else if (demandScore >= 47) demandLabel = 'Moderate Demand';
+    else if (demandScore >= 37) demandLabel = 'Some Interest';
+    else demandLabel = 'Limited Interest';
+  }
+  
+  // Calculate Opportunity Score (0-100) - combines low comp + long-tail + intent signals
+  const opportunityResult = calculateOpportunityScore(
+    count,
+    exactMatchCount,
+    exactMatchPercent,
+    wordCount,
+    intentMatches,
+    demandScore
+  );
+  const opportunityScore = opportunityResult.score;
+  const opportunityLabel = opportunityResult.label;
+  const isSuperTopic = opportunityResult.isSuperTopic;
+
+  // Generate NEW message using template-based system (replaces legacy signalMessage)
+  const newSignalMessage = buildSignalMessage(
+    demandScore,
+    opportunityScore,
+    count,
+    wordCount,
+    evergreenIntent,
+    isSuperTopic,
+    exactMatchPercent,
+    level // Pass level for depth-aware messaging
+  );
+
   // Generate insight - now considers opportunity
   const insight = generateInsightWithOpportunity(
-    dominantVibe, 
-    dominantVibePercent, 
+    dominantVibe,
+    dominantVibePercent,
     vibeDistribution,
     isOpportunity,
     exactMatchPercent,
     topicMatchPercent
   );
-  
+
   return {
     seed,
-    
-    // Traffic Light Signal (new system)
+
+    // =========================================================================
+    // NEW DUAL SCORING SYSTEM (Primary Display)
+    // =========================================================================
+    demandScore,
+    demandLabel,
+    opportunityScore,
+    opportunityLabel,
+    isSuperTopic,
+
+    // Intent anchors detected in seed phrase
+    intentMatches,
+    hasEvergreenIntent: evergreenIntent,
+
+    // Traffic Light Signal (legacy system)
     signal,
     signalLabel: signalConfig.label,
-    signalMessage,
+    signalMessage: newSignalMessage,
     signalColor: signalConfig.color,
     signalIcon: signalConfig.icon,
     signalScore,
     
     // Legacy demand fields (mapped from signal)
     demandLevel,
-    demandLabel,
+    legacyDemandLabel,
     demandColor: signalConfig.color,
     demandIcon: signalConfig.icon,
     suggestionCount: count,

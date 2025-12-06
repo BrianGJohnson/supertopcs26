@@ -17,12 +17,16 @@ import {
   IconLoader2,
   IconRefresh,
   IconX,
+  IconPlus,
+  IconArrowsExchange,
+  IconSettingsCog,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { authFetch } from "@/lib/supabase";
-import { createSession } from "@/hooks/useSessions";
+import { createSession, listSessions } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { ViewerLandscapeModal } from "@/components/ui/ViewerLandscapeModal";
+import type { Session } from "@/types/database";
 
 /**
  * Step 1: Target - Pillar Selection
@@ -76,6 +80,13 @@ export default function TargetPage() {
   // Viewer Landscape modal state
   const [landscapeModalOpen, setLandscapeModalOpen] = useState(false);
   const [selectedPhrase, setSelectedPhrase] = useState<string | null>(null);
+
+  // Quick Start modal state (for "I Have My Own Idea" button)
+  const [quickStartModalOpen, setQuickStartModalOpen] = useState(false);
+  const [newSeedInput, setNewSeedInput] = useState("");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [showSwitchSessions, setShowSwitchSessions] = useState(false);
 
   // Fetch pillar strategy from the user's channel data
   useEffect(() => {
@@ -234,9 +245,42 @@ export default function TargetPage() {
     }
   };
 
-  // Skip to seed page with no pre-fill
-  const handleOwnIdea = () => {
-    router.push("/members/build/seed");
+  // Open Quick Start modal and fetch sessions
+  const handleOwnIdea = async () => {
+    setQuickStartModalOpen(true);
+    try {
+      const list = await listSessions();
+      setSessions(list);
+    } catch (error) {
+      console.error("Failed to list sessions", error);
+    }
+  };
+
+  // Create new session with seed phrase
+  const handleCreateNewSession = async () => {
+    if (newSeedInput.trim().length < 2) return;
+    
+    setIsCreatingSession(true);
+    try {
+      const name = newSeedInput.trim();
+      const newSession = await createSession(name, name);
+      
+      await addSeeds(newSession.id, [{
+        phrase: name,
+        generationMethod: "seed",
+      }]);
+      
+      router.push(`/members/build/seed?session_id=${newSession.id}&seed=${encodeURIComponent(name)}`);
+    } catch (error) {
+      console.error("Failed to create session:", error);
+    } finally {
+      setIsCreatingSession(false);
+    }
+  };
+
+  // Switch to existing session
+  const handleSwitchToSession = (sessionId: string) => {
+    router.push(`/members/build/seed?session_id=${sessionId}`);
   };
 
   // Get pillar config (color, icon, etc.)
@@ -462,6 +506,77 @@ export default function TargetPage() {
               </div>
             </Modal>
 
+            {/* Quick Start Modal - shown when clicking "I Have My Own Idea" */}
+            <Modal
+              isOpen={quickStartModalOpen}
+              onClose={() => {
+                setQuickStartModalOpen(false);
+                setNewSeedInput("");
+              }}
+              title="Quick Start"
+            >
+              <div className="space-y-6">
+                <p className="text-white/60 text-base">
+                  Start a new session or continue where you left off.
+                </p>
+
+                {/* Option 1: Start New Session */}
+                <div className="space-y-3">
+                  <label className="block text-white/80 font-medium text-sm">Start New Session</label>
+                  <input
+                    type="text"
+                    value={newSeedInput}
+                    onChange={(e) => setNewSeedInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newSeedInput.trim().length >= 2) {
+                        handleCreateNewSession();
+                      }
+                    }}
+                    placeholder="Enter your seed phrase (e.g., video editing)"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-base placeholder:text-white/30 focus:border-[#6B9BD1] focus:outline-none focus:ring-2 focus:ring-[#6B9BD1]/20 transition-all"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleCreateNewSession}
+                    disabled={newSeedInput.trim().length < 2 || isCreatingSession}
+                    className="w-full px-6 py-4 bg-gradient-to-b from-[#2BD899] to-[#25C78A] hover:from-[#2BD899]/90 hover:to-[#25C78A]/90 text-white font-bold text-base rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(43,216,153,0.3)]"
+                  >
+                    {isCreatingSession ? 'Creating...' : 'Create New Session'}
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-white/40 text-sm uppercase tracking-wide">Or</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+
+                {/* Option 2: Switch to Existing Session */}
+                <div className="space-y-3">
+                  <label className="block text-white/80 font-medium text-sm">Continue Existing Session</label>
+                  {sessions.length > 0 ? (
+                    <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                      {sessions.slice(0, 10).map((session) => (
+                        <button
+                          key={session.id}
+                          onClick={() => handleSwitchToSession(session.id)}
+                          className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#6B9BD1]/40 rounded-xl text-left text-white/80 text-base transition-all group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate">{session.name}</span>
+                            <IconChevronRight size={16} className="text-white/30 group-hover:text-[#6B9BD1] transition-colors" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-white/40 text-sm text-center py-4">No existing sessions found</p>
+                  )}
+                </div>
+              </div>
+            </Modal>
+
             {/* Viewer Landscape Modal - shows when phrase is clicked */}
             {selectedPhrase && (
               <ViewerLandscapeModal
@@ -580,6 +695,108 @@ export default function TargetPage() {
             </button>
           </div>
         </div>
+
+        {/* Quick Start Modal - for main view */}
+        <Modal
+          isOpen={quickStartModalOpen}
+          onClose={() => {
+            setQuickStartModalOpen(false);
+            setNewSeedInput("");
+            setShowSwitchSessions(false);
+          }}
+          title="Quick Start"
+        >
+          <div className="space-y-4">
+            <p className="text-white/60 text-base">
+              Start fresh or continue where you left off.
+            </p>
+
+            {/* Option 1: New Session */}
+            <div className="space-y-3">
+              <label className="block text-white/80 font-medium text-sm">New Session</label>
+              <input
+                type="text"
+                value={newSeedInput}
+                onChange={(e) => setNewSeedInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newSeedInput.trim().length >= 2) {
+                    handleCreateNewSession();
+                  }
+                }}
+                placeholder="Enter seed phrase (e.g., video editing)"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-base placeholder:text-white/30 focus:border-[#6B9BD1] focus:outline-none focus:ring-2 focus:ring-[#6B9BD1]/20 transition-all"
+                autoFocus
+              />
+              <button
+                onClick={handleCreateNewSession}
+                disabled={newSeedInput.trim().length < 2 || isCreatingSession}
+                className="w-full px-6 py-4 bg-gradient-to-b from-[#2BD899] to-[#25C78A] hover:from-[#2BD899]/90 hover:to-[#25C78A]/90 text-white font-bold text-base rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(43,216,153,0.3)] flex items-center justify-center gap-2"
+              >
+                <IconPlus size={20} />
+                {isCreatingSession ? 'Creating...' : 'Start New Session'}
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 py-2">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white/40 text-sm">or</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Option 2 & 3: Switch / Manage */}
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowSwitchSessions(!showSwitchSessions)}
+                className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-left text-white/80 text-base transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3">
+                  <IconArrowsExchange size={20} className="text-[#6B9BD1]" />
+                  <span>Switch Session</span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-white/40 transition-transform ${showSwitchSessions ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Session List - expandable */}
+              {showSwitchSessions && (
+                <div className="max-h-48 overflow-y-auto space-y-1 pl-2 animate-in fade-in slide-in-from-top-2 duration-150">
+                  {sessions.length === 0 ? (
+                    <p className="text-white/40 text-sm text-center py-3">No sessions yet</p>
+                  ) : (
+                    sessions.slice(0, 10).map((session) => (
+                      <button
+                        key={session.id}
+                        onClick={() => handleSwitchToSession(session.id)}
+                        className="w-full px-4 py-2.5 bg-white/[0.03] hover:bg-white/10 border border-white/5 hover:border-[#6B9BD1]/40 rounded-lg text-left text-white/70 hover:text-white text-sm transition-all flex items-center justify-between"
+                      >
+                        <span className="truncate">{session.name}</span>
+                        <IconChevronRight size={14} className="text-white/30" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setQuickStartModalOpen(false);
+                  router.push('/members/sessions');
+                }}
+                className="w-full px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-left text-white/80 text-base transition-all flex items-center gap-3"
+              >
+                <IconSettingsCog size={20} className="text-white/50" />
+                <span>Manage Sessions</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 mt-8">

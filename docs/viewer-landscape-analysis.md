@@ -1,411 +1,424 @@
-# Viewer Landscape Analysis
+# Viewer Landscape Modal: Algorithm & Logic
+
+> **Source of Truth:** `/src/lib/viewer-landscape.ts`  
+> **Last Updated:** December 6, 2025
 
 ## Overview
 
-**Viewer Landscape Analysis** provides instant insight into the *people* behind a seed phrase — not just demand volume, but who they are, what they're feeling, and whether this audience is a fit for your content style.
+The Viewer Landscape Modal analyzes YouTube autocomplete data to provide creators with two key scores:
 
-When a user enters a seed phrase, we paint a complete picture:
-1. **Demand Level** — How many viewers are actively interested?
-2. **Seed Strength** — How focused is this topic? (formerly "Exact Match Ratio")
-3. **Viewer Vibe** — What's the emotional landscape? Are they learning, frustrated, curious, or venting?
+| Score | Question It Answers | Range |
+|-------|---------------------|-------|
+| **Demand Score** | How many people are searching for this? | 0-100 |
+| **Opportunity Score** | Is this a good phrase to target? | 0-100 |
 
-This analysis appears on:
-- **Page 1 (Target)** — When clicking on a phrase
-- **Page 2 (Seed)** — When evaluating seed phrases
-- **Page 4 (Super Topic)** — Deep validation with competition analysis
+When both scores meet threshold criteria, the phrase is designated a **SuperTopic**.
 
 ---
 
-## Components
+## SuperTopic Criteria
 
-### 1. Demand Level
-
-**What it measures:** Raw search activity based on autocomplete suggestion count.
-
-**Labels (8 tiers):**
-
-| Tier | Suggestion Count | Label | Color |
-|------|-----------------|-------|-------|
-| 1 | 10+ | Extreme Demand | 🟢 Bright Green |
-| 2 | 9 | Incredible Demand | 🟢 Green |
-| 3 | 7-8 | High Demand | 🟢 Green |
-| 4 | 5-6 | Strong Demand | 🔵 Blue |
-| 5 | 4 | Solid Demand | 🔵 Blue |
-| 6 | 3 | Moderate Demand | 🔵 Light Blue |
-| 7 | 2 | Low Demand | 🟠 Orange |
-| 8 | 0-1 | Very Low Demand | 🔴 Red |
-
-**Display:**
 ```
-Extreme Demand
-10 suggestions from YouTube
+SuperTopic = Demand ≥ 50 AND Opportunity ≥ 90
 ```
 
-**Why it matters:** Two-word seed phrases typically return 8-10 suggestions. Anything below 5 is a warning sign for discoverability.
+A SuperTopic represents the ideal combination: sufficient viewer interest with excellent ranking potential.
 
 ---
 
-### 2. Seed Strength
+## Demand Score (0-100)
 
-**What it measures:** How many autocomplete suggestions start with the exact seed phrase.
+**Purpose:** Measure how many people are actively searching for this topic.
 
-**Formerly:** "Exact Match Ratio" (too technical)
+### Formula Components
 
-**New Label:** "Seed Strength" or "Topic Focus"
+| Component | Points | How It's Calculated |
+|-----------|--------|---------------------|
+| **Suggestion Base** | 0-50 | `(suggestionCount / 14) × 50` |
+| **Word Count Multiplier** | ×0.7 to ×1.1 | Applied to suggestion base |
+| **Topic Match Bonus** | 0-15 | `topicMatchPercent × 15` |
+| **Exact Match Bonus** | 0-15 | `exactMatchCount × 2` (capped at 15) |
+| **Intent Anchor Bonus** | 0-10 | Sum of detected intent boosts |
 
-**What it tells users:**
-- **100% match** = "Your seed phrase dominates — viewers search for exactly this"
-- **High match (70%+)** = "Strong foundation — most viewers use your exact words"
-- **Medium match (40-69%)** = "Related interest — viewers search variations"
-- **Low match (<40%)** = "Scattered interest — consider a different angle"
+### Word Count Multiplier
 
-**Display (simple):**
-```
-Strong Seed
-9 of 9 suggestions match your phrase
-```
+The sweet spot is 5-6 words. Shorter phrases are more competitive; longer phrases may have less volume.
 
-**Display (with detail button):**
-```
-Strong Seed ⓘ
-9 of 9 match
-────────────────
-[Click ⓘ to see]:
-"All 9 suggestions begin with 'youtube algorithm' — 
-this means viewers are specifically searching for 
-this exact topic, not being redirected to related terms."
-```
+| Words | Multiplier |
+|-------|------------|
+| 1 | 0.70 |
+| 2 | 0.80 |
+| 3 | 0.90 |
+| 4 | 1.00 |
+| **5-6** | **1.10** (sweet spot) |
+| 7 | 1.00 |
+| 8 | 0.95 |
+| 9+ | 0.90 |
 
-**Special Case — Long Phrases (5+ words):**
+### Demand Labels (Recalibrated)
 
-For phrases like "how to introduce yourself on youtube":
-- Only 1/10 exact match
-- BUT all 10 are semantic variations (same intent, different words)
+**Note:** Thresholds have been recalibrated based on real-world performance data to be more conservative and accurate.
 
-This is actually a **strong signal** — it means:
-- Low literal competition (few exact matches)
-- High semantic density (everyone wants the same thing)
-- **Long-Term Views potential** (we'll use this on Page 4)
+| Score | Label |
+|-------|-------|
+| 95+ | Extreme Demand |
+| 85-94 | Very High Demand |
+| 77-84 | High Demand |
+| 67-76 | Strong Demand |
+| 57-66 | Good Demand |
+| 47-56 | Moderate Demand |
+| 37-46 | Some Interest |
+| 0-36 | Limited Interest |
 
----
+*Example: A 6-word phrase with 10-13 suggestions scores ~76 = "Strong Demand" (10K views first month, steady 1K/month thereafter).*
 
-### 3. Viewer Vibe (Emotional Landscape)
+### Template-Based Message System
 
-**What it measures:** The emotional state and intent of viewers searching this topic.
+**NEW (December 2025):** Messages are now dynamically composed by combining template sentences based on multiple data points. This ensures the message accurately reflects BOTH demand AND opportunity scores.
 
-**Alternative names considered:**
-- Viewer Vibe ← **Recommended** (casual, approachable)
-- Viewer Landscape
-- Audience Pulse
-- Global Viewer Mood
-- Emotional Context
+**Messaging Philosophy:**
+- **Data-focused, not directive**: Say "worth considering" instead of "highly recommended"
+- **Browse and Search**: Always mention both when referencing YouTube's discovery systems
+- **Signal-based language**: Say "low competition signal" not "low competition"
+- **Long-term focus**: Emphasize "long-term view potential" without always specifying source
 
-**Categories:**
+**Message Components:**
 
-| Vibe | Signal Words | Icon | What it means |
-|------|-------------|------|---------------|
-| 🎓 **Learning** | explained, tutorial, how to, guide, basics, 101 | 📚 | Viewers want to understand |
-| 😤 **Frustrated** | sucks, broken, trash, hate, worst, annoying | 😤 | Viewers are venting/upset |
-| 🔧 **Problem-Solving** | fix, help, not working, issue, error | 🔧 | Viewers need solutions |
-| 🤔 **Curious** | why, what is, how does, meaning | 🤔 | Viewers are exploring |
-| ⏰ **Current** | 2025, new, update, latest, change | ⏰ | Viewers want fresh info |
-| ⚖️ **Comparing** | vs, better, alternatives, which | ⚖️ | Viewers are evaluating |
-| 🎯 **Action-Ready** | tips, tricks, strategy, how to start | 🎯 | Viewers want to DO something |
-| 💬 **Opinionated** | best, worst, overrated, underrated | 💬 | Viewers have strong opinions |
+| Component | Condition | Example Sentence |
+|-----------|-----------|------------------|
+| **Demand Assessment** | Based on demandScore (0-100) | "Strong viewer interest in this topic." |
+| **Opportunity Assessment** | Based on opportunityScore (0-100) | "Excellent opportunity to rank for this phrase." |
+| **Word Count Insight** | 5-6 words (sweet spot), 2 words (broad), 7+ words (specific) | "This 5-word phrase hits the sweet spot for discoverability." |
+| **Suggestion Count** | 12+ (strong), 10-11 (solid), 8-9 (good), 5-7 (moderate), <5 (limited) | "12 autocomplete suggestions is a strong signal of viewer interest." |
+| **Long-Term Potential** | If evergreen intent detected + demand ≥47 | "This topic has long-term view potential from ongoing searches." |
+| **Action Recommendation** | SuperTopic level | "Strong topic worth considering for browse and search." |
+| **Action Recommendation** | High opportunity | "Good potential for browse and search—verify competition on YouTube." |
+| **Action Recommendation** | Low competition signal | "Low competition signal—strong potential for discoverability." |
 
-**Display — Visual Breakdown:**
+**Example Full Message:**
 
-```
-┌─────────────────────────────────────────┐
-│  Viewer Vibe                            │
-├─────────────────────────────────────────┤
-│  🎓 Learning      ████████░░  35%       │
-│  😤 Frustrated    ██████████  40%       │
-│  🔧 Problem       ████░░░░░░  15%       │
-│  ⏰ Current       ██░░░░░░░░  10%       │
-└─────────────────────────────────────────┘
-```
-
-**Insight Message (based on dominant vibe):**
-
-| Dominant Vibe | Message |
-|---------------|---------|
-| 🎓 Learning 50%+ | "Viewers are eager to learn — educational content will resonate" |
-| 😤 Frustrated 40%+ | "Many viewers are frustrated — consider an empathetic, understanding angle" |
-| 😤 Frustrated 60%+ | "⚠️ Heads up: Most viewers are venting. Be ready to meet them where they are." |
-| 🔧 Problem 40%+ | "Viewers need help — solution-focused content will connect" |
-| ⏰ Current 30%+ | "Viewers want the latest — fresh, timely content is key" |
-| Mixed (no dominant) | "Diverse audience — you have flexibility in your approach" |
+> "Strong viewer interest in this topic. Great opportunity with good ranking potential. This 5-word phrase hits the sweet spot for discoverability. 10 autocomplete suggestions indicates solid viewer interest. This topic has long-term view potential from ongoing searches. Good potential for browse and search—verify competition on YouTube."
 
 ---
 
-## Implementation
+## Opportunity Score (0-100)
 
-### Data Source
+**Purpose:** Measure how good this phrase is to target (ranking potential).
 
-We already have this built in `/src/lib/viewer-demand.ts`:
-- **900+ signal words** across 8 categories
-- Learning, Question, Timely, Emotional, Actionable, Comparison, Problem, Specificity
-- Regex patterns for years, numbered lists, durations
+### Formula Components
 
-### API Enhancement
+| Component | Points | How It's Calculated |
+|-----------|--------|---------------------|
+| **Low Competition Signal** | 0-35 | Based on exact match % (lower = better) |
+| **Long-Tail Bonus** | 0-22 | Based on word count |
+| **Evergreen Intent** | 0-25 | Sum of intent category bonuses |
+| **Demand Validation** | 0-15 | Based on suggestion count |
 
-**Current:** `/api/seed-signal` returns basic signal strength
+### Low Competition Signal
 
-**Enhanced:** Add viewer vibe breakdown to response:
+Lower exact match percentage = less competition = higher opportunity.
+
+| Exact Match % | Points |
+|---------------|--------|
+| 0% | 35 |
+| 1-15% | 30 |
+| 16-30% | 22 |
+| 31-50% | 15 |
+| 51-70% | 8 |
+| 71%+ | 3 |
+
+### Long-Tail Bonus
+
+Longer phrases have less competition and are easier to rank for.
+
+| Words | Bonus |
+|-------|-------|
+| 1-2 | 0 |
+| 3 | 5 |
+| 4 | 12 |
+| **5** | **20** (sweet spot) |
+| **6** | **22** (sweet spot) |
+| 7 | 18 |
+| 8 | 15 |
+| 9+ | 12 |
+
+### Evergreen Intent Bonus
+
+Phrases with learning, problem-solving, or action intent have long-term value.
+
+| Intent Category | Bonus |
+|-----------------|-------|
+| Learning | +14 |
+| Problem | +12 |
+| Action | +10 |
+| Discovery | +8 |
+| Specific | +6 |
+| Buyer | +5 |
+
+*Capped at 25 points total*
+
+### Demand Validation
+
+Opportunity only matters if there's actual demand.
+
+| Suggestions | Points |
+|-------------|--------|
+| 12+ | 15 |
+| 10-11 | 13 |
+| 8-9 | 11 |
+| 6-7 | 8 |
+| 4-5 | 5 |
+| 0-3 | 2 |
+
+### Opportunity Labels
+
+| Score | Label |
+|-------|-------|
+| 90+ (with Demand ≥50) | SuperTopic |
+| 85+ | Excellent Opportunity |
+| 75-84 | Great Opportunity |
+| 65-74 | Good Opportunity |
+| 55-64 | Decent Opportunity |
+| 45-54 | Moderate Opportunity |
+| 35-44 | Limited Opportunity |
+| 0-34 | Weak Opportunity |
+
+---
+
+## Intent Anchor Library
+
+The algorithm detects intent-signaling words in the seed phrase. Each category provides a boost to scoring.
+
+### Categories & Example Anchors
+
+| Category | Boost | Example Anchors |
+|----------|-------|-----------------|
+| **Learning** | +8 | how to, tutorial, guide, explained, beginner, tips, step by step |
+| **Problem** | +7 | fix, not working, issue, error, broken, troubleshoot, help |
+| **Buyer** | +6 | best, review, vs, comparison, worth it, alternative |
+| **Action** | +6 | start, create, build, setup, grow, improve, optimize |
+| **Specific** | +5 | for youtube, for beginners, at home, free, easy |
+| **Discovery** | +4 | what is, meaning, difference between, why, explain |
+| **Current** | +3 | 2024, 2025, new, latest, update |
+
+*Only one anchor per category is counted.*
+
+---
+
+## Exact Match vs Topic Match
+
+### Exact Match
+Suggestions that **start with** the exact seed phrase.
+
+```
+Seed: "video topics"
+✓ Exact: "video topics for youtube"
+✗ Not Exact: "japan video topics"
+```
+
+### Topic Match
+Suggestions that **share key words** with the seed (semantic relevance).
+
+- Requires 2+ matching key words (excluding stop words)
+- Or 1+ match if seed has only 1-2 key words
+
+---
+
+## Vibe Detection
+
+Each suggestion is analyzed for viewer emotional state/intent.
+
+| Vibe | Icon | Signal Words |
+|------|------|--------------|
+| Learning | ✏️ | explained, tutorial, how to, guide, basics |
+| Frustrated | 😤 | sucks, broken, trash, hate, worst |
+| Problem-Solving | 🔧 | fix, not working, issue, error, help |
+| Current | ⏰ | 2024, 2025, new, latest, update |
+| Curious | 🤔 | why, what is, how does, meaning |
+| Action-Ready | 🎯 | tips, tricks, start, create, grow |
+| Comparing | ⚖️ | vs, versus, compare, better than, which |
+| Brand | 🏢 | law firm, insurance, company, services |
+
+### Position Weighting
+
+Higher-ranked suggestions carry more weight in vibe distribution:
+
+| Position | Weight |
+|----------|--------|
+| #1 | 1.00 |
+| #2 | 0.50 |
+| #3 | 0.25 |
+| #4 | 0.15 |
+| #5 | 0.10 |
+| #6-9 | 0.03-0.08 |
+| #10+ | 0.03 |
+
+---
+
+## Traffic Light Signal (Legacy)
+
+The modal also displays a simplified Go/Caution/Stop signal derived from the dual scores:
+
+| Condition | Signal | Message |
+|-----------|--------|---------|
+| SuperTopic (D≥50, O≥90) | 🟢 Go | SuperTopic detected! Strong demand with excellent opportunity. |
+| Average score ≥65 | 🟢 Go | Good signal. Solid viewer interest with opportunity to rank. |
+| Average score ≥45 | 🟡 Caution | Moderate signal. Some interest detected but verify on YouTube. |
+| Average score ≥30 | 🟡 Caution | Limited signal. Consider refining or drilling deeper. |
+| Average score <30 | 🔴 Stop | Weak signal. Very limited demand or opportunity. |
+
+*Average score = (Demand + Opportunity) / 2*
+
+---
+
+## Special Patterns
+
+### Opportunity Pattern Detection
+
+A phrase is flagged as an "Opportunity" when:
+- Weighted score ≥18 (exactMatch×3 + topicOnly×1)
+- Exact match % between 1-49%
+- Suggestion count ≥8
+
+This indicates: **demand exists, but you can still rank**.
+
+### Low Competition Signal
+
+Flagged when either condition is met:
+1. **Ideal Opportunity**: Exact match % < 10% AND Suggestion count ≥ 8
+2. **Good Opportunity**: Weighted score ≥ 12 AND Exact match % < 40% AND Suggestion count ≥ 8
+
+*Condition 1 covers the best-case scenario: high demand (8+ suggestions) with minimal direct competition (< 10% exact match).*
+
+---
+
+## Top Badge (Always Shown)
+
+The modal **always** displays a badge at the top indicating the phrase's status:
+
+| Badge | Icon | Trigger Condition | Color |
+|-------|------|------------------|-------|
+| **SuperTopic** | 🏆 (Logo) | Demand ≥ 50 AND Opportunity ≥ 90 | Gold |
+| **Extreme Demand** | 🔥 | Demand ≥ 95 | Red |
+| **Very High Demand** | ⚡ | Demand 85-94 | Green |
+| **High Demand** | 📊 | Demand 77-84 | Green |
+| **Strong Demand** | 💪 | Demand 67-76 | Blue |
+| **Good Opportunity** | ✓ | Demand 57-66 | Blue |
+| **Moderate Interest** | 💡 | Demand 47-56 | Orange |
+| **Some Interest** | 🔍 | Demand 37-46 | Orange |
+| **Limited Interest** | ❄️ | Demand 0-36 | Gray |
+
+## Pattern Badges (Opportunity Mode)
+
+In Opportunity Mode (3+ words), additional pattern badges appear below the score cards:
+
+| Badge | Icon | Trigger Condition | Meaning |
+|-------|------|------------------|---------|
+| **Suggestion Count** | 📊 | Always shown | Number of autocomplete suggestions found |
+| **Viewer Intent** | 🎯 | Any intent detected | Phrase contains learning, problem, action, or buyer intent signals |
+| **Long-Term Views** | ♾️ | Evergreen intent detected | Learning or problem-solving content with compounding value |
+| **Low Comp Signal** | 📈 | See Low Competition Signal section | Good demand with low competition - ideal for ranking |
+
+*Pattern badges appear below the score cards against dark background for better contrast.*
+
+---
+
+## Display Modes
+
+| Word Count | Mode | What Shows |
+|------------|------|------------|
+| 2 words | Discovery | Simple signal, match stats, vibes |
+| 3+ words | Opportunity | Compact score cards + pattern badges |
+
+### Simple vs Detailed Toggle
+
+Users can toggle between **Simple** and **Detailed** views using the icon in the upper right:
+
+- **Simple View**: Score cards + pattern badges only
+- **Detailed View**: Adds Match Analysis card + Popular Topics grid + Anchor Words
+
+*Match Analysis (Topic Match %, Exact Match %) only appears in Detailed mode to reduce clutter.*
+
+---
+
+## API Response Structure
+
+The `/api/seed-signal` endpoint returns:
 
 ```typescript
-// Enhanced response
 {
-  seed: "youtube algorithm",
-  
-  // Demand Level
-  demandLevel: "extreme",
-  demandLabel: "Extreme Demand",
-  suggestionCount: 10,
-  
-  // Seed Strength
-  seedStrength: "strong",
-  seedStrengthLabel: "Strong Seed",
-  exactMatchCount: 9,
-  exactMatchPercent: 90,
-  
-  // Viewer Vibe
-  viewerVibe: {
-    dominant: "frustrated",
-    distribution: {
-      learning: 35,
-      frustrated: 40,
-      problemSolving: 15,
-      current: 10,
-      curious: 0,
-      comparing: 0,
-      actionReady: 0,
-      opinionated: 0
-    },
-    insight: "Many viewers are frustrated — consider an empathetic, understanding angle"
-  },
-  
-  // Raw data
-  suggestions: [...]
-}
-```
-
-### Component
-
-**File:** `/src/components/ui/ViewerLandscapeModal.tsx`
-
-**Props:**
-```typescript
-interface ViewerLandscapeModalProps {
   seed: string;
-  isOpen: boolean;
-  onClose: () => void;
-  // Optional: pre-fetched data (for when we already have it)
-  data?: ViewerLandscapeData;
+  
+  // Primary Scores
+  demandScore: number;           // 0-100
+  demandLabel: string;           // "Strong Demand", etc.
+  opportunityScore: number;      // 0-100
+  opportunityLabel: string;      // "Excellent Opportunity", etc.
+  isSuperTopic: boolean;         // Demand ≥ 50 AND Opportunity ≥ 90
+  
+  // Intent Analysis
+  intentMatches: IntentMatch[];
+  hasEvergreenIntent: boolean;
+  
+  // Match Statistics
+  suggestionCount: number;
+  exactMatchCount: number;
+  exactMatchPercent: number;
+  topicMatchCount: number;
+  topicMatchPercent: number;
+  
+  // Vibe Analysis
+  vibeDistribution: VibeDistribution;
+  dominantVibe: VibeCategory;
+  dominantVibePercent: number;
+  
+  // Display Data
+  signal: 'go' | 'caution' | 'stop';
+  signalMessage: string;
+  insight: string;
+  rankedSuggestions: RankedSuggestion[];
 }
 ```
 
-**Layout:**
-```
-┌─────────────────────────────────────────────────────────┐
-│  "youtube algorithm"                               ✕    │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │ Extreme Demand  │  │ Strong Seed     │              │
-│  │ 10 suggestions  │  │ 9 of 10 match   │  ⓘ          │
-│  └─────────────────┘  └─────────────────┘              │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  Viewer Vibe                                            │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 🎓 Learning     ████████░░░░  35%               │   │
-│  │ 😤 Frustrated   ██████████░░  40%               │   │
-│  │ 🔧 Problem      ████░░░░░░░░  15%               │   │
-│  │ ⏰ Current      ██░░░░░░░░░░  10%               │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  💡 Many viewers are frustrated with this topic.        │
-│     Consider an empathetic angle that acknowledges      │
-│     their challenges before offering solutions.         │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Colors (Brand):**
-- Background: `#1A1D24` (card dark)
-- Borders: `#2A2F3A` (card border)
-- Primary accent: `#6B9BD1` (electric blue)
-- Success: `#2BD899` (primary green)
-- Warning: `#F59E0B` (trending orange)
-- Text: `#FFFFFF` / `#A6B0C2` (primary/secondary)
-
 ---
 
-## Page 4: Competition Analysis (Future)
-
-For longer phrases (5-6 words), we add deeper analysis:
-
-### Semantic Similarity Check
-
-When a user selects a specific phrase like "how to introduce yourself on youtube":
-
-1. **Pull Top 10 autocomplete** for that exact phrase
-2. **Analyze semantic similarity:**
-   - How many suggestions are just rephrasing the same idea?
-   - "how to introduce yourself on youtube"
-   - "how to introduce myself on youtube channel"
-   - "how to introduce yourself in youtube video"
-   - → These are ALL the same intent!
-
-3. **Calculate Competition Signal:**
-   - 1 exact match + 9 semantic duplicates = **Low Competition, High Opportunity**
-   - 1 exact match + 9 unrelated suggestions = **Phrase too specific, limited interest**
-
-### Long-Term Views Indicator
-
-**Criteria for "Long-Term Views Potential":**
-- Strong semantic focus (80%+ similar intent)
-- Moderate-to-high demand
-- Learning or Problem-Solving dominant vibe
-- Evergreen topic (not tied to specific year/event)
-
-**Display:**
-```
-┌─────────────────────────────────────────────────┐
-│  ⭐ Long-Term Views Potential                    │
-│                                                 │
-│  This phrase has signals for sustained traffic: │
-│  • Low literal competition (1 exact match)      │
-│  • High intent focus (all variations = same Q)  │
-│  • Learning audience (want to understand)       │
-│                                                 │
-│  Videos on this topic can generate views        │
-│  day after day, month after month.              │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## Files Reference
+## File References
 
 | File | Purpose |
 |------|---------|
-| `/src/lib/viewer-demand.ts` | 900+ signal words, scoring logic |
-| `/src/lib/seed-signal.ts` | Basic signal calculation |
+| `/src/lib/viewer-landscape.ts` | Core algorithm (source of truth) |
+| `/src/components/ui/ViewerLandscapeModal.tsx` | Modal UI component |
 | `/src/app/api/seed-signal/route.ts` | API endpoint |
-| `/src/components/ui/SeedSignalIndicator.tsx` | Current simple indicator |
-| `/src/components/ui/ViewerLandscapeModal.tsx` | **NEW** - Full analysis modal |
-| `/docs/viewer-landscape-analysis.md` | This documentation |
 
 ---
 
-## Implementation Phases
+## Example Calculations
 
-### Phase 1: Core Modal (Now)
-- [ ] Create `ViewerLandscapeModal.tsx`
-- [ ] Display Demand Level (8 tiers)
-- [ ] Display Seed Strength with info button
-- [ ] Display Viewer Vibe breakdown (bars)
-- [ ] Show insight message based on dominant vibe
-- [ ] Integrate on Page 1 (Target) and Page 2 (Seed)
+### Example: "how to grow on youtube" (5 words)
 
-### Phase 2: Enhanced API
-- [ ] Extend `/api/seed-signal` response
-- [ ] Add vibe distribution calculation
-- [ ] Add insight message generation
+**Input:**
+- Suggestions: 12
+- Exact matches: 2 (17%)
+- Topic matches: 10 (83%)
+- Intent detected: Learning (+8)
 
-### Phase 3: Page 4 Competition Analysis (Future)
-- [ ] Semantic similarity detection
-- [ ] Long-Term Views indicator
-- [ ] Competition signal calculation
+**Demand Score:**
+- Suggestion base: (12/14) × 50 = 43
+- Word count multiplier: 43 × 1.1 = 47
+- Topic match bonus: 0.83 × 15 = 12
+- Exact match bonus: 2 × 2 = 4
+- Intent bonus: 8
+- **Total: 71 (High Demand)**
 
----
+**Opportunity Score:**
+- Low comp signal (17%): 30
+- Long-tail bonus (5 words): 20
+- Evergreen intent (learning): 14
+- Demand validation (12 suggestions): 15
+- **Total: 79 (Great Opportunity)**
 
-## Example Analyses
-
-### Example 1: "youtube algorithm"
-
-```
-Demand Level: Extreme Demand (10 suggestions)
-Seed Strength: Strong (9/10 exact match)
-Viewer Vibe:
-  - 😤 Frustrated: 40%
-  - 🎓 Learning: 35%  
-  - 🔧 Problem: 15%
-  - ⏰ Current: 10%
-
-Insight: "Many viewers are frustrated with this topic. 
-Consider an empathetic angle that acknowledges their 
-challenges before offering solutions."
-```
-
-### Example 2: "thumbnail contrast"
-
-```
-Demand Level: Low Demand (3 suggestions)
-Seed Strength: Weak (1/3 exact match)
-Viewer Vibe:
-  - 🎓 Learning: 60%
-  - 🎯 Action: 40%
-
-Insight: "Limited search activity. Viewers who do 
-search are eager to learn — but consider a broader 
-angle to reach more people."
-```
-
-### Example 3: "legacy planning"
-
-```
-Demand Level: Solid Demand (5 suggestions)
-Seed Strength: Weak (1/5 exact match)
-Viewer Vibe:
-  - 🏢 Brand/Company: 60% (law group, insurance)
-  - 🎓 Learning: 25%
-  - 🤔 Curious: 15%
-
-Insight: "⚠️ Most results are businesses, not viewers.
-Consider 'estate planning' or 'financial legacy' 
-for better viewer reach."
-```
-
-### Example 4: "how to introduce yourself on youtube" (Long Phrase)
-
-```
-Demand Level: High Demand (10 suggestions)
-Seed Strength: Low literal (1/10 exact)
-              BUT High semantic (10/10 same intent)
-Viewer Vibe:
-  - 🎓 Learning: 80%
-  - 🎯 Action: 20%
-
-Insight: "Strong opportunity! All viewers want the 
-same answer — just phrased differently. Low 
-competition, high Long-Term Views potential."
-```
+**Result:** Not quite a SuperTopic (needs O≥90), but excellent phrase to target.
 
 ---
 
-## Design Notes
-
-### Brand Colors
-- Use `#6B9BD1` (Electric Blue) for highlights, not purple/gray
-- Use `#2BD899` (Green) for positive signals
-- Use `#F59E0B` (Orange) for warnings
-- Dark backgrounds: `#1A1D24`, `#0F1117`
-
-### UX Principles
-- **Scannable** — Users should understand in 2 seconds
-- **Informative, not blocking** — We inform, never prevent
-- **Empathetic messaging** — Acknowledge challenges, offer perspective
-- **Progressive disclosure** — Simple view + detail button for more
-
----
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2025-12-02 | Initial documentation |
+*This document reflects the algorithm as implemented in `/src/lib/viewer-landscape.ts`.*

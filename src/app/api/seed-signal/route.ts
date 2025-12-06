@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { seed } = body;
+    const { seed, parentDemandScore, level } = body;
 
     if (!seed || typeof seed !== "string") {
       return NextResponse.json(
@@ -121,9 +121,10 @@ export async function POST(request: NextRequest) {
     
     // Calculate legacy signal (for backward compatibility)
     const signal = calculateSeedSignal(trimmedSeed, suggestions);
-    
+
     // Calculate new viewer landscape analysis
-    const landscape = analyzeViewerLandscape(trimmedSeed, suggestions);
+    // Pass parent demand context for inheritance (Level 2+)
+    const landscape = analyzeViewerLandscape(trimmedSeed, suggestions, parentDemandScore, level);
 
     // Return combined response (landscape is the new primary data)
     return NextResponse.json({
