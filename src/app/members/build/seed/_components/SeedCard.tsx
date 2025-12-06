@@ -80,15 +80,15 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
   const { showToast } = useToast();
-  
+
   const [seedPhrase, setSeedPhrase] = useState("");
-  
+
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPhrases, setModalPhrases] = useState<string[]>([]);
   const [modalMode, setModalMode] = useState<"selection" | "expanding">("selection");
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Auto-expansion state
   const [expansionProgress, setExpansionProgress] = useState<ExpansionProgress | null>(null);
   const [isAutoExpanding, setIsAutoExpanding] = useState(false);
@@ -98,7 +98,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   const expansionAbortRef = useRef(false);
   const messageRef = useRef<NodeJS.Timeout | null>(null);
   const userNavigatedAwayRef = useRef(false); // Track if user closed modal to continue browsing
-  
+
   // Module completion tracking
   const [modules, setModules] = useState<ModuleState>({
     top10: "idle",
@@ -108,10 +108,10 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   });
 
   // Check if all modules are complete (data exists)
-  const modulesAllComplete = modules.top10 === "complete" && 
-                      modules.child === "complete" && 
-                      modules.az === "complete" && 
-                      modules.prefix === "complete";
+  const modulesAllComplete = modules.top10 === "complete" &&
+    modules.child === "complete" &&
+    modules.az === "complete" &&
+    modules.prefix === "complete";
 
   // GATE: Only show "complete" UI if:
   // 1. We're not currently expanding AND all modules have data, OR
@@ -129,7 +129,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
         setSeedPhrase(decodeURIComponent(seedFromUrl));
         return;
       }
-      
+
       if (sessionId) {
         try {
           const session = await getSessionById(sessionId);
@@ -180,18 +180,18 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   // Handle the main "Generate Topic Ideas" button click
   const handleGenerateClick = async () => {
     if (!seedPhrase || !sessionId) return;
-    
+
     setModules((prev) => ({ ...prev, top10: "loading" }));
-    
+
     try {
       const response = await authFetch("/api/topics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seed: seedPhrase, method: "top10" }),
       });
-      
+
       if (!response.ok) throw new Error("Failed to fetch suggestions");
-      
+
       const data = await response.json();
       setModalPhrases(data.suggestions);
       setModalOpen(true);
@@ -207,20 +207,20 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
       setModalOpen(false);
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
       const seedInputs = selectedPhrases.map((phrase, index) => ({
         phrase,
         generationMethod: "top10",
         position: index,
       }));
-      
+
       await addSeeds(sessionId, seedInputs);
       setModules((prev) => ({ ...prev, top10: "complete" }));
       onPhrasesAdded?.();
-      
+
       // Switch modal to expansion mode and start auto-expansion
       setModalMode("expanding");
       setIsAutoExpanding(true);
@@ -228,9 +228,9 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
       setIsFullyFinished(false); // Reset the finished flag
       setOverallProgress(10); // Top 10 selection = 10%
       expansionAbortRef.current = false;
-      
+
       runAutoExpansion(selectedPhrases);
-      
+
     } catch (error) {
       console.error("Failed to save phrases:", error);
       setModalOpen(false);
@@ -275,17 +275,17 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
-            
+
             // Process complete SSE events (separated by double newlines)
             const events = buffer.split("\n\n");
             buffer = events.pop() || ""; // Keep incomplete event in buffer
 
             for (const eventStr of events) {
               if (!eventStr.startsWith("data: ")) continue;
-              
+
               try {
                 const event: StreamProgressEvent = JSON.parse(eventStr.slice(6));
-                
+
                 if (event.type === "progress") {
                   // Update expansion progress for modal
                   setExpansionProgress({
@@ -293,7 +293,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                     current: event.current,
                     total: event.total,
                   });
-                  
+
                   // Refresh the seeds table immediately when new phrases are added
                   if (event.added > 0) {
                     onPhrasesAdded?.();
@@ -313,7 +313,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
               }
             }
           }
-          
+
           // Stream ended without explicit complete event
           onPhrasesAdded?.();
           resolve(true);
@@ -331,87 +331,77 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   // Run the full auto-expansion sequence with SSE streaming
   const runAutoExpansion = async (parentPhrases: string[]) => {
     if (!sessionId || !seedPhrase) return;
-    
+
     startMessageRotation();
-    
+
     try {
       // Phase 1: Child (10% → 40%)
       if (!expansionAbortRef.current) {
         setExpansionProgress({ phase: "child", current: 0, total: parentPhrases.length * 3 });
         setModules((prev) => ({ ...prev, child: "loading" }));
-        
+
         const childSuccess = await streamExpansion("child", seedPhrase, parentPhrases);
-        
+
         if (childSuccess) {
           setModules((prev) => ({ ...prev, child: "complete" }));
           setOverallProgress(40);
         }
       }
-      
+
       // Phase 2: A-Z (40% → 70%)
       if (!expansionAbortRef.current) {
         setExpansionProgress({ phase: "az", current: 0, total: 26 });
         setModules((prev) => ({ ...prev, az: "loading" }));
-        
+
         const azSuccess = await streamExpansion("az", seedPhrase);
-        
+
         if (azSuccess) {
           setModules((prev) => ({ ...prev, az: "complete" }));
           setOverallProgress(70);
         }
       }
-      
+
       // Phase 3: Prefix (70% → 100%)
       if (!expansionAbortRef.current) {
         setExpansionProgress({ phase: "prefix", current: 0, total: 25 });
         setModules((prev) => ({ ...prev, prefix: "loading" }));
-        
+
         const prefixSuccess = await streamExpansion("prefix", seedPhrase);
-        
+
         if (prefixSuccess) {
           // Don't set to "complete" yet - wait for final sync
           setOverallProgress(100);
         }
       }
-      
+
       // Final refresh to ensure all phrases are in the database and displayed
       // Wait longer to ensure all async database writes have completed
       await new Promise(resolve => setTimeout(resolve, 2000));
       onPhrasesAdded?.();
-      
+
       // Wait for the table to actually render the new data
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // Clean up expansion state
       stopAllTimers();
       setExpansionProgress(null);
       setModalOpen(false);
       setModalMode("selection");
-      
+
       // Set prefix to complete in module state
       setModules((prev) => ({ ...prev, prefix: "complete" }));
-      
+
       // NOW set the finished flag - this is the GATE that allows "complete" UI to show
       setIsFullyFinished(true);
       setIsAutoExpanding(false);
       setIsExpanding(false);
-      
+
       // Only show toast if user navigated away (closed modal during expansion)
       // If they stayed on the page, they already see the "complete" UI
       if (userNavigatedAwayRef.current) {
-        showToast({
-          type: "success",
-          title: "Session Complete",
-          message: `Your expansion for ${toTitleCase(seedPhrase)} is ready for review.`,
-          action: {
-            label: "View Results",
-            href: "/members/build/refine",
-          },
-          duration: 0,
-        });
         userNavigatedAwayRef.current = false; // Reset for next expansion
       }
-      
+
     } catch (error) {
       console.error("Auto-expansion failed:", error);
       stopAllTimers();
@@ -420,7 +410,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
       setExpansionProgress(null);
       setModalOpen(false);
       setModalMode("selection");
-      
+
       showToast({
         type: "error",
         title: "Expansion Failed",
@@ -446,16 +436,16 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   };
 
   const currentPhase = getCurrentPhase();
-  
+
   // Calculate real progress based on current phase progress
   const getRealProgress = (): number => {
     if (!expansionProgress || !currentPhase) return overallProgress;
-    
+
     const { current, total } = expansionProgress;
     if (total === 0) return overallProgress;
-    
+
     const phaseProgress = (current / total) * 100;
-    
+
     // Map phase progress to overall progress ranges
     switch (currentPhase) {
       case "child":
@@ -499,7 +489,7 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                 Start Expansion
               </button>
               <p className="text-white/80 text-xl text-center font-medium">
-                {seedPhrase 
+                {seedPhrase
                   ? "From Seed to Super Topic — One Click to Find Yours."
                   : "Create a session with a topic to get started."
                 }
@@ -532,38 +522,38 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
             <div className="flex flex-col gap-5 pt-2 w-full self-stretch">
               {/* Rotating Message - neutral cream/white color */}
               {currentPhase && (
-                <p 
+                <p
                   className="text-center text-lg font-normal transition-opacity duration-500"
                   style={{ color: PROGRESS_NEUTRAL_COLOR }}
                 >
                   {PROGRESS_MESSAGES[currentPhase]?.[messageIndex % PROGRESS_MESSAGES[currentPhase].length]}
                 </p>
               )}
-              
+
               {/* Progress Bar - 78% width, centered */}
-              <div 
+              <div
                 className="relative h-5 bg-black/30 rounded-full border border-white/10 overflow-hidden mx-auto"
                 style={{ width: '78%' }}
               >
                 {/* Fill - neutral electric blue */}
-                <div 
+                <div
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out"
-                  style={{ 
+                  style={{
                     width: `${displayProgress}%`,
                     backgroundColor: PROGRESS_BAR_COLOR,
                     opacity: 0.7,
                   }}
                 />
                 {/* Shimmer effect */}
-                <div 
+                <div
                   className="absolute inset-y-0 left-0 rounded-full animate-pulse"
-                  style={{ 
+                  style={{
                     width: `${displayProgress}%`,
                     background: `linear-gradient(90deg, transparent, ${PROGRESS_BAR_COLOR}50, transparent)`,
                   }}
                 />
               </div>
-              
+
               {/* Phase Status Dots - neutral cream color for all - Only show in Detailed mode */}
               {isFull && (
                 <div className="flex items-center justify-center gap-5">
@@ -571,24 +561,22 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                     const status = modules[method];
                     const isComplete = status === "complete";
                     const isActive = status === "loading";
-                    
+
                     return (
                       <div key={method} className="flex items-center gap-2">
                         <div
-                          className={`w-3 h-3 rounded-full transition-all ${
-                            isComplete 
-                              ? "bg-[#E0E7EF]" 
-                              : isActive 
-                              ? "bg-[#E0E7EF] animate-pulse" 
-                              : "bg-white/20"
-                          }`}
+                          className={`w-3 h-3 rounded-full transition-all ${isComplete
+                              ? "bg-[#E0E7EF]"
+                              : isActive
+                                ? "bg-[#E0E7EF] animate-pulse"
+                                : "bg-white/20"
+                            }`}
                         />
-                        <span 
-                          className={`text-base font-medium transition-colors ${
-                            isComplete || isActive
-                              ? "text-[#E0E7EF]" 
+                        <span
+                          className={`text-base font-medium transition-colors ${isComplete || isActive
+                              ? "text-[#E0E7EF]"
                               : "text-white/40"
-                          }`}
+                            }`}
                         >
                           {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
                         </span>

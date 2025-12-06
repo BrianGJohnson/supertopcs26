@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
-import { 
-  IconHome, 
+import {
+  IconHome,
   IconTarget,
   IconPlant2,
   IconSatellite,
-  IconChevronRight
+  IconSearch,
+  IconChevronRight,
+  IconActivity
 } from "@tabler/icons-react";
 
 export default function DashboardPage() {
@@ -32,78 +34,96 @@ export default function DashboardPage() {
           description="Your central hub to create winning videos, discover trending topics, and monitor your niche."
         />
 
-        {/* Module Cards - 3 Column Layout */}
-        <div className="flex items-end justify-center gap-8 px-4 mt-8">
-          
-          {/* Just Born Topics - Left Card (Coming Soon) */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="flex flex-col items-center p-10 rounded-2xl bg-white/[0.03] border-2 border-white/10 w-[312px] h-[408px] opacity-50 cursor-not-allowed relative"
-          >
-            {/* Coming Soon Badge */}
-            <div className="absolute top-5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#F59E0B]/20 border border-[#F59E0B]/30">
-              <span className="text-[#F59E0B] text-xs font-medium uppercase tracking-wide">Coming Soon</span>
-            </div>
-            
-            <div className="w-24 h-24 rounded-2xl bg-white/[0.05] flex items-center justify-center mb-6 mt-8">
-              <IconPlant2 size={52} className="text-white/30" />
-            </div>
-            <h3 className="font-bold text-2xl text-white/40 mb-3">Just Born</h3>
-            <p className="text-white/30 text-center text-[1.05rem] leading-relaxed mb-4">
-              Topics that just hit the internet. Catch the wave early.
-            </p>
-            <div className="mt-auto px-4 py-2 rounded-full bg-[#F59E0B]/15 border border-[#F59E0B]/25">
-              <span className="text-[#F59E0B]/70 text-sm font-medium">Coming Soon</span>
-            </div>
-          </motion.div>
+        {/* Module Area - Pyramid Layout */}
+        <div className="flex flex-col items-center justify-center gap-8 px-4 mt-8">
 
-          {/* Built for the Viewer - Center Card (FEATURED - 15% taller, 5% wider) */}
+          {/* Row 1: The Centerpiece (Built for the Viewer) */}
           <motion.button
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
             onClick={() => router.push("/members/build/target")}
-            className="flex flex-col items-center p-12 rounded-2xl bg-[#2BD899]/15 border-2 border-[#2BD899]/50 hover:border-[#2BD899] hover:bg-[#2BD899]/20 hover:shadow-[0_0_40px_rgba(43,216,153,0.25)] transition-all group w-[336px] h-[468px]"
+            className="flex flex-col items-center p-12 rounded-3xl bg-[#2BD899]/10 border-2 border-[#2BD899]/50 hover:border-[#2BD899] hover:bg-[#2BD899]/15 hover:shadow-[0_0_50px_rgba(43,216,153,0.3)] transition-all group w-full max-w-2xl relative overflow-hidden"
           >
-            <div className="w-28 h-28 rounded-2xl bg-[#2BD899]/25 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+            {/* Background Decoration */}
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#2BD899]/50 to-transparent opacity-50" />
+
+            <div className="w-28 h-28 rounded-2xl bg-[#2BD899]/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-[0_0_30px_rgba(43,216,153,0.15)]">
               <IconTarget size={62} className="text-[#2BD899]" />
             </div>
-            <h3 className="font-bold text-2xl text-white mb-3">Built for the Viewer</h3>
-            <p className="text-white/60 text-center text-xl leading-relaxed mb-4">
-              Create video packages designed to win. Start with your pillars and build a Super Topic.
+            <h3 className="font-bold text-3xl text-white mb-4">Built for the Viewer</h3>
+            <p className="text-white/70 text-center text-xl leading-relaxed mb-6 max-w-lg">
+              Create video packages designed to win. Expand your seed topic, find the perfect angle, and craft a powerful title & thumbnail.
             </p>
-            <div className="mt-auto flex items-center gap-2 text-[#2BD899] text-base font-semibold group-hover:gap-3 transition-all">
+            <div className="mt-auto flex items-center gap-3 px-8 py-3 rounded-full bg-[#2BD899]/10 border-2 border-[#2BD899]/30 text-[#2BD899] text-lg font-bold group-hover:bg-[#2BD899] group-hover:text-[#0B1220] transition-all">
               <span>Start Building</span>
-              <IconChevronRight size={20} />
+              <IconChevronRight size={24} />
             </div>
           </motion.button>
 
-          {/* Niche Pulse - Right Card (Coming Soon) */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="flex flex-col items-center p-10 rounded-2xl bg-white/[0.03] border-2 border-white/10 w-[312px] h-[408px] opacity-50 cursor-not-allowed relative"
-          >
-            {/* Coming Soon Badge */}
-            <div className="absolute top-5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#7A5CFA]/20 border border-[#7A5CFA]/30">
-              <span className="text-[#7A5CFA] text-xs font-medium uppercase tracking-wide">Coming Soon</span>
-            </div>
-            
-            <div className="w-24 h-24 rounded-2xl bg-white/[0.05] flex items-center justify-center mb-6 mt-8">
-              <IconSatellite size={52} className="text-white/30" />
-            </div>
-            <h3 className="font-bold text-2xl text-white/40 mb-3">Niche Pulse</h3>
-            <p className="text-white/30 text-center text-[1.05rem] leading-relaxed mb-4">
-              See what&apos;s actually trending in your niche. Real-time intel from across the web.
-            </p>
-            <div className="mt-auto px-4 py-2 rounded-full bg-[#7A5CFA]/15 border border-[#7A5CFA]/25">
-              <span className="text-[#7A5CFA]/70 text-sm font-medium">Coming Soon</span>
-            </div>
-          </motion.div>
+          {/* Row 2: The Toolkit (3 Columns) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
 
+            {/* Just Born Topics - Left Card (Coming Soon) */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="flex flex-col items-center p-8 rounded-2xl bg-white/[0.03] border-2 border-white/10 h-[420px] opacity-50 cursor-not-allowed relative hover:border-white/20 transition-all"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-white/[0.05] flex items-center justify-center mb-6 mt-8">
+                <IconPlant2 size={40} className="text-white/30" />
+              </div>
+              <h3 className="font-bold text-xl text-white/50 mb-3">Just Born</h3>
+              <p className="text-white/40 text-center text-lg leading-relaxed mb-4">
+                Topics that just hit the internet. Catch the wave early.
+              </p>
+              <div className="mt-auto px-5 py-2 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20">
+                <span className="text-[#F59E0B]/70 text-sm font-bold uppercase tracking-wide">Coming Soon</span>
+              </div>
+            </motion.div>
+
+            {/* Topic Deep Dive - Center Card (Active) */}
+            <motion.button
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              onClick={() => router.push("/members/deep")}
+              className="flex flex-col items-center p-8 rounded-2xl bg-[#7A5CFA]/10 border-2 border-[#7A5CFA]/30 hover:border-[#7A5CFA] hover:bg-[#7A5CFA]/20 hover:shadow-[0_0_30px_rgba(122,92,250,0.25)] h-[420px] relative group transition-all"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-[#7A5CFA]/20 flex items-center justify-center mb-6 mt-8 group-hover:scale-110 transition-transform">
+                <IconSearch size={40} className="text-[#7A5CFA]" />
+              </div>
+              <h3 className="font-bold text-xl text-white mb-3">Topic Deep Dive</h3>
+              <p className="text-white/70 text-center text-lg leading-relaxed mb-6">
+                Deep dive into any topic. Check demand, competition, and opportunities.
+              </p>
+              <div className="mt-auto px-5 py-2 rounded-full border border-[#7A5CFA]/30 text-[#7A5CFA] bg-[#7A5CFA]/10 group-hover:bg-[#7A5CFA] group-hover:text-white transition-colors text-sm font-bold flex items-center gap-2">
+                <span>Start Analysis</span>
+                <IconChevronRight size={16} />
+              </div>
+            </motion.button>
+
+            {/* Niche Pulse - Right Card (Coming Soon) */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="flex flex-col items-center p-8 rounded-2xl bg-[#06B6D4]/5 border-2 border-[#06B6D4]/30 h-[420px] opacity-60 cursor-not-allowed relative hover:bg-[#06B6D4]/10 transition-all"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-[#06B6D4]/10 flex items-center justify-center mb-6 mt-8">
+                <IconActivity size={40} className="text-[#06B6D4]" />
+              </div>
+              <h3 className="font-bold text-xl text-white/70 mb-3">Niche Pulse</h3>
+              <p className="text-white/50 text-center text-lg leading-relaxed mb-4">
+                Monitor your niche's health and spot monetization trends.
+              </p>
+              <div className="mt-auto px-5 py-2 rounded-full bg-[#06B6D4]/10 border border-[#06B6D4]/20">
+                <span className="text-[#06B6D4]/70 text-sm font-bold uppercase tracking-wide">Coming Soon</span>
+              </div>
+            </motion.div>
+
+          </div>
         </div>
 
         {/* Tip Section */}
@@ -114,7 +134,7 @@ export default function DashboardPage() {
           className="text-center"
         >
           <p className="text-white/40 text-sm">
-            💡 <span className="text-white/50">Pro tip:</span> Use <span className="text-[#7A5CFA]">Niche Pulse</span> to discover what&apos;s trending, then build it in <span className="text-[#2BD899]">Built for the Viewer</span>.
+            💡 <span className="text-white/50">Pro tip:</span> Use <span className="text-[#7A5CFA]">Topic Deep Dive</span> to validate your ideas, then build them in <span className="text-[#2BD899]">Built for the Viewer</span>.
           </p>
         </motion.div>
 

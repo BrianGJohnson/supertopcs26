@@ -25,6 +25,7 @@ interface ViewerLandscapeModalProps {
   seed: string;
   onCreateSession?: (seed: string) => void;
   onPass?: () => void;
+  onQuickStart?: (seed: string) => void;
 }
 
 interface ApiResponse {
@@ -158,18 +159,19 @@ export function ViewerLandscapeModal({
   seed,
   onCreateSession,
   onPass,
+  onQuickStart,
 }: ViewerLandscapeModalProps) {
   const [landscape, setLandscape] = useState<ViewerLandscape | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  
+
   // Current seed for testing different phrases
   const [currentSeed, setCurrentSeed] = useState(seed);
-  
+
   // Display mode (Simple vs Detailed)
   const { mode, isFull, setMode } = useDisplayMode();
-  
+
   // Navigation stack for drill-down
   const [drillDownStack, setDrillDownStack] = useState<DrillDownContext[]>([]);
 
@@ -344,7 +346,7 @@ export function ViewerLandscapeModal({
    */
   const getDisplayVibes = useCallback((): { vibe: VibeCategory; percent: number }[] => {
     if (!landscape) return [];
-    
+
     const vibes: { vibe: VibeCategory; percent: number }[] = [
       { vibe: 'learning', percent: landscape.vibeDistribution.learning },
       { vibe: 'frustrated', percent: landscape.vibeDistribution.frustrated },
@@ -354,7 +356,7 @@ export function ViewerLandscapeModal({
       { vibe: 'action-ready', percent: landscape.vibeDistribution.actionReady },
       { vibe: 'comparing', percent: landscape.vibeDistribution.comparing },
     ];
-    
+
     return vibes
       .filter(v => v.percent > 0)
       .sort((a, b) => b.percent - a.percent)
@@ -390,7 +392,7 @@ export function ViewerLandscapeModal({
             ) : (
               <div />
             )}
-            
+
             <div className="flex items-center gap-1">
               <ViewModeToggle mode={mode} onModeChange={setMode} />
               <button
@@ -672,52 +674,52 @@ export function ViewerLandscapeModal({
                           .filter((item) => item.phrase.toLowerCase().trim() !== currentPhrase.toLowerCase().trim())
                           .slice(0, 14)
                           .map((item, index) => (
-                          <button
-                            key={item.position}
-                            onClick={() => handleDrillDown(item.phrase, item.position)}
-                            onMouseEnter={(e) => {
-                              // Capture rect immediately before setTimeout
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              // Clear any existing timeout
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current);
-                              }
-                              
-                              // If tooltip is already visible, switch with shorter delay (300ms)
-                              // If not, use longer initial delay (400ms)
-                              const delay = isTooltipVisibleRef.current ? 300 : 400;
-                              
-                              // Set new timeout for delayed switch
-                              tooltipTimeoutRef.current = setTimeout(() => {
-                                setTooltipPos({ x: rect.left, y: rect.top });
-                                setHoveredPhrase(item.phrase);
-                                isTooltipVisibleRef.current = true;
-                              }, delay);
-                            }}
-                            onMouseLeave={() => {
-                              // Clear timeout if mouse leaves before delay
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current);
-                              }
-                              setHoveredPhrase(null);
-                              isTooltipVisibleRef.current = false;
-                            }}
-                            className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-left group relative"
-                          >
-                            <span className="text-white/40 text-base font-bold w-6 shrink-0">
-                              {index + 1}.
-                            </span>
-                            <span className="flex-1 text-white text-base truncate group-hover:text-[#2BD899] transition-colors">
-                              {capitalizePhrase(item.phrase)}
-                            </span>
-                            <span className="text-xl shrink-0" title={getVibeLabel(item.vibe)}>
-                              {item.vibeIcon}
-                            </span>
-                            <svg className="w-4 h-4 text-white/30 group-hover:text-[#2BD899] transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        ))}
+                            <button
+                              key={item.position}
+                              onClick={() => handleDrillDown(item.phrase, item.position)}
+                              onMouseEnter={(e) => {
+                                // Capture rect immediately before setTimeout
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                // Clear any existing timeout
+                                if (tooltipTimeoutRef.current) {
+                                  clearTimeout(tooltipTimeoutRef.current);
+                                }
+
+                                // If tooltip is already visible, switch with shorter delay (300ms)
+                                // If not, use longer initial delay (400ms)
+                                const delay = isTooltipVisibleRef.current ? 300 : 400;
+
+                                // Set new timeout for delayed switch
+                                tooltipTimeoutRef.current = setTimeout(() => {
+                                  setTooltipPos({ x: rect.left, y: rect.top });
+                                  setHoveredPhrase(item.phrase);
+                                  isTooltipVisibleRef.current = true;
+                                }, delay);
+                              }}
+                              onMouseLeave={() => {
+                                // Clear timeout if mouse leaves before delay
+                                if (tooltipTimeoutRef.current) {
+                                  clearTimeout(tooltipTimeoutRef.current);
+                                }
+                                setHoveredPhrase(null);
+                                isTooltipVisibleRef.current = false;
+                              }}
+                              className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-left group relative"
+                            >
+                              <span className="text-white/40 text-base font-bold w-6 shrink-0">
+                                {index + 1}.
+                              </span>
+                              <span className="flex-1 text-white text-base truncate group-hover:text-[#2BD899] transition-colors">
+                                {capitalizePhrase(item.phrase)}
+                              </span>
+                              <span className="text-xl shrink-0" title={getVibeLabel(item.vibe)}>
+                                {item.vibeIcon}
+                              </span>
+                              <svg className="w-4 h-4 text-white/30 group-hover:text-[#2BD899] transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          ))}
                       </div>
                     </div>
                   </>
@@ -746,10 +748,16 @@ export function ViewerLandscapeModal({
                 {/* Action Buttons - Two equal columns */}
                 <div className="flex gap-4 mt-8">
                   <button
-                    onClick={() => onCreateSession?.(currentPhrase)}
-                    className="flex-1 px-6 py-4 bg-gradient-to-b from-[#5AACFF]/15 to-[#4A9AE7]/15 hover:from-[#5AACFF]/25 hover:to-[#4A9AE7]/25 text-[#5AACFF] font-bold text-base rounded-xl transition-all border-2 border-[#5AACFF]/30 shadow-[0_0_15px_rgba(90,172,255,0.15)]"
+                    onClick={() => {
+                      if (onQuickStart) {
+                        onQuickStart(currentPhrase);
+                      } else {
+                        onCreateSession?.(currentPhrase);
+                      }
+                    }}
+                    className="flex-1 px-6 py-4 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-base rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)]"
                   >
-                    Create Session
+                    Start Session
                   </button>
                   <button
                     onClick={() => {
