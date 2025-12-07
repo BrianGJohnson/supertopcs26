@@ -364,15 +364,6 @@ export function FilterToolbar({
         </button>
       </div>
 
-      {/* Preset Button - fixed value */}
-      <button
-        className="h-[52px] w-[52px] flex items-center justify-center bg-white/5 border border-white/10 rounded-lg text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-colors"
-        onClick={() => onFilterChange({ ...filterState, scoreThreshold: presetValue })}
-        title={`Set threshold to ${presetValue}`}
-      >
-        {presetValue}
-      </button>
-
       {/* Select Button - The Trigger */}
       <button
         className={`${btnBase} min-w-[120px] ${selectedCount > 0 ? "!bg-primary/20 !border-primary/30 !text-primary hover:!bg-primary/30" : ""}`}

@@ -299,6 +299,7 @@ export function ActionToolbar({
             `}
             onClick={option.enabled ? option.action : undefined}
             disabled={!option.enabled}
+            title={option.disabledReason}
           >
             <div className="flex items-center gap-2.5">
               <div className={`
@@ -307,9 +308,17 @@ export function ActionToolbar({
               `}>
                 {option.icon}
               </div>
-              <span className={`text-sm font-medium ${option.enabled ? "text-white" : "text-white/40"}`}>
-                {option.label}
-              </span>
+              <div className="flex flex-col">
+                <span className={`text-sm font-medium ${option.enabled ? "text-white" : "text-white/40"}`}>
+                  {option.label}
+                </span>
+                {/* Show disabled reason as helpful hint */}
+                {!option.enabled && option.disabledReason && (
+                  <span className="text-[11px] text-orange-400/80 mt-0.5">
+                    {option.disabledReason}
+                  </span>
+                )}
+              </div>
             </div>
             <div className={`flex items-center gap-1.5 ${option.enabled ? "text-white/70" : "text-white/40"}`}>
               <IconCoin className="w-4 h-4" />
