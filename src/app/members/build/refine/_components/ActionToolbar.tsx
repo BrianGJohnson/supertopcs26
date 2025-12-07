@@ -221,11 +221,13 @@ export function ActionToolbar({
   // TEMPORARILY: Enable demand if we have any phrases with fit scores (for testing)
   const hasAnyFitScores = visiblePhraseCount > 0; // Temporary override
   const canRunDemand = hasAnyFitScores && !!onRunDemandScoring && visiblePhraseCount <= 75;
-  const demandDisabledReason = visiblePhraseCount === 0
-    ? "No phrases loaded"
-    : visiblePhraseCount > 75
-      ? "⛔ Reduce to <75 phrases"
-      : undefined;
+
+  // Only show "Reduce to <75" message when user is actually on the Demand step
+  // (i.e., after Topic Strength and A. Fit are complete, but Demand is not)
+  const isOnDemandStep = topicStrengthComplete && audienceFitComplete && !demandComplete;
+  const demandDisabledReason = isOnDemandStep && visiblePhraseCount > 75
+    ? "⛔ Reduce to <75 phrases"
+    : undefined;
 
   const analysisOptions: AnalysisOption[] = [
     {
@@ -319,10 +321,10 @@ export function ActionToolbar({
               </div>
               <div className="flex flex-col">
                 <span className={`text-sm font-medium ${option.completed
-                    ? "text-white/50"
-                    : option.enabled
-                      ? "text-white"
-                      : "text-white/40"
+                  ? "text-white/50"
+                  : option.enabled
+                    ? "text-white"
+                    : "text-white/40"
                   }`}>
                   {option.label}
                 </span>
@@ -335,10 +337,10 @@ export function ActionToolbar({
               </div>
             </div>
             <div className={`flex items-center gap-1.5 ${option.completed
-                ? "text-green-400/60"
-                : option.enabled
-                  ? "text-white/70"
-                  : "text-white/40"
+              ? "text-green-400/60"
+              : option.enabled
+                ? "text-white/70"
+                : "text-white/40"
               }`}>
               {option.completed ? (
                 <span className="text-xs font-medium">Done</span>
