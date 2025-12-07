@@ -23,7 +23,7 @@ function PageLoadingFallback() {
 export default function SuperPage() {
   return (
     <PageShell>
-      <div className="flex flex-col relative z-10 max-w-5xl mx-auto">
+      <div className="flex flex-col relative z-10 max-w-6xl mx-auto">
         {/* Ambient Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
 
