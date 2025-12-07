@@ -42,6 +42,7 @@ type AnalysisOption = {
   tokenCost: number;
   icon: React.ReactNode;
   enabled: boolean;
+  completed?: boolean;  // Already scored - dim and disable
   disabledReason?: string;
   action: () => void;
 };
@@ -223,7 +224,7 @@ export function ActionToolbar({
   const demandDisabledReason = visiblePhraseCount === 0
     ? "No phrases loaded"
     : visiblePhraseCount > 75
-      ? `Reduce to ≤75 phrases (currently ${visiblePhraseCount})`
+      ? "⛔ Reduce to <75 phrases"
       : undefined;
 
   const analysisOptions: AnalysisOption[] = [
@@ -232,7 +233,8 @@ export function ActionToolbar({
       label: "1. Topic Strength",
       tokenCost: 100,
       icon: <IconChartBar className="w-4 h-4" />,
-      enabled: true,
+      enabled: !topicStrengthComplete, // Disable if already complete
+      completed: topicStrengthComplete,
       action: () => {
         onRunTopicScoring();
         setIsDropdownOpen(false);
@@ -243,7 +245,8 @@ export function ActionToolbar({
       label: "2. A. Fit",
       tokenCost: 100,
       icon: <IconUsers className="w-4 h-4" />,
-      enabled: topicStrengthComplete && !!onRunFitScoring,
+      enabled: topicStrengthComplete && !audienceFitComplete && !!onRunFitScoring,
+      completed: audienceFitComplete,
       action: () => {
         onRunFitScoring?.();
         setIsDropdownOpen(false);
@@ -254,8 +257,9 @@ export function ActionToolbar({
       label: "3. Demand",
       tokenCost: 100,
       icon: <IconBolt className="w-4 h-4" />,
-      enabled: canRunDemand,
-      disabledReason: demandDisabledReason,
+      enabled: canRunDemand && !demandComplete, // Disable if already complete
+      completed: demandComplete,
+      disabledReason: !demandComplete ? demandDisabledReason : undefined,
       action: () => {
         onRunDemandScoring?.();
         setIsDropdownOpen(false);
@@ -266,9 +270,8 @@ export function ActionToolbar({
       label: "4. Opportunity",
       tokenCost: 10,
       icon: <IconFlame className="w-4 h-4" />,
-      // Opportunity becomes available after Demand is scored
-      // Uses existing data - no additional API calls needed
-      enabled: demandComplete && !!onRunOpportunityScoring,
+      enabled: demandComplete && !opportunityComplete && !!onRunOpportunityScoring,
+      completed: opportunityComplete,
       action: () => {
         onRunOpportunityScoring?.();
         setIsDropdownOpen(false);
@@ -292,37 +295,59 @@ export function ActionToolbar({
             key={option.id}
             className={`
               w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left transition-colors
-              ${option.enabled
-                ? "hover:bg-white/5 cursor-pointer"
-                : "opacity-40 cursor-not-allowed"
+              ${option.completed
+                ? "opacity-50 cursor-default"
+                : option.enabled
+                  ? "hover:bg-white/5 cursor-pointer"
+                  : "cursor-not-allowed"
               }
             `}
-            onClick={option.enabled ? option.action : undefined}
-            disabled={!option.enabled}
-            title={option.disabledReason}
+            onClick={option.enabled && !option.completed ? option.action : undefined}
+            disabled={!option.enabled || option.completed}
+            title={option.completed ? "Already scored" : option.disabledReason}
           >
             <div className="flex items-center gap-2.5">
               <div className={`
                 p-1.5 rounded-md
-                ${option.enabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/40"}
+                ${option.completed
+                  ? "bg-green-500/20 text-green-400"
+                  : option.enabled
+                    ? "bg-primary/20 text-primary"
+                    : "bg-white/5 text-white/40"}
               `}>
-                {option.icon}
+                {option.completed ? <IconCheck className="w-4 h-4" /> : option.icon}
               </div>
               <div className="flex flex-col">
-                <span className={`text-sm font-medium ${option.enabled ? "text-white" : "text-white/40"}`}>
+                <span className={`text-sm font-medium ${option.completed
+                    ? "text-white/50"
+                    : option.enabled
+                      ? "text-white"
+                      : "text-white/40"
+                  }`}>
                   {option.label}
                 </span>
                 {/* Show disabled reason as helpful hint */}
-                {!option.enabled && option.disabledReason && (
-                  <span className="text-[11px] text-orange-400/80 mt-0.5">
+                {!option.enabled && !option.completed && option.disabledReason && (
+                  <span className="text-xs text-orange-400 mt-1">
                     {option.disabledReason}
                   </span>
                 )}
               </div>
             </div>
-            <div className={`flex items-center gap-1.5 ${option.enabled ? "text-white/70" : "text-white/40"}`}>
-              <IconCoin className="w-4 h-4" />
-              <span className="text-sm font-medium">{option.tokenCost}</span>
+            <div className={`flex items-center gap-1.5 ${option.completed
+                ? "text-green-400/60"
+                : option.enabled
+                  ? "text-white/70"
+                  : "text-white/40"
+              }`}>
+              {option.completed ? (
+                <span className="text-xs font-medium">Done</span>
+              ) : (
+                <>
+                  <IconCoin className="w-4 h-4" />
+                  <span className="text-sm font-medium">{option.tokenCost}</span>
+                </>
+              )}
             </div>
           </button>
         ))}
