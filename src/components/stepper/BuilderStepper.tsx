@@ -11,6 +11,7 @@ import {
   IconPackage,
   IconUpload,
   IconCheck,
+  IconSearch,
 } from "@tabler/icons-react";
 
 /**
@@ -29,7 +30,7 @@ import {
 const STEPS = [
   { label: "Target", href: "/members/build/target", icon: IconTarget },
   { label: "Seed", href: "/members/build/seed", icon: IconSeedling },
-  { label: "Refine", href: "/members/build/refine", icon: IconSparkles },
+  { label: "Refine", href: "/members/build/refine", icon: IconSearch },
   { label: "Super", href: "/members/build/super", icon: IconDiamond },
   { label: "Title", href: "/members/build/title", icon: IconPencil },
   { label: "Package", href: "/members/build/package", icon: IconPackage },
@@ -53,29 +54,28 @@ export function BuilderStepper({ activeStep, completedSteps = [] }: BuilderStepp
     <div className="flex justify-between items-start relative max-w-4xl mx-auto w-full px-4 py-4 mt-2">
       {/* Progress Bar - Centered through circles */}
       <div className="absolute top-10 left-12 right-12 h-[1px] bg-white/15 -z-10"></div>
-      
+
       {/* Completed portion of progress bar */}
       {activeStep > 1 && (
-        <div 
+        <div
           className="absolute top-10 left-12 h-[1px] bg-primary/60 -z-10 transition-all duration-500"
-          style={{ 
-            width: `calc(${((activeStep - 1) / (STEPS.length - 1)) * 100}% - 1.5rem)` 
+          style={{
+            width: `calc(${((activeStep - 1) / (STEPS.length - 1)) * 100}% - 1.5rem)`
           }}
         ></div>
       )}
-      
+
       {STEPS.map((step, index) => {
         const stepNumber = index + 1;
         const isActive = stepNumber === activeStep;
         const isCompleted = completedSteps.includes(stepNumber) || stepNumber < activeStep;
         const Icon = step.icon;
         const canNavigate = isAccessible(stepNumber) && !isActive;
-        
+
         const stepContent = (
-          <div 
-            className={`flex flex-col items-center gap-3 transition-all ${
-              isActive ? "" : isCompleted ? "opacity-90" : "opacity-70"
-            } ${canNavigate ? "cursor-pointer hover:opacity-100" : "cursor-default"}`}
+          <div
+            className={`flex flex-col items-center gap-3 transition-all ${isActive ? "" : isCompleted ? "opacity-90" : "opacity-70"
+              } ${canNavigate ? "cursor-pointer hover:opacity-100" : "cursor-default"}`}
           >
             {/* Step Circle */}
             {isCompleted && !isActive ? (
@@ -94,22 +94,21 @@ export function BuilderStepper({ activeStep, completedSteps = [] }: BuilderStepp
                 <Icon size={22} stroke={1.5} />
               </div>
             )}
-            
+
             {/* Step Label */}
-            <span 
-              className={`text-[10px] md:text-xs font-light uppercase tracking-widest ${
-                isActive 
-                  ? "text-white/80 drop-shadow-[0_0_10px_rgba(26,39,84,0.5)]" 
-                  : isCompleted
-                    ? "text-primary/70"
-                    : "text-text-secondary/60"
-              }`}
+            <span
+              className={`text-[10px] md:text-xs font-light uppercase tracking-widest ${isActive
+                ? "text-white/80 drop-shadow-[0_0_10px_rgba(26,39,84,0.5)]"
+                : isCompleted
+                  ? "text-primary/70"
+                  : "text-text-secondary/60"
+                }`}
             >
               {step.label}
             </span>
           </div>
         );
-        
+
         // Wrap in Link if accessible, otherwise just render
         if (canNavigate) {
           return (
@@ -118,7 +117,7 @@ export function BuilderStepper({ activeStep, completedSteps = [] }: BuilderStepp
             </Link>
           );
         }
-        
+
         return <div key={step.label}>{stepContent}</div>;
       })}
     </div>

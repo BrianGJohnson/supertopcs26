@@ -20,6 +20,7 @@ import {
   IconPlus,
   IconArrowsExchange,
   IconSettingsCog,
+  IconTargetArrow,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { authFetch } from "@/lib/supabase";
@@ -516,13 +517,12 @@ export default function TargetPage() {
             title="Quick Start"
           >
             <div className="space-y-6">
-              <p className="text-white/60 text-base">
+              <p className="text-white/80 text-xl font-light leading-snug">
                 Start a new session or continue where you left off.
               </p>
 
               {/* Option 1: Start New Session */}
-              <div className="space-y-3">
-                <label className="block text-white/80 font-medium text-sm">Start New Session</label>
+              <div className="space-y-4">
                 <input
                   type="text"
                   value={newSeedInput}
@@ -533,14 +533,15 @@ export default function TargetPage() {
                     }
                   }}
                   placeholder="Enter your seed phrase (e.g., video editing)"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-base placeholder:text-white/30 focus:border-[#6B9BD1] focus:outline-none focus:ring-2 focus:ring-[#6B9BD1]/20 transition-all"
+                  className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-white text-xl placeholder:text-white/30 focus:border-[#6B9BD1] focus:outline-none focus:ring-2 focus:ring-[#6B9BD1]/20 transition-all font-medium"
                   autoFocus
                 />
                 <button
                   onClick={handleCreateNewSession}
                   disabled={newSeedInput.trim().length < 2 || isCreatingSession}
-                  className="w-full px-6 py-4 bg-gradient-to-b from-[#2BD899] to-[#25C78A] hover:from-[#2BD899]/90 hover:to-[#25C78A]/90 text-white font-bold text-base rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(43,216,153,0.3)]"
+                  className="w-full px-6 py-5 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-2xl rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)] hover:shadow-[0_0_25px_rgba(43,216,153,0.25)] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 >
+                  <IconTargetArrow size={28} />
                   {isCreatingSession ? 'Creating...' : 'Create New Session'}
                 </button>
               </div>
@@ -554,7 +555,7 @@ export default function TargetPage() {
 
               {/* Option 2: Switch to Existing Session */}
               <div className="space-y-3">
-                <label className="block text-white/80 font-medium text-sm">Continue Existing Session</label>
+                <label className="block text-white/80 font-bold text-xl">Continue Existing Session</label>
                 {sessions.length > 0 ? (
                   <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
                     {sessions.slice(0, 10).map((session) => (
@@ -712,13 +713,13 @@ export default function TargetPage() {
           title="Quick Start"
         >
           <div className="space-y-4">
-            <p className="text-white/60 text-base">
+            <p className="text-white/80 text-xl font-light leading-snug">
               Start fresh or continue where you left off.
             </p>
 
             {/* Option 1: New Session */}
-            <div className="space-y-3">
-              <label className="block text-white/80 font-medium text-sm">New Session</label>
+            <div className="space-y-4">
+              {/* Label removed as requested */}
               <input
                 type="text"
                 value={newSeedInput}
@@ -729,15 +730,15 @@ export default function TargetPage() {
                   }
                 }}
                 placeholder="Enter seed phrase (e.g., video editing)"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-base placeholder:text-white/30 focus:border-[#2BD899]/50 focus:outline-none focus:ring-2 focus:ring-[#2BD899]/20 transition-all"
+                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-white text-xl placeholder:text-white/30 focus:border-[#2BD899]/50 focus:outline-none focus:ring-2 focus:ring-[#2BD899]/20 transition-all font-medium"
                 autoFocus
               />
               <button
                 onClick={handleCreateNewSession}
                 disabled={newSeedInput.trim().length < 2 || isCreatingSession}
-                className="w-full px-6 py-4 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-base rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full px-6 py-5 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-2xl rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)] hover:shadow-[0_0_25px_rgba(43,216,153,0.25)] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
-                <IconPlus size={20} />
+                <IconTargetArrow size={28} />
                 {isCreatingSession ? 'Creating...' : 'Create New Session'}
               </button>
             </div>

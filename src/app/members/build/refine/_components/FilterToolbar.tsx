@@ -69,8 +69,8 @@ const LANGUAGE_OPTIONS: { id: LanguageFilter; label: string }[] = [
 // COMPONENT
 // =============================================================================
 
-export function FilterToolbar({ 
-  totalCount, 
+export function FilterToolbar({
+  totalCount,
   visibleCount,
   filterState,
   onFilterChange,
@@ -121,7 +121,7 @@ export function FilterToolbar({
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       if (
-        dropdownRef.current && 
+        dropdownRef.current &&
         !dropdownRef.current.contains(target) &&
         buttonRef.current &&
         !buttonRef.current.contains(target)
@@ -129,7 +129,7 @@ export function FilterToolbar({
         setIsDropdownOpen(false);
       }
       if (
-        metricDropdownRef.current && 
+        metricDropdownRef.current &&
         !metricDropdownRef.current.contains(target) &&
         metricButtonRef.current &&
         !metricButtonRef.current.contains(target)
@@ -172,7 +172,7 @@ export function FilterToolbar({
   const handleThresholdDecrement = () => {
     onFilterChange({ ...filterState, scoreThreshold: Math.max(0, filterState.scoreThreshold - 1) });
   };
-  
+
   const handleThresholdIncrement = () => {
     onFilterChange({ ...filterState, scoreThreshold: Math.min(99, filterState.scoreThreshold + 1) });
   };
@@ -184,24 +184,24 @@ export function FilterToolbar({
   const getFilterSummary = () => {
     // Check if using non-default filters
     const defaultLengths = new Set(["medium", "long"]);
-    const isDefaultLengths = filterState.lengths.size === defaultLengths.size && 
+    const isDefaultLengths = filterState.lengths.size === defaultLengths.size &&
       [...filterState.lengths].every(l => defaultLengths.has(l));
     const isDefaultLanguage = filterState.language === "english";
-    
+
     if (isDefaultLengths && isDefaultLanguage) {
       return "All";
     }
     return "Filtered";
   };
 
-  // Shared button style - h-12 (48px) for chunkier, more accessible feel
-  const btnBase = "h-12 flex items-center justify-center gap-2 px-5 bg-white/5 border border-white/5 rounded-lg text-white/70 text-sm hover:bg-white/10 transition-colors";
+  // Shared button style - h-[52px] (taller), subdued by default
+  const btnBase = "h-[52px] flex items-center justify-center gap-2 px-6 bg-white/5 border border-white/10 rounded-lg text-white/60 text-base font-medium hover:bg-white/10 hover:text-white/90 transition-colors";
 
   // Dropdown portal
   const dropdown = isDropdownOpen && isMounted && createPortal(
-    <div 
+    <div
       ref={dropdownRef}
-      className="fixed w-64 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+      className="fixed w-[280px] bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
       style={{
         top: dropdownPosition.top,
         left: dropdownPosition.left,
@@ -221,11 +221,10 @@ export function FilterToolbar({
               onClick={() => toggleLength(option.id)}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                  filterState.lengths.has(option.id)
-                    ? "bg-primary border-primary"
-                    : "border-white/30"
-                }`}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${filterState.lengths.has(option.id)
+                  ? "bg-primary border-primary"
+                  : "border-white/30"
+                  }`}>
                   {filterState.lengths.has(option.id) && (
                     <IconCheck className="w-3 h-3 text-white" />
                   )}
@@ -237,7 +236,7 @@ export function FilterToolbar({
           ))}
         </div>
       </div>
-      
+
       {/* Language Section */}
       <div className="p-3">
         <div className="text-xs font-medium text-white/40 uppercase tracking-wide mb-2">
@@ -250,11 +249,10 @@ export function FilterToolbar({
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
               onClick={() => setLanguage(option.id)}
             >
-              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
-                filterState.language === option.id
-                  ? "border-primary"
-                  : "border-white/30"
-              }`}>
+              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${filterState.language === option.id
+                ? "border-primary"
+                : "border-white/30"
+                }`}>
                 {filterState.language === option.id && (
                   <div className="w-2 h-2 rounded-full bg-primary" />
                 )}
@@ -270,7 +268,7 @@ export function FilterToolbar({
 
   // Metric dropdown portal
   const metricDropdown = isMetricDropdownOpen && isMounted && createPortal(
-    <div 
+    <div
       ref={metricDropdownRef}
       className="fixed w-48 bg-[#1E2228] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
       style={{
@@ -283,11 +281,10 @@ export function FilterToolbar({
         {SCORE_METRIC_OPTIONS.map((option) => (
           <button
             key={option.id}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
-              filterState.scoreMetric === option.id
-                ? "bg-primary/20 text-primary"
-                : "hover:bg-white/5 text-white/80"
-            }`}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${filterState.scoreMetric === option.id
+              ? "bg-primary/20 text-primary"
+              : "hover:bg-white/5 text-white/80"
+              }`}
             onClick={() => handleMetricChange(option.id)}
           >
             <span className="text-sm">{option.label}</span>
@@ -302,36 +299,81 @@ export function FilterToolbar({
   );
 
   return (
-    <div className="flex items-center justify-center gap-4 px-5 py-3.5">
-      {/* Search Input with integrated Filter Dropdown */}
-      <div className="h-12 flex items-center bg-white/5 border border-white/5 rounded-lg overflow-hidden">
+    <div className="flex items-center justify-center gap-3 px-5 py-3.5">
+      {/* Search Filter - Left Alignment */}
+      <div className="h-[52px] flex items-center bg-white/5 border border-white/10 rounded-lg overflow-hidden w-[280px]">
         <div className="relative flex-1">
           <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
           <input
             type="text"
-            placeholder="Search & Filter phrases"
+            placeholder="Search phrases"
             value={filterState.searchQuery}
             onChange={handleSearch}
-            className="w-48 h-12 pl-9 pr-3 bg-transparent text-white/90 placeholder-white/40 text-sm focus:outline-none"
+            className="w-full h-[52px] pl-9 pr-3 bg-transparent text-white/60 placeholder-white/60 text-base focus:outline-none"
           />
         </div>
-        <button 
+        <button
           ref={buttonRef}
-          className="h-12 flex items-center gap-1.5 px-5 border-l border-white/10 text-white/70 text-sm hover:bg-white/10 transition-colors"
+          className="h-[52px] flex items-center gap-1.5 px-3 border-l border-white/10 text-white/60 text-sm hover:bg-white/10 transition-colors"
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          title="Filter by Length or Language"
         >
-          <span className="max-w-[100px] truncate">{getFilterSummary()}</span>
-          <IconSelector className="w-3.5 h-3.5 text-white/40" />
+          {/* <span className="max-w-[80px] truncate">{getFilterSummary()}</span> */}
+          <IconSelector className="w-3.5 h-3.5" />
         </button>
       </div>
-      
+
       {/* Filter Dropdown Portal */}
       {dropdown}
-      
-      {/* Select Button - immediately after search for text-based workflow */}
-      <button 
-        className={`${btnBase} ${selectedCount > 0 ? "bg-primary/20 border-primary/30 text-primary hover:bg-primary/30" : ""}`}
+
+      {/* Score Metric Dropdown */}
+      <div className="relative">
+        <button
+          ref={metricButtonRef}
+          className={btnBase}
+          onClick={() => setIsMetricDropdownOpen(!isMetricDropdownOpen)}
+        >
+          <span>{currentMetricLabel}</span>
+          <IconChevronDown className="w-4 h-4 text-white/40" />
+        </button>
+
+        {/* Metric Dropdown Portal */}
+        {metricDropdown}
+      </div>
+
+      {/* Threshold Stepper Group */}
+      <div className="h-[52px] flex items-center bg-white/5 border border-white/10 rounded-lg overflow-hidden">
+        <button
+          className="w-12 h-[52px] flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-colors border-r border-white/10 text-lg"
+          onClick={handleThresholdDecrement}
+        >
+          −
+        </button>
+        <span className="w-14 h-[52px] flex items-center justify-center text-white font-medium text-base bg-white/5">
+          {filterState.scoreThreshold}
+        </span>
+        <button
+          className="w-12 h-[52px] flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-colors border-l border-white/10 text-lg"
+          onClick={handleThresholdIncrement}
+        >
+          +
+        </button>
+      </div>
+
+      {/* Preset Button - fixed value */}
+      <button
+        className="h-[52px] w-[52px] flex items-center justify-center bg-white/5 border border-white/10 rounded-lg text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-colors"
+        onClick={() => onFilterChange({ ...filterState, scoreThreshold: presetValue })}
+        title={`Set threshold to ${presetValue}`}
+      >
+        {presetValue}
+      </button>
+
+      {/* Select Button - The Trigger */}
+      <button
+        className={`${btnBase} min-w-[120px] ${selectedCount > 0 ? "!bg-primary/20 !border-primary/30 !text-primary hover:!bg-primary/30" : ""}`}
         onClick={onSelectFiltered}
+        title="Select phrases matching criteria"
       >
         {selectedCount > 0 ? (
           <IconCheck className="w-4 h-4" />
@@ -340,56 +382,16 @@ export function FilterToolbar({
         )}
         <span>{selectedCount > 0 ? `${selectedCount} Selected` : "Select"}</span>
       </button>
-      
-      {/* Hide Button - paired with Select for quick workflow */}
-      <button 
-        className={`${btnBase} ${selectedCount > 0 ? "bg-orange-500/20 border-orange-500/30 text-orange-400 hover:bg-orange-500/30" : ""}`}
+
+      {/* Hide Button - The Action */}
+      <button
+        className={`${btnBase} min-w-[120px] ${selectedCount > 0 ? "!bg-orange-500/20 !border-orange-500/30 !text-orange-400 hover:!bg-orange-500/30" : "opacity-50 cursor-not-allowed"}`}
         onClick={onHideSelected}
         disabled={selectedCount === 0}
+        title="Hide selected phrases"
       >
         <IconEyeOff className="w-4 h-4" />
-        <span>Hide{selectedCount > 0 ? ` (${selectedCount})` : ""}</span>
-      </button>
-      
-      {/* Score Metric Dropdown */}
-      <button 
-        ref={metricButtonRef}
-        className={btnBase}
-        onClick={() => setIsMetricDropdownOpen(!isMetricDropdownOpen)}
-      >
-        <span>{currentMetricLabel}</span>
-        <IconChevronDown className="w-4 h-4 text-white/40" />
-      </button>
-      
-      {/* Metric Dropdown Portal */}
-      {metricDropdown}
-      
-      {/* Threshold Stepper Group */}
-      <div className="h-12 flex items-center bg-white/5 border border-white/5 rounded-lg overflow-hidden">
-        <button 
-          className="w-10 h-12 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-colors border-r border-white/10 text-lg"
-          onClick={handleThresholdDecrement}
-        >
-          −
-        </button>
-        <span className="w-12 h-12 flex items-center justify-center text-white font-medium text-sm bg-white/5">
-          {filterState.scoreThreshold}
-        </span>
-        <button 
-          className="w-10 h-12 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-colors border-l border-white/10 text-lg"
-          onClick={handleThresholdIncrement}
-        >
-          +
-        </button>
-      </div>
-      
-      {/* Preset Button - fixed value set once when scores loaded */}
-      <button 
-        className="h-12 px-4 flex items-center justify-center bg-white/5 border border-white/5 rounded-lg text-white/70 text-sm font-medium hover:bg-white/10 transition-colors"
-        onClick={() => onFilterChange({ ...filterState, scoreThreshold: presetValue })}
-        title={`Set threshold to ${presetValue}`}
-      >
-        {presetValue}
+        <span>Hide</span>
       </button>
     </div>
   );
@@ -454,18 +456,18 @@ export interface PhraseScores {
 }
 
 export function phraseMatchesFilter(
-  phrase: string, 
-  filterState: FilterState, 
+  phrase: string,
+  filterState: FilterState,
   scores?: PhraseScores
 ): boolean {
   const wordCount = getWordCount(phrase);
   const lengthCategory = getLengthCategory(wordCount);
-  
+
   // Check length filter
   if (!filterState.lengths.has(lengthCategory)) {
     return false;
   }
-  
+
   // Check language filter
   const isNonEnglish = hasNonEnglishIndicator(phrase);
   if (filterState.language === "english" && isNonEnglish) {
@@ -474,14 +476,14 @@ export function phraseMatchesFilter(
   if (filterState.language === "nonEnglish" && !isNonEnglish) {
     return false;
   }
-  
+
   // Check search query - WORD-BASED search
   // Each word in the query must appear somewhere in the phrase
   // This allows searching for "favor" to find "what does youtube algorithm favor"
   if (filterState.searchQuery) {
     const normalizedPhrase = phrase.toLowerCase().trim();
     const queryWords = filterState.searchQuery.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
-    
+
     // Every word in the query must be found in the phrase
     for (const word of queryWords) {
       if (!normalizedPhrase.includes(word)) {
@@ -489,11 +491,11 @@ export function phraseMatchesFilter(
       }
     }
   }
-  
+
   // Score threshold filtering is NOT applied here
   // The threshold is used for SELECTING phrases to hide, not for filtering the view
   // This keeps all phrases visible so the user can see what they're about to hide
-  
+
   return true;
 }
 
@@ -504,9 +506,9 @@ export function phraseBelowThreshold(
 ): boolean {
   if (filterState.scoreThreshold === 0) return false;
   if (!scores) return false;
-  
+
   const scoreValue = scores[filterState.scoreMetric];
   if (scoreValue === null || scoreValue === undefined) return false;
-  
+
   return scoreValue < filterState.scoreThreshold;
 }

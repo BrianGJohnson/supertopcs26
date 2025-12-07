@@ -69,17 +69,17 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="flex flex-col items-center p-8 rounded-2xl bg-white/[0.03] border-2 border-white/10 h-[420px] opacity-50 cursor-not-allowed relative hover:border-white/20 transition-all"
+              className="flex flex-col items-center p-8 rounded-2xl bg-[#F59E0B]/10 border-2 border-[#F59E0B]/30 h-[420px] opacity-80 cursor-not-allowed relative hover:bg-[#F59E0B]/15 transition-all"
             >
-              <div className="w-20 h-20 rounded-2xl bg-white/[0.05] flex items-center justify-center mb-6 mt-8">
-                <IconPlant2 size={40} className="text-white/30" />
+              <div className="w-20 h-20 rounded-2xl bg-[#F59E0B]/20 flex items-center justify-center mb-6 mt-8">
+                <IconPlant2 size={40} className="text-[#F59E0B]" />
               </div>
-              <h3 className="font-bold text-xl text-white/50 mb-3">Just Born</h3>
-              <p className="text-white/40 text-center text-lg leading-relaxed mb-4">
+              <h3 className="font-bold text-xl text-white mb-3">Just Born</h3>
+              <p className="text-white/70 text-center text-lg leading-relaxed mb-4">
                 Topics that just hit the internet. Catch the wave early.
               </p>
               <div className="mt-auto px-5 py-2 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20">
-                <span className="text-[#F59E0B]/70 text-sm font-bold uppercase tracking-wide">Coming Soon</span>
+                <span className="text-[#F59E0B] text-sm font-bold uppercase tracking-wide">Coming Soon</span>
               </div>
             </motion.div>
 
@@ -109,17 +109,17 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
-              className="flex flex-col items-center p-8 rounded-2xl bg-[#06B6D4]/5 border-2 border-[#06B6D4]/30 h-[420px] opacity-60 cursor-not-allowed relative hover:bg-[#06B6D4]/10 transition-all"
+              className="flex flex-col items-center p-8 rounded-2xl bg-[#06B6D4]/10 border-2 border-[#06B6D4]/30 h-[420px] opacity-80 cursor-not-allowed relative hover:bg-[#06B6D4]/15 transition-all"
             >
-              <div className="w-20 h-20 rounded-2xl bg-[#06B6D4]/10 flex items-center justify-center mb-6 mt-8">
+              <div className="w-20 h-20 rounded-2xl bg-[#06B6D4]/20 flex items-center justify-center mb-6 mt-8">
                 <IconActivity size={40} className="text-[#06B6D4]" />
               </div>
-              <h3 className="font-bold text-xl text-white/70 mb-3">Niche Pulse</h3>
-              <p className="text-white/50 text-center text-lg leading-relaxed mb-4">
-                Monitor your niche's health and spot monetization trends.
+              <h3 className="font-bold text-xl text-white mb-3">Niche Pulse</h3>
+              <p className="text-white/70 text-center text-lg leading-relaxed mb-4">
+                Monitor your niche&apos;s health and spot monetization trends.
               </p>
               <div className="mt-auto px-5 py-2 rounded-full bg-[#06B6D4]/10 border border-[#06B6D4]/20">
-                <span className="text-[#06B6D4]/70 text-sm font-bold uppercase tracking-wide">Coming Soon</span>
+                <span className="text-[#06B6D4] text-sm font-bold uppercase tracking-wide">Coming Soon</span>
               </div>
             </motion.div>
 

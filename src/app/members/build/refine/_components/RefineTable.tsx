@@ -124,16 +124,16 @@ function calculatePercentileThresholds(
   if (scores.length === 0) {
     return { p10: 0, p25: 0, p35: 0, p65: 0 };
   }
-  
+
   // Sort: for normal scores, highest first; for inverted, lowest first
   const sorted = [...scores].sort((a, b) => inverted ? a - b : b - a);
-  
+
   // Calculate index for each percentile (0-indexed)
   const getValueAtPercentile = (percentile: number) => {
     const index = Math.floor((percentile / 100) * sorted.length);
     return sorted[Math.min(index, sorted.length - 1)];
   };
-  
+
   return {
     p10: getValueAtPercentile(10),
     p25: getValueAtPercentile(25),
@@ -151,7 +151,7 @@ function getScoreColorByPercentile(
   inverted: boolean = false
 ): string {
   if (score === null) return SCORE_COLORS.null;
-  
+
   if (inverted) {
     // For inverted (competition): lower scores are better
     if (score <= thresholds.p10) return SCORE_COLORS.darkGreen;
@@ -199,7 +199,7 @@ export function RefineTable({
       pop: calculatePercentileThresholds(allScores.pop, false),
       comp: calculatePercentileThresholds(allScores.comp, false), // Opportunity: higher is better
     };
-    
+
     // DEBUG: Log thresholds to understand the distribution
     console.log('[RefineTable] Score Thresholds (from ALL phrases):', {
       visiblePhrases: phrases.length,
@@ -213,7 +213,7 @@ export function RefineTable({
       popRange: allScores.pop.length > 0 ? `${Math.min(...allScores.pop)}-${Math.max(...allScores.pop)}` : 'N/A',
       popThresholds: thresholds.pop,
     });
-    
+
     return thresholds;
   }, [allScores, phrases.length]);
 
@@ -233,7 +233,7 @@ export function RefineTable({
   const sortedPhrases = useMemo(() => {
     return [...phrases].sort((a, b) => {
       const dir = sortDirection === "asc" ? 1 : -1;
-      
+
       switch (sortColumn) {
         case "phrase":
           return dir * a.phrase.localeCompare(b.phrase);
@@ -259,7 +259,7 @@ export function RefineTable({
   }, [phrases, sortColumn, sortDirection]);
 
   // Filter out rejected phrases
-  const visiblePhrases = useMemo(() => 
+  const visiblePhrases = useMemo(() =>
     sortedPhrases.filter(p => !p.isRejected),
     [sortedPhrases]
   );
@@ -283,13 +283,13 @@ export function RefineTable({
   };
 
   // Header cell component
-  const HeaderCell = ({ 
-    column, 
-    label, 
-    className = "" 
-  }: { 
-    column: SortColumn; 
-    label: string; 
+  const HeaderCell = ({
+    column,
+    label,
+    className = ""
+  }: {
+    column: SortColumn;
+    label: string;
     className?: string;
   }) => (
     <th
@@ -318,10 +318,10 @@ export function RefineTable({
               <th className="w-[44px] pl-4 py-4 border-r border-white/[0.10]">
                 <div className="w-[18px] h-[18px] rounded-full border-2 border-[#6B9BD1]/60 cursor-pointer hover:border-[#6B9BD1] transition-colors" />
               </th>
-              
+
               {/* Phrase - constrained width */}
               <HeaderCell column="phrase" label="Phrase" className="pl-3 text-left border-r border-white/[0.10] max-w-[280px]" />
-              
+
               {/* Star - 64px */}
               <th className="w-[64px] py-4 text-center border-r border-white/[0.10]">
                 <span className="flex items-center justify-center gap-1">
@@ -331,29 +331,29 @@ export function RefineTable({
                   )}
                 </span>
               </th>
-              
+
               {/* Reject - 56px */}
               <th className="w-[56px] py-4 text-center border-r border-white/[0.10]">
                 <IconX className="w-[20px] h-[20px] text-red-400/80 mx-auto" strokeWidth={2.5} />
               </th>
-              
+
               {/* Tag - 104px */}
               <HeaderCell column="source" label="Tag" className="w-[104px] text-center border-r border-white/[0.10]" />
-              
+
               {/* Top - 72px */}
               <HeaderCell column="topic" label="Top" className="w-[72px] text-center border-r border-white/[0.10]" />
-              
+
               {/* Fit - 72px */}
               <HeaderCell column="fit" label="Fit" className="w-[72px] text-center border-r border-white/[0.10]" />
-              
+
               {/* Dem (Demand) - 72px */}
               <HeaderCell column="pop" label="Dem" className="w-[72px] text-center border-r border-white/[0.10]" />
-              
+
               {/* Opp (Opportunity) - 72px (no right border - last column) */}
               <HeaderCell column="comp" label="Opp" className="w-[72px] text-center" />
             </tr>
           </thead>
-          
+
           <tbody>
             {paginatedPhrases.length === 0 ? (
               <tr>
@@ -365,7 +365,7 @@ export function RefineTable({
               paginatedPhrases.map((phrase) => {
                 const sourceStyle = SOURCE_STYLES[phrase.source] || SOURCE_STYLES.seed;
                 const isSelected = selectedIds.has(phrase.id);
-                
+
                 return (
                   <tr
                     key={phrase.id}
@@ -378,11 +378,10 @@ export function RefineTable({
                     <td className="pl-4 py-4 border-r border-white/[0.10]">
                       <button
                         onClick={() => onToggleSelect(phrase.id)}
-                        className={`w-[18px] h-[18px] rounded-full border-2 transition-colors ${
-                          isSelected 
-                            ? "border-[#6B9BD1] bg-[#6B9BD1]" 
+                        className={`w-[18px] h-[18px] rounded-full border-2 transition-colors ${isSelected
+                            ? "border-[#6B9BD1] bg-[#6B9BD1]"
                             : "border-[#6B9BD1]/40 hover:border-[#6B9BD1]/70"
-                        }`}
+                          }`}
                       >
                         {isSelected && (
                           <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -391,15 +390,15 @@ export function RefineTable({
                         )}
                       </button>
                     </td>
-                    
+
                     {/* Phrase - clickable to open modal */}
-                    <td 
+                    <td
                       className="pl-3 py-4 text-white/[0.80] group-hover:text-white/[0.90] transition-colors truncate border-r border-white/[0.10] cursor-pointer hover:text-[#6B9BD1]"
                       onClick={() => onPhraseClick?.(phrase)}
                     >
                       {toTitleCase(phrase.phrase)}
                     </td>
-                    
+
                     {/* Star */}
                     <td className="py-4 text-center border-r border-white/[0.10]">
                       <button
@@ -413,7 +412,7 @@ export function RefineTable({
                         )}
                       </button>
                     </td>
-                    
+
                     {/* Reject */}
                     <td className="py-4 text-center border-r border-white/[0.10]">
                       <button
@@ -423,34 +422,34 @@ export function RefineTable({
                         <IconX className="w-[18px] h-[18px] text-red-400/80 hover:text-red-400" />
                       </button>
                     </td>
-                    
+
                     {/* Source */}
                     <td className="py-4 text-center border-r border-white/[0.10]">
                       <span className={`
-                        inline-block min-w-[60px] text-center px-3 py-1.5 
+                        inline-block w-[80px] text-center py-1.5 
                         ${sourceStyle.bgColor}
                         rounded text-sm ${sourceStyle.textColor} 
-                        border ${sourceStyle.borderColor} font-medium
+                        border ${sourceStyle.borderColor} font-semibold
                       `}>
                         {sourceStyle.label}
                       </span>
                     </td>
-                    
+
                     {/* Topic */}
                     <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.topic, scoreThresholds.topic, false)}`}>
                       {phrase.topic ?? "—"}
                     </td>
-                    
+
                     {/* Fit */}
                     <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.fit, scoreThresholds.fit, false)}`}>
                       {phrase.fit ?? "—"}
                     </td>
-                    
+
                     {/* Dem (Demand) */}
                     <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.pop, scoreThresholds.pop, false)}`}>
                       {phrase.pop ?? "—"}
                     </td>
-                    
+
                     {/* Opp (Opportunity) - higher is better, no right border - last column */}
                     <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, false)}`}>
                       {phrase.comp ?? "—"}
@@ -469,7 +468,7 @@ export function RefineTable({
           <div className="text-sm text-white/50">
             Showing {((currentPage - 1) * ROWS_PER_PAGE) + 1}–{Math.min(currentPage * ROWS_PER_PAGE, visiblePhrases.length)} of {visiblePhrases.length} phrases
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => goToPage(currentPage - 1)}
@@ -478,7 +477,7 @@ export function RefineTable({
             >
               <IconChevronLeft className="w-4 h-4 text-white/70" />
             </button>
-            
+
             <div className="flex items-center gap-1">
               {/* Page numbers - show up to 5 pages */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -492,15 +491,15 @@ export function RefineTable({
                 } else {
                   pageNum = currentPage - 2 + i;
                 }
-                
+
                 return (
                   <button
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
                     className={`
                       w-8 h-8 rounded-lg text-sm font-medium transition-colors
-                      ${currentPage === pageNum 
-                        ? "bg-primary text-white" 
+                      ${currentPage === pageNum
+                        ? "bg-primary text-white"
                         : "text-white/60 hover:bg-white/10"
                       }
                     `}
@@ -510,7 +509,7 @@ export function RefineTable({
                 );
               })}
             </div>
-            
+
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}

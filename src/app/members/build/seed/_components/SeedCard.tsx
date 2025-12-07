@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SeedIconGreen } from "@/components/icons";
 import { getSessionById } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { authFetch } from "@/lib/supabase";
 import type { Seed } from "@/types/database";
 import { PhraseSelectModal, ExpansionProgress } from "./PhraseSelectModal";
-import { IconCheck, IconSparkles } from "@tabler/icons-react";
+import { IconCheck, IconSparkles, IconArrowRight, IconLoader2 } from "@tabler/icons-react";
 import { toTitleCase } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 
@@ -80,8 +80,10 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
   const sessionId = searchParams.get("session_id");
   const seedFromUrl = searchParams.get("seed");
   const { showToast } = useToast();
+  const router = useRouter(); // Initialize router
 
   const [seedPhrase, setSeedPhrase] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false); // State for proceed button
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -112,6 +114,9 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
     modules.child === "complete" &&
     modules.az === "complete" &&
     modules.prefix === "complete";
+
+  // Calculate total topics for Essential View display
+  const totalTopics = sourceCounts.top10 + sourceCounts.child + sourceCounts.az + sourceCounts.prefix;
 
   // GATE: Only show "complete" UI if:
   // 1. We're not currently expanding AND all modules have data, OR
@@ -236,6 +241,36 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
       setModalOpen(false);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Handle "Proceed to Refine" click - runs Data Intake (copied from Step1Card)
+  const handleProceed = async () => {
+    if (!sessionId || isProcessing) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Run Data Intake API
+      const response = await authFetch(`/api/sessions/${sessionId}/intake`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Data Intake failed');
+      }
+
+      // Navigate to Refine page
+      router.push(`/members/build/refine?session_id=${sessionId}`);
+    } catch (error) {
+      console.error('Failed to run Data Intake:', error);
+      setIsProcessing(false);
+      showToast({
+        type: "error",
+        title: "Processing Failed",
+        message: "Could not proceed to next step. Please try again.",
+      });
     }
   };
 
@@ -516,6 +551,35 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                   ))}
                 </div>
               )}
+
+              {/* Proceed Button & Stats - ONLY for Essential View (Simple Mode) */}
+              {!isFull && (
+                <div className="flex flex-col items-center gap-4 mt-2">
+                  {/* Topic Count Pill */}
+                  <div className="px-5 py-2 bg-white/5 border border-white/10 rounded-full text-white/60 text-sm font-medium">
+                    Total Topics: <span className="text-white font-bold ml-1">{totalTopics}</span>
+                  </div>
+
+                  <button
+                    onClick={handleProceed}
+                    disabled={isProcessing}
+                    className="px-10 py-5 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-xl rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)] hover:shadow-[0_0_25px_rgba(43,216,153,0.25)] flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <IconLoader2 size={24} className="animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Proceed to Refine
+                        <IconArrowRight size={24} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
             </div>
           ) : (
             // In progress state: Show progress bar and status
@@ -566,16 +630,16 @@ export function SeedCard({ onPhrasesAdded, sourceCounts, isExpanding, setIsExpan
                       <div key={method} className="flex items-center gap-2">
                         <div
                           className={`w-3 h-3 rounded-full transition-all ${isComplete
-                              ? "bg-[#E0E7EF]"
-                              : isActive
-                                ? "bg-[#E0E7EF] animate-pulse"
-                                : "bg-white/20"
+                            ? "bg-[#E0E7EF]"
+                            : isActive
+                              ? "bg-[#E0E7EF] animate-pulse"
+                              : "bg-white/20"
                             }`}
                         />
                         <span
                           className={`text-base font-medium transition-colors ${isComplete || isActive
-                              ? "text-[#E0E7EF]"
-                              : "text-white/40"
+                            ? "text-[#E0E7EF]"
+                            : "text-white/40"
                             }`}
                         >
                           {method === "top10" ? "Top 10" : method === "az" ? "A-Z" : toTitleCase(method)}
