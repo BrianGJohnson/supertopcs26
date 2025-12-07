@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
-import { IconPlayerPlay, IconWand, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconCoin, IconSelector, IconStar, IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck, IconBolt } from "@tabler/icons-react";
+import { IconPlayerPlay, IconWand, IconArrowRight, IconChartBar, IconUsers, IconFlame, IconCoin, IconSelector, IconStar, IconStarFilled, IconPlus, IconArrowsExchange, IconSettingsCog, IconCheck, IconBolt } from "@tabler/icons-react";
 import { listSessions, createSession } from "@/hooks/useSessions";
 import { addSeeds } from "@/hooks/useSeedPhrases";
 import { Modal, ModalButton } from "@/components/ui/Modal";
@@ -420,13 +420,25 @@ export function ActionToolbar({
         let isClickable = true;
         let action: 'autopick' | 'proceed' | 'none' = 'none';
 
-        if (!allScoringComplete && canAutoPick) {
+        if (!allScoringComplete) {
           // State 0: Scoring incomplete - disable auto-pick
           buttonLabel = "Run All Scoring First";
           buttonStyle = 'disabled';
           isClickable = false;
+        } else if (overLimit) {
+          // State 1: Too many selected (14+) - need to deselect to get to 13 or below
+          // This MUST come before canAutoPick check!
+          const toDeselect = starredCount - MAX_TO_PROCEED;
+          buttonLabel = `${starredCount} Selected — Deselect ${toDeselect}`;
+          buttonStyle = 'deselect';
+          isClickable = false;
+        } else if (readyToProceed) {
+          // State 2: Ready to proceed (3-13 stars) - can go to Super Topics
+          buttonLabel = `${starredCount} Selected — Go to Super Topics`;
+          buttonStyle = 'proceed';
+          action = 'proceed';
         } else if (canAutoPick) {
-          // State 1: Can auto-pick (0-17 stars) - always offer to fill to 18
+          // State 3: Can auto-pick (0-17 stars AND not over limit) - fill to 18
           if (starredCount === 0) {
             buttonLabel = "Auto-Pick 18";
           } else {
@@ -434,17 +446,6 @@ export function ActionToolbar({
           }
           buttonStyle = 'autopick';
           action = 'autopick';
-        } else if (overLimit) {
-          // State 2: Too many selected (14-17) - need to deselect to 13
-          const toDeselect = starredCount - MAX_TO_PROCEED;
-          buttonLabel = `${starredCount} Selected — Deselect ${toDeselect}`;
-          buttonStyle = 'deselect';
-          isClickable = false;
-        } else if (readyToProceed) {
-          // State 3: Ready to proceed (exactly 13 or manually at 3-13 after deselecting)
-          buttonLabel = `${starredCount} Selected — Go to Super Topics`;
-          buttonStyle = 'proceed';
-          action = 'proceed';
         } else {
           // Fallback
           buttonLabel = "Run All Scoring First";
@@ -469,10 +470,10 @@ export function ActionToolbar({
               // Glassy cyan style (matches tag pills)
               return `${base} bg-[#39C7D8]/15 border border-[#39C7D8]/40 text-[#39C7D8] hover:bg-[#39C7D8]/25 hover:border-[#39C7D8]/60`;
             case 'proceed':
-              // Primary purple style for proceed
-              return `${base} bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20`;
+              // Glassy green style (matches brand success) - same pattern as amber
+              return `${base} bg-[#2BD899]/15 border border-[#2BD899]/40 text-[#2BD899] hover:bg-[#2BD899]/25 hover:border-[#2BD899]/60`;
             case 'deselect':
-              // Amber/warning style for deselect
+              // Glassy amber style for deselect
               return `${base} bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] cursor-not-allowed`;
             case 'disabled':
               // Muted gray for disabled/incomplete state
@@ -500,7 +501,7 @@ export function ActionToolbar({
             }
           >
             {buttonStyle === 'autopick' && <IconBolt className="w-4 h-4" />}
-            {buttonStyle === 'proceed' && <IconStar className="w-4 h-4 text-yellow-400" />}
+            {buttonStyle === 'proceed' && <IconStarFilled className="w-4 h-4 text-yellow-400" />}
             {buttonStyle === 'deselect' && <IconStar className="w-4 h-4 text-[#F59E0B]" />}
             <span>{buttonLabel}</span>
             {buttonStyle === 'proceed' && <IconArrowRight className="w-4 h-4" />}
