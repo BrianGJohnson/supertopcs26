@@ -4,13 +4,19 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { IconSearch, IconSelector, IconCheck, IconEyeOff, IconChevronDown } from "@tabler/icons-react";
 
+// Import filtering utilities from dedicated module
+import { hasNonEnglishIndicator, isOutdatedPhrase } from "@/lib/phrase-filtering";
+
+// Re-export for backwards compatibility with existing imports
+export { hasNonEnglishIndicator, isOutdatedPhrase } from "@/lib/phrase-filtering";
+
 // =============================================================================
 // TYPES
 // =============================================================================
 
 export type LengthFilter = "short" | "medium" | "long" | "extraLong";
 export type LanguageFilter = "english" | "nonEnglish" | "all";
-export type ScoreMetric = "topic" | "fit" | "pop" | "comp" | "spread";
+export type ScoreMetric = "topic" | "fit" | "demand" | "opp";
 
 export interface FilterState {
   lengths: Set<LengthFilter>;
@@ -34,9 +40,8 @@ interface FilterToolbarProps {
   scoreData?: {
     topic: number[];
     fit: number[];
-    pop: number[];
-    comp: number[];
-    spread: number[];
+    demand: number[];
+    opp: number[];
   };
 }
 
@@ -47,9 +52,8 @@ interface FilterToolbarProps {
 const SCORE_METRIC_OPTIONS: { id: ScoreMetric; label: string; shortLabel: string }[] = [
   { id: "topic", label: "Topic Strength", shortLabel: "Topic" },
   { id: "fit", label: "Audience Fit", shortLabel: "Fit" },
-  { id: "pop", label: "Demand", shortLabel: "Dem" },
-  { id: "comp", label: "Opportunity", shortLabel: "Opp" },
-  { id: "spread", label: "Spread", shortLabel: "Spread" },
+  { id: "demand", label: "Demand", shortLabel: "Dem" },
+  { id: "opp", label: "Opportunity", shortLabel: "Opp" },
 ];
 
 const LENGTH_OPTIONS: { id: LengthFilter; label: string; range: string }[] = [
@@ -412,47 +416,16 @@ export function getLengthCategory(wordCount: number): LengthFilter {
   return "extraLong";                      // Long: 10+ words
 }
 
-// Language detection patterns
-const LANGUAGE_PATTERNS: Record<string, RegExp> = {
-  hindi: /\b(hindi|हिंदी)\b/i,
-  tamil: /\b(tamil|தமிழ்)\b/i,
-  telugu: /\b(telugu|తెలుగు)\b/i,
-  malayalam: /\b(malayalam|മലയാളം)\b/i,
-  bengali: /\b(bengali|bangla|বাংলা)\b/i,
-  kannada: /\b(kannada|ಕನ್ನಡ)\b/i,
-  marathi: /\b(marathi|मराठी)\b/i,
-  gujarati: /\b(gujarati|ગુજરાતી)\b/i,
-  punjabi: /\b(punjabi|ਪੰਜਾਬੀ)\b/i,
-  urdu: /\b(urdu|اردو)\b/i,
-  arabic: /\b(arabic|العربية)\b/i,
-  spanish: /\b(español|spanish|en español)\b/i,
-  portuguese: /\b(portuguese|português)\b/i,
-  french: /\b(french|français)\b/i,
-  german: /\b(german|deutsch)\b/i,
-  russian: /\b(russian|русский)\b/i,
-  japanese: /\b(japanese|日本語)\b/i,
-  korean: /\b(korean|한국어)\b/i,
-  chinese: /\b(chinese|中文|mandarin)\b/i,
-  vietnamese: /\b(vietnamese|tiếng việt)\b/i,
-  thai: /\b(thai|ไทย)\b/i,
-  indonesian: /\b(indonesian|bahasa)\b/i,
-  turkish: /\b(turkish|türkçe)\b/i,
-  italian: /\b(italian|italiano)\b/i,
-  dutch: /\b(dutch|nederlands)\b/i,
-  polish: /\b(polish|polski)\b/i,
-  amharic: /\b(amharic|አማርኛ)\b/i,
-};
+// =============================================================================
+// PHRASE MATCHING (uses imported hasNonEnglishIndicator)
+// =============================================================================
 
-export function hasNonEnglishIndicator(phrase: string): boolean {
-  return Object.values(LANGUAGE_PATTERNS).some(pattern => pattern.test(phrase));
-}
 
 export interface PhraseScores {
   topic: number | null;
   fit: number | null;
-  pop: number | null;
-  comp: number | null;
-  spread: number | null;
+  demand: number | null;
+  opp: number | null;
 }
 
 export function phraseMatchesFilter(

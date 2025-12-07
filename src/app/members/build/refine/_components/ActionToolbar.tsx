@@ -30,6 +30,8 @@ interface ActionToolbarProps {
   audienceFitComplete?: boolean;
   // Demand completion status - enables Opportunity
   demandComplete?: boolean;
+  // Opportunity completion status - enables Auto-Pick
+  opportunityComplete?: boolean;
   // For demand scoring: require ≤75 visible phrases
   visiblePhraseCount?: number;
 }
@@ -62,6 +64,7 @@ export function ActionToolbar({
   topicStrengthComplete = false,
   audienceFitComplete = false,
   demandComplete = false,
+  opportunityComplete = false,
   visiblePhraseCount = 0,
 }: ActionToolbarProps) {
   const router = useRouter();
@@ -359,17 +362,117 @@ export function ActionToolbar({
         {dropdownMenu}
       </div>
 
-      {/* Auto-Pick Button */}
-      <button
-        className="h-[52px] flex items-center gap-2 px-6 bg-white/5 border border-white/10 rounded-lg text-white/60 text-base font-medium whitespace-nowrap hover:bg-white/10 hover:text-white transition-colors"
-        onClick={onAutoPick}
-        title="Auto-select best phrases"
-      >
-        <IconStar className="w-4 h-4" />
-        <span>Auto-Pick</span>
-      </button>
+      {/* Unified Auto-Pick / Continue Button */}
+      {(() => {
+        // Gate: need 3-13 starred phrases to proceed
+        const MIN_TO_PROCEED = 3;
+        const MAX_TO_PROCEED = 13;
+        const AUTO_PICK_TARGET = 18;
 
-      {/* Jump to Title Button - Pro Feature */}
+        // Check if all scoring is complete (required for auto-pick)
+        const allScoringComplete = topicStrengthComplete && audienceFitComplete && demandComplete && opportunityComplete;
+
+        // Determine button state
+        const toAdd = AUTO_PICK_TARGET - starredCount;
+        const canAutoPick = starredCount < AUTO_PICK_TARGET;
+        const overLimit = starredCount > MAX_TO_PROCEED;
+        const readyToProceed = starredCount >= MIN_TO_PROCEED && starredCount <= MAX_TO_PROCEED;
+
+        // Button label and style logic
+        let buttonLabel: string;
+        let buttonStyle: 'autopick' | 'proceed' | 'deselect' | 'disabled' = 'autopick';
+        let isClickable = true;
+        let action: 'autopick' | 'proceed' | 'none' = 'none';
+
+        if (!allScoringComplete && canAutoPick) {
+          // State 0: Scoring incomplete - disable auto-pick
+          buttonLabel = "Run All Scoring First";
+          buttonStyle = 'disabled';
+          isClickable = false;
+        } else if (canAutoPick) {
+          // State 1: Can auto-pick (0-17 stars) - always offer to fill to 18
+          if (starredCount === 0) {
+            buttonLabel = "Auto-Pick 18";
+          } else {
+            buttonLabel = `Auto-Pick ${toAdd} more`;
+          }
+          buttonStyle = 'autopick';
+          action = 'autopick';
+        } else if (overLimit) {
+          // State 2: Too many selected (14-17) - need to deselect to 13
+          const toDeselect = starredCount - MAX_TO_PROCEED;
+          buttonLabel = `${starredCount} Selected — Deselect ${toDeselect}`;
+          buttonStyle = 'deselect';
+          isClickable = false;
+        } else if (readyToProceed) {
+          // State 3: Ready to proceed (exactly 13 or manually at 3-13 after deselecting)
+          buttonLabel = `${starredCount} Selected — Go to Super Topics`;
+          buttonStyle = 'proceed';
+          action = 'proceed';
+        } else {
+          // Fallback
+          buttonLabel = "Run All Scoring First";
+          buttonStyle = 'disabled';
+          isClickable = false;
+        }
+
+        const handleClick = () => {
+          if (action === 'autopick') {
+            onAutoPick();
+          } else if (action === 'proceed') {
+            onContinue();
+          }
+        };
+
+        // Style classes based on state
+        const getButtonClasses = () => {
+          const base = "h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap transition-all";
+
+          switch (buttonStyle) {
+            case 'autopick':
+              // Glassy cyan style (matches tag pills)
+              return `${base} bg-[#39C7D8]/15 border border-[#39C7D8]/40 text-[#39C7D8] hover:bg-[#39C7D8]/25 hover:border-[#39C7D8]/60`;
+            case 'proceed':
+              // Primary purple style for proceed
+              return `${base} bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20`;
+            case 'deselect':
+              // Amber/warning style for deselect
+              return `${base} bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] cursor-not-allowed`;
+            case 'disabled':
+              // Muted gray for disabled/incomplete state
+              return `${base} bg-white/5 border border-white/10 text-white/40 cursor-not-allowed`;
+            default:
+              return `${base} bg-white/5 border border-white/10 text-white/40 cursor-not-allowed`;
+          }
+        };
+
+        return (
+          <button
+            className={getButtonClasses()}
+            onClick={isClickable ? handleClick : undefined}
+            disabled={!isClickable}
+            title={
+              buttonStyle === 'disabled'
+                ? "Complete all 4 scoring runs (Topic, Fit, Demand, Opportunity) to enable Auto-Pick"
+                : action === 'autopick'
+                  ? starredCount === 0
+                    ? "Auto-select 18 top phrases based on scores"
+                    : `Add ${toAdd} more phrases to reach 18`
+                  : buttonStyle === 'deselect'
+                    ? `Deselect ${starredCount - MAX_TO_PROCEED} phrases to proceed`
+                    : "Continue to Super Topics"
+            }
+          >
+            {buttonStyle === 'autopick' && <IconBolt className="w-4 h-4" />}
+            {buttonStyle === 'proceed' && <IconStar className="w-4 h-4 text-yellow-400" />}
+            {buttonStyle === 'deselect' && <IconStar className="w-4 h-4 text-[#F59E0B]" />}
+            <span>{buttonLabel}</span>
+            {buttonStyle === 'proceed' && <IconArrowRight className="w-4 h-4" />}
+          </button>
+        );
+      })()}
+
+      {/* Jump to Title Button */}
       <button
         className={`
           h-[52px] flex items-center gap-2 px-6 rounded-lg text-base font-medium whitespace-nowrap transition-colors
@@ -387,31 +490,10 @@ export function ActionToolbar({
         <span>Title</span>
       </button>
 
-      {/* Topics Count - Styled like a button but inert */}
+      {/* Topics Count */}
       <div className="h-[52px] flex items-center px-6 bg-white/5 border border-white/10 rounded-lg whitespace-nowrap">
         <span className="text-white/60 text-base font-medium">{totalCount} Topics</span>
       </div>
-
-      {/* Selection Status / Continue */}
-      <button
-        className={`
-          h-[52px] flex items-center gap-2 px-6 rounded-lg transition-colors whitespace-nowrap font-medium text-base
-          ${canContinue
-            ? "bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20"
-            : "bg-white/5 border border-white/10 text-white/40 cursor-not-allowed"
-          }
-        `}
-        onClick={onContinue}
-        disabled={!canContinue}
-      >
-        <span className="text-base">
-          {starredCount >= 10
-            ? "Continue to Super"
-            : `Select ${10 - starredCount} more`
-          }
-        </span>
-        <IconArrowRight className="w-4 h-4" />
-      </button>
 
       {/* New Session Modal - Kept in DOM but hidden since trigger is removed, 
           in case we want to re-enable it elsewhere later. 

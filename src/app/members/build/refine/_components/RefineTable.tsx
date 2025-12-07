@@ -20,22 +20,27 @@ interface RefinePhrase {
   source: "seed" | "top10" | "child" | "az" | "prefix";
   topic: number | null;
   fit: number | null;
-  pop: number | null;
-  comp: number | null;
-  spread: number | null;
+  demand: number | null;
+  opp: number | null;
   isStarred: boolean;
   isRejected: boolean;
+  isHidden: boolean;
+  // For opportunity modal
+  suggestionCount: number;
+  exactMatchCount: number;
+  topicMatchCount: number;
+  generationMethod: string | null;
 }
 
-type SortColumn = "phrase" | "source" | "topic" | "fit" | "pop" | "comp" | "starred";
+type SortColumn = "phrase" | "source" | "topic" | "fit" | "demand" | "opp" | "starred";
 type SortDirection = "asc" | "desc";
 
 // All scores from the session for percentile calculation (not just visible phrases)
 interface AllScores {
   topic: number[];
   fit: number[];
-  pop: number[];
-  comp: number[];
+  demand: number[];
+  opp: number[];
 }
 
 interface RefineTableProps {
@@ -47,6 +52,10 @@ interface RefineTableProps {
   onPhraseClick?: (phrase: RefinePhrase) => void; // Opens opportunity modal
   selectedIds: Set<string>;
   starredCount: number;
+  // External sort control (optional - uses internal state if not provided)
+  sortColumn?: SortColumn;
+  sortDirection?: SortDirection;
+  onSortChange?: (column: SortColumn, direction: SortDirection) => void;
 }
 
 // =============================================================================
@@ -184,11 +193,18 @@ export function RefineTable({
   onPhraseClick,
   selectedIds,
   starredCount,
+  sortColumn: externalSortColumn,
+  sortDirection: externalSortDirection,
+  onSortChange,
 }: RefineTableProps) {
-  // Default sort by source (ascending = seed first, then top10, child, az, prefix)
-  const [sortColumn, setSortColumn] = useState<SortColumn>("source");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  // Internal sort state (used if external not provided)
+  const [internalSortColumn, setInternalSortColumn] = useState<SortColumn>("source");
+  const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Use external sort if provided, otherwise use internal
+  const sortColumn = externalSortColumn ?? internalSortColumn;
+  const sortDirection = externalSortDirection ?? internalSortDirection;
 
   // Calculate percentile thresholds from ALL session scores (not just visible)
   // This ensures color-coding is consistent regardless of filtering/hiding
@@ -196,8 +212,8 @@ export function RefineTable({
     const thresholds = {
       topic: calculatePercentileThresholds(allScores.topic, false),
       fit: calculatePercentileThresholds(allScores.fit, false),
-      pop: calculatePercentileThresholds(allScores.pop, false),
-      comp: calculatePercentileThresholds(allScores.comp, false), // Opportunity: higher is better
+      demand: calculatePercentileThresholds(allScores.demand, false),
+      opp: calculatePercentileThresholds(allScores.opp, false), // Opportunity: higher is better
     };
 
     // DEBUG: Log thresholds to understand the distribution
@@ -209,9 +225,9 @@ export function RefineTable({
       fitCount: allScores.fit.length,
       fitRange: allScores.fit.length > 0 ? `${Math.min(...allScores.fit)}-${Math.max(...allScores.fit)}` : 'N/A',
       fitThresholds: thresholds.fit,
-      popCount: allScores.pop.length,
-      popRange: allScores.pop.length > 0 ? `${Math.min(...allScores.pop)}-${Math.max(...allScores.pop)}` : 'N/A',
-      popThresholds: thresholds.pop,
+      demandCount: allScores.demand.length,
+      demandRange: allScores.demand.length > 0 ? `${Math.min(...allScores.demand)}-${Math.max(...allScores.demand)}` : 'N/A',
+      demandThresholds: thresholds.demand,
     });
 
     return thresholds;
@@ -219,13 +235,23 @@ export function RefineTable({
 
   // Handle column header click for sorting
   const handleSort = (column: SortColumn) => {
+    let newDirection: SortDirection;
+
     if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      newDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
-      setSortColumn(column);
       // Source column defaults to asc (seed first), others default to desc (highest first)
-      setSortDirection(column === "source" || column === "phrase" ? "asc" : "desc");
+      newDirection = column === "source" || column === "phrase" ? "asc" : "desc";
     }
+
+    // Use external callback if provided, otherwise use internal state
+    if (onSortChange) {
+      onSortChange(column, newDirection);
+    } else {
+      setInternalSortColumn(column);
+      setInternalSortDirection(newDirection);
+    }
+
     setCurrentPage(1); // Reset to first page on sort
   };
 
@@ -246,10 +272,10 @@ export function RefineTable({
           return dir * ((a.topic ?? -1) - (b.topic ?? -1));
         case "fit":
           return dir * ((a.fit ?? -1) - (b.fit ?? -1));
-        case "pop":
-          return dir * ((a.pop ?? -1) - (b.pop ?? -1));
-        case "comp":
-          return dir * ((a.comp ?? -1) - (b.comp ?? -1));
+        case "demand":
+          return dir * ((a.demand ?? -1) - (b.demand ?? -1));
+        case "opp":
+          return dir * ((a.opp ?? -1) - (b.opp ?? -1));
         case "starred":
           return dir * (Number(a.isStarred) - Number(b.isStarred));
         default:
@@ -322,12 +348,21 @@ export function RefineTable({
               {/* Phrase - constrained width */}
               <HeaderCell column="phrase" label="Phrase" className="pl-3 text-left border-r border-white/[0.10] max-w-[280px]" />
 
-              {/* Star - 64px */}
-              <th className="w-[64px] py-4 text-center border-r border-white/[0.10]">
+              {/* Star - 64px - Clickable for sorting */}
+              <th
+                className="w-[64px] py-4 text-center border-r border-white/[0.10] cursor-pointer hover:bg-white/5 transition-colors select-none"
+                onClick={() => handleSort("starred")}
+                title="Sort by starred"
+              >
                 <span className="flex items-center justify-center gap-1">
                   <IconStar className="w-[20px] h-[20px] text-yellow-400/80" strokeWidth={2} />
                   {starredCount > 0 && (
                     <span className="text-base text-yellow-400 font-bold">{starredCount}</span>
+                  )}
+                  {sortColumn === "starred" && (
+                    <span className="text-yellow-400/60 text-xs ml-0.5">
+                      {sortDirection === "asc" ? "↑" : "↓"}
+                    </span>
                   )}
                 </span>
               </th>
@@ -347,10 +382,10 @@ export function RefineTable({
               <HeaderCell column="fit" label="Fit" className="w-[72px] text-center border-r border-white/[0.10]" />
 
               {/* Dem (Demand) - 72px */}
-              <HeaderCell column="pop" label="Dem" className="w-[72px] text-center border-r border-white/[0.10]" />
+              <HeaderCell column="demand" label="Dem" className="w-[72px] text-center border-r border-white/[0.10]" />
 
               {/* Opp (Opportunity) - 72px (no right border - last column) */}
-              <HeaderCell column="comp" label="Opp" className="w-[72px] text-center" />
+              <HeaderCell column="opp" label="Opp" className="w-[72px] text-center" />
             </tr>
           </thead>
 
@@ -379,8 +414,8 @@ export function RefineTable({
                       <button
                         onClick={() => onToggleSelect(phrase.id)}
                         className={`w-[18px] h-[18px] rounded-full border-2 transition-colors ${isSelected
-                            ? "border-[#6B9BD1] bg-[#6B9BD1]"
-                            : "border-[#6B9BD1]/40 hover:border-[#6B9BD1]/70"
+                          ? "border-[#6B9BD1] bg-[#6B9BD1]"
+                          : "border-[#6B9BD1]/40 hover:border-[#6B9BD1]/70"
                           }`}
                       >
                         {isSelected && (
@@ -446,13 +481,13 @@ export function RefineTable({
                     </td>
 
                     {/* Dem (Demand) */}
-                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.pop, scoreThresholds.pop, false)}`}>
-                      {phrase.pop ?? "—"}
+                    <td className={`py-4 text-center font-mono text-sm border-r border-white/[0.10] ${getScoreColorByPercentile(phrase.demand, scoreThresholds.demand, false)}`}>
+                      {phrase.demand ?? "—"}
                     </td>
 
                     {/* Opp (Opportunity) - higher is better, no right border - last column */}
-                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.comp, scoreThresholds.comp, false)}`}>
-                      {phrase.comp ?? "—"}
+                    <td className={`py-4 pr-4 text-center font-mono text-sm ${getScoreColorByPercentile(phrase.opp, scoreThresholds.opp, false)}`}>
+                      {phrase.opp ?? "—"}
                     </td>
                   </tr>
                 );
