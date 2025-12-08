@@ -38,9 +38,10 @@
 ## Phase 3: UI Development (The Watch Page)
 
 ### 1. Layout Components
-*   [ ] `HeroSection`: The Gold "Video Player" mock.
-*   [ ] `RunnerUpRow`: The Silver card row.
-*   [ ] `CandidateGrid`: The Blue list.
+*   [ ] `HeroSection`: The Gold "Video Player" mock (40/60 Split).
+*   [ ] `CandidateCard`: Unified card for Silver/Blue tiers with Split Buttons (`[Inspect] | [Swap]`).
+*   [ ] `CandidateGrid`: Grid container for Runners-up & Contenders (3-col).
+*   [ ] `InspectionDrawer`: Slide-over detailed report panel.
 
 ### 2. Visual Assets
 *   [ ] Create/Find icons for the 8 Formats (Wizard, Scale, Book, Beaker, Megaphone, Hug, Flame, Sparkle).

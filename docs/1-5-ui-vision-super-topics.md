@@ -28,25 +28,34 @@ The user doesn't just "see" data; they commit to a vision in stages.
 
 ## 2. Layout Structure
 
-### Top Tile: The Command Center 🎛️
-Dominates the top 60% of the screen. Always shows the **Current Focus**.
+## 2. Layout Structure: "The Inspection Deck"
 
-**A. Toggles (Top Right)**
-*   **👁️ Video View**: Visual hero card of the current focus.
-*   **📊 Growth Fit**: A bar chart comparing the "Growth Score" of all 13 topics.
+### A. Top Tile: The Command Center (Gold) 🏆
+A massive, cinematic card acting as the user's primary focus.
+*   **Geometry**: **40% Left / 60% Right** split.
+*   **Left (40%)**:
+    *   **Top**: 16:9 Thumbnail Preview (Fixed Aspect Ratio).
+    *   **Bottom**: "Viewer DNA" Grid (Emotion/Intent/Angle Pills).
+*   **Right (60%)**: "Intelligence Panel".
+    *   **Header**: Title (H1) + Classification Tags.
+    *   **Body**: Textual Strategy (Porch Pitch, Why It Wins).
+    *   **Footer**: Growth Score Bar + Action Buttons.
 
-**B. The "Hero" State (Video View)**
-*   **Visual**: Large Mock Player (Gold).
-*   **Data**: The "Report" (Porch Pitch, Angle, Why It Wins).
-*   **Actions**:
-    *   `[Lock This Video]` -> **Effect**: Promotes to "Walking Summary" and unlocks Title Lab.
-    *   `[Swap]` -> Available on all runner-up cards to promote them to this slot.
-    *   `[View on YouTube]` -> External Link.
-    *   `[Report]` -> Opens detailed side-panel report.
+### B. Runners-Up (Silver) 🥈
+*   **Layout**: Grid of 3 Cards.
+*   **Visuals**: Silver border/glow.
+*   **Content**: Thumbnail + Title + Emotion + Score.
+*   **Actions**: Split Buttons: `[ 👁️ Inspect ] | [ ↑ Swap ]`.
 
-### Middle Area: The Runners-Up (Silver) 🥈
-*   **Prior to Lock**: Shows the next best options.
-*   **Action**: `[Swap]` promotes them to Top Tile.
+### C. Contenders (Blue) 🔵
+*   **Layout**: Grid of Cards (Same structure as Runners-up).
+*   **Visuals**: Blue border/glow.
+*   **Purpose**: Flattened hierarchy. No hidden data.
+*   **Actions**: Split Buttons: `[ 👁️ Inspect ] | [ ↑ Swap ]`.
+
+### D. The Inspection Drawer 🕵️‍♂️
+*   A slide-over panel accessible from ANY card's "Inspect" button.
+*   Shows the full "Deep Dive" report for that candidate without losing context.
 
 ---
 

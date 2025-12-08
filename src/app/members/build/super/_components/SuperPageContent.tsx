@@ -202,15 +202,15 @@ export function SuperPageContent() {
                         {/* Tier Badge - Shows the candidate's actual tier */}
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
                             <div className={`flex items-center gap-2 px-5 py-2 rounded-full shadow-lg ${style.pillBg}`}>
-                                <IconTrophy className={`w-4 h-4 ${style.pillText}`} />
-                                <span className={`text-sm font-bold ${style.pillText}`}>
+                                <IconTrophy className={`w-5 h-5 ${style.pillText}`} />
+                                <span className={`text-base font-bold ${style.pillText}`}>
                                     {style.label}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Content Grid */}
-                        <div className="grid grid-cols-[280px_1fr] gap-8 mt-6">
+                        {/* Content Grid - 40/60 Split */}
+                        <div className="grid grid-cols-[40%_1fr] gap-8 mt-6">
                             {/* Thumbnail - Styled by tier */}
                             <div className={`aspect-video rounded-xl flex items-center justify-center bg-gradient-to-br ${style.thumbnailGradient} border ${style.thumbnailBorder}`}>
                                 <IconStarFilled className={`w-16 h-16 ${style.text} opacity-40`} />
@@ -218,25 +218,25 @@ export function SuperPageContent() {
 
                             {/* Info Panel */}
                             <div className="flex flex-col">
-                                <h2 className="text-2xl font-bold text-white mb-3">
+                                <h2 className="text-3xl font-bold text-white mb-4">
                                     {topTileCandidate.phrase}
                                 </h2>
 
                                 {/* Tags */}
                                 <div className="flex flex-wrap gap-2 mb-4">
-                                    <span className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-sm font-medium">
+                                    <span className="px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-base font-medium">
                                         {topTileCandidate.format}
                                     </span>
-                                    <span className="px-3 py-1 rounded-lg bg-[#2BD899]/20 text-[#2BD899] text-sm font-medium">
+                                    <span className="px-4 py-1.5 rounded-lg bg-[#2BD899]/20 text-[#2BD899] text-base font-medium">
                                         {topTileCandidate.bucket}
                                     </span>
-                                    <span className="px-3 py-1 rounded-lg bg-white/10 text-white/70 text-sm font-medium">
+                                    <span className="px-4 py-1.5 rounded-lg bg-white/10 text-white/70 text-base font-medium">
                                         {topTileCandidate.mindset}
                                     </span>
                                 </div>
 
                                 {/* Porch Pitch */}
-                                <p className="text-white/60 text-base leading-relaxed mb-5">
+                                <p className="text-white/70 text-lg leading-relaxed mb-6">
                                     {topTileCandidate.porchPitch}
                                 </p>
 
@@ -247,9 +247,9 @@ export function SuperPageContent() {
                                             <IconMoodSmile className="w-5 h-5 text-[#FF6B6B]" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-white/40 uppercase tracking-wide">Emotion</p>
-                                            <p className="text-sm text-white font-medium">{topTileCandidate.primaryEmotion}</p>
-                                            <p className="text-xs text-white/50">+ {topTileCandidate.secondaryEmotion}</p>
+                                            <p className="text-sm text-white/50 uppercase tracking-wide">Emotion</p>
+                                            <p className="text-base text-white font-semibold">{topTileCandidate.primaryEmotion}</p>
+                                            <p className="text-sm text-white/60">+ {topTileCandidate.secondaryEmotion}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -257,8 +257,8 @@ export function SuperPageContent() {
                                             <IconTarget className="w-5 h-5 text-[#39C7D8]" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-white/40 uppercase tracking-wide">Viewer Intent</p>
-                                            <p className="text-sm text-white font-medium">{topTileCandidate.intent}</p>
+                                            <p className="text-sm text-white/50 uppercase tracking-wide">Viewer Intent</p>
+                                            <p className="text-base text-white font-semibold">{topTileCandidate.intent}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -266,8 +266,8 @@ export function SuperPageContent() {
                                             <IconBulb className="w-5 h-5 text-[#FFD700]" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-white/40 uppercase tracking-wide">The Angle</p>
-                                            <p className="text-sm text-white font-medium">{topTileCandidate.angle}</p>
+                                            <p className="text-sm text-white/50 uppercase tracking-wide">The Angle</p>
+                                            <p className="text-base text-white font-semibold">{topTileCandidate.angle}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -275,22 +275,22 @@ export function SuperPageContent() {
                                             <IconFlame className="w-5 h-5 text-[#2BD899]" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-white/40 uppercase tracking-wide">Why It Wins</p>
-                                            <p className="text-sm text-white/80 leading-snug">{topTileCandidate.whyItWins}</p>
+                                            <p className="text-sm text-white/50 uppercase tracking-wide">Why It Wins</p>
+                                            <p className="text-base text-white/90 leading-snug">{topTileCandidate.whyItWins}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Growth Score */}
                                 <div className="flex items-center gap-3">
-                                    <span className="text-white/40 text-sm font-medium">Growth Fit</span>
+                                    <span className="text-white/50 text-base font-medium">Growth Fit</span>
                                     <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-gradient-to-r from-[#2BD899] to-[#39C7D8] rounded-full transition-all duration-500"
                                             style={{ width: `${topTileCandidate.growthScore}%` }}
                                         />
                                     </div>
-                                    <span className="text-[#2BD899] font-bold text-xl">{topTileCandidate.growthScore}</span>
+                                    <span className="text-[#2BD899] font-bold text-2xl">{topTileCandidate.growthScore}</span>
                                 </div>
                             </div>
                         </div>
@@ -325,10 +325,10 @@ export function SuperPageContent() {
             })()}
 
             {/* ================================================================== */}
-            {/* SECONDARY CARDS (Positions 1-3) - Styling follows each card's TIER */}
+            {/* RUNNERS-UP CARDS (Positions 1-3) - Styling follows each card's TIER */}
             {/* ================================================================== */}
             <div className="space-y-5">
-                <h3 className="text-xl font-semibold text-white/60">More Options</h3>
+                <h3 className="text-2xl font-semibold text-white/70">Runners-Up</h3>
                 <div className="grid grid-cols-3 gap-6">
                     {secondaryCards.map((candidate) => {
                         const style = getStyle(candidate.tier);
@@ -338,44 +338,54 @@ export function SuperPageContent() {
                                 className={`p-6 rounded-2xl transition-all hover:scale-[1.02] ${style.bg} border-2 ${style.border}`}
                             >
                                 {/* Tier Badge */}
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-4 ${style.pillBg} ${style.pillText}`}>
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold mb-4 ${style.pillBg} ${style.pillText}`}>
                                     {style.label}
                                 </div>
 
-                                {/* Thumbnail */}
-                                <div className={`aspect-[16/10] rounded-xl bg-gradient-to-br ${style.thumbnailGradient} border ${style.thumbnailBorder} mb-4 flex items-center justify-center`}>
+                                {/* Thumbnail with Growth Score Overlay */}
+                                <div className={`aspect-[16/10] rounded-xl bg-gradient-to-br ${style.thumbnailGradient} border ${style.thumbnailBorder} mb-4 flex items-center justify-center relative`}>
                                     <IconStarFilled className={`w-10 h-10 ${style.text} opacity-30`} />
+                                    {/* Growth Score Badge */}
+                                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/20">
+                                        <span className={`font-bold text-xl ${style.text}`}>{candidate.growthScore}</span>
+                                    </div>
                                 </div>
 
                                 {/* Phrase */}
-                                <h4 className="text-xl font-bold text-white/90 mb-3 line-clamp-2 leading-tight">
+                                <h4 className="text-2xl font-bold text-white/90 mb-3 line-clamp-2 leading-tight">
                                     {candidate.phrase}
                                 </h4>
 
                                 {/* Tags */}
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    <span className="px-3 py-1 rounded-lg text-sm bg-white/10 text-white/60 font-medium">
+                                <div className="flex flex-wrap gap-2 mb-5">
+                                    <span className="px-3 py-1.5 rounded-lg text-base bg-white/10 text-white/70 font-medium">
                                         {candidate.primaryEmotion}
                                     </span>
-                                    <span className="px-3 py-1 rounded-lg text-sm bg-primary/15 text-primary/80 font-medium">
+                                    <span className="px-3 py-1.5 rounded-lg text-base bg-primary/15 text-primary/80 font-medium">
                                         {candidate.format}
                                     </span>
                                 </div>
 
-                                {/* Growth Score */}
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-white/50 text-base font-medium">Growth Fit</span>
-                                    <span className={`font-bold text-xl ${style.text}`}>{candidate.growthScore}</span>
+                                {/* Action Buttons */}
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => handleSwap(candidate.id)}
+                                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all`}
+                                    >
+                                        <IconArrowUp className="w-5 h-5" />
+                                        Swap to Top
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all">
+                                            <IconFileDescription className="w-5 h-5" />
+                                            Report
+                                        </button>
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all">
+                                            <IconExternalLink className="w-5 h-5" />
+                                            YouTube
+                                        </button>
+                                    </div>
                                 </div>
-
-                                {/* Swap Button */}
-                                <button
-                                    onClick={() => handleSwap(candidate.id)}
-                                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all`}
-                                >
-                                    <IconArrowUp className="w-5 h-5" />
-                                    Swap to Top
-                                </button>
                             </div>
                         );
                     })}
@@ -383,59 +393,72 @@ export function SuperPageContent() {
             </div>
 
             {/* ================================================================== */}
-            {/* CONTENDER ROWS (Positions 4-12) - Styling follows each row's TIER */}
+            {/* CONTENDERS (Positions 4-12) - Grid layout matching Runners-Up */}
             {/* ================================================================== */}
             <div className="space-y-5">
-                <h3 className="text-xl font-semibold text-white/60">All Candidates</h3>
-                <div className="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
-                    {contenderRows.map((candidate, index) => {
+                <h3 className="text-2xl font-semibold text-[#39C7D8]">Contenders</h3>
+                <div className="grid grid-cols-3 gap-6">
+                    {contenderRows.map((candidate) => {
                         const style = getStyle(candidate.tier);
                         return (
                             <div
                                 key={candidate.id}
-                                className={`flex items-center gap-5 px-6 py-4 transition-all hover:bg-white/[0.03] ${index !== contenderRows.length - 1 ? "border-b border-white/5" : ""}`}
+                                className={`p-6 rounded-2xl transition-all hover:scale-[1.02] ${style.bg} border-2 ${style.border}`}
                             >
-                                {/* Rank Number */}
-                                <span className={`w-8 text-center text-base font-semibold ${style.text}`}>
-                                    {index + 5}
-                                </span>
-
                                 {/* Tier Badge */}
-                                <span className={`px-2 py-1 rounded text-xs font-semibold ${style.pillBg} ${style.pillText}`}>
-                                    {candidate.tier === 'winner' ? '👑' : candidate.tier === 'runner-up' ? '🥈' : ''}
-                                    {candidate.tier !== 'contender' && ' '}
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold mb-4 ${style.pillBg} ${style.pillText}`}>
                                     {style.label}
-                                </span>
+                                </div>
 
-                                {/* Progress Bar with Phrase */}
-                                <div className={`flex-1 h-10 bg-white/5 rounded-full overflow-hidden relative border ${style.thumbnailBorder}`}>
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-300 ${candidate.tier === 'winner' ? 'bg-gradient-to-r from-[#FFD700]/40 to-[#FFD700]/20' : candidate.tier === 'runner-up' ? 'bg-gradient-to-r from-white/20 to-white/10' : 'bg-gradient-to-r from-[#39C7D8]/40 to-[#39C7D8]/20'}`}
-                                        style={{ width: `${candidate.growthScore}%` }}
-                                    />
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-base text-white font-medium truncate max-w-[90%]">
-                                        {candidate.phrase}
+                                {/* Thumbnail with Growth Score Overlay */}
+                                <div className={`aspect-[16/10] rounded-xl bg-gradient-to-br ${style.thumbnailGradient} border ${style.thumbnailBorder} mb-4 flex items-center justify-center relative`}>
+                                    <IconStarFilled className={`w-10 h-10 ${style.text} opacity-30`} />
+                                    {/* Growth Score Badge */}
+                                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/20">
+                                        <span className={`font-bold text-xl ${style.text}`}>{candidate.growthScore}</span>
+                                    </div>
+                                </div>
+
+                                {/* Phrase */}
+                                <h4 className="text-2xl font-bold text-white/90 mb-3 line-clamp-2 leading-tight">
+                                    {candidate.phrase}
+                                </h4>
+
+                                {/* Tags */}
+                                <div className="flex flex-wrap gap-2 mb-5">
+                                    <span className="px-3 py-1.5 rounded-lg text-base bg-white/10 text-white/70 font-medium">
+                                        {candidate.primaryEmotion}
+                                    </span>
+                                    <span className="px-3 py-1.5 rounded-lg text-base bg-primary/15 text-primary/80 font-medium">
+                                        {candidate.format}
                                     </span>
                                 </div>
 
-                                {/* Score */}
-                                <span className={`w-14 text-right text-lg font-bold ${style.text}`}>
-                                    {candidate.growthScore}
-                                </span>
-
-                                {/* Swap Button */}
-                                <button
-                                    onClick={() => handleSwap(candidate.id)}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-[#39C7D8] hover:bg-[#39C7D8]/10 border border-white/10 hover:border-[#39C7D8]/30 transition-all"
-                                >
-                                    <IconArrowUp className="w-4 h-4" />
-                                    Swap
-                                </button>
+                                {/* Action Buttons */}
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => handleSwap(candidate.id)}
+                                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all`}
+                                    >
+                                        <IconArrowUp className="w-5 h-5" />
+                                        Swap to Top
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all">
+                                            <IconFileDescription className="w-5 h-5" />
+                                            Report
+                                        </button>
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 text-base font-medium hover:bg-white/10 hover:text-white transition-all">
+                                            <IconExternalLink className="w-5 h-5" />
+                                            YouTube
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         );
                     })}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

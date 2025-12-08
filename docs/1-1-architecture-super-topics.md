@@ -35,8 +35,9 @@ Instead of one batch prompt, we run **13 parallel requests** (one per phrase).
 
 We do NOT generate Title/Thumbnail specifics yet. We wait for the **USER LOCK**.
 
-1.  **Step 1: Classification (Page Load)**
+1.  **Step 1: The Inspection Deck (Page Load)**
     *   All 13 phrases analyzed for Strategy/Classification/Scores.
+    *   **New**: User can "Inspect" *any* candidate (Winner, Runner-up, Contender) to see full data.
     *   User chooses the **Winning Super Topic**.
 
 2.  **Step 2: Title Lab (On Lock)**
