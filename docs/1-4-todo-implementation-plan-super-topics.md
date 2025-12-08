@@ -1,65 +1,116 @@
-# Page 4 Implementation Plan
+# Page 4 Implementation Plan: Super Topics
 
-> **Checklist** for building the Super Topics "Watch Page" Engine.
-
----
-
-## Phase 1: Knowledge & Prompts (The Brain)
-
-### 1. System Prompt Construction
-*   [ ] Create `src/lib/prompts/super-topic-batch.ts`.
-*   [ ] Embed **8 Video Formats** definitions.
-*   [ ] Embed **Sub-Types** for each format.
-*   [ ] Embed **Performance Bucket** definitions.
-*   [ ] Embed **Viewer Intent** rules (Vent vs Learn).
-*   [ ] **CRITICAL**: Read `docs/gpt5-mini-communication-guide.md` for tone.
-
-### 2. The Batch Prompt Logic
-*   [ ] Design prompt to accept 15 phrases.
-*   [ ] Instruction: "Rank these 15. Return full JSON for Top 4 only."
-*   [ ] Instruction: "For Thumbnail Text, give me 1-4 word punchy phrases. No 5+ words."
-*   [ ] Output Format: JSON Schema matching `1-2-data-schema-super-topics.md`.
+> **Checklist** for building the Super Topics page with GPT-5 mini integration.
 
 ---
 
-## Phase 2: Database & API
+## ✅ Phase 1: Knowledge & Taxonomy (Complete)
 
-### 1. Schema
-*   [ ] Run migration: `ALTER TABLE builder_sessions ADD COLUMN super_topic_batch_json JSONB;`
-
-### 2. Server Action (The Gap Handler)
-*   [ ] Create `actions/generate-super-topic.ts`.
-*   [ ] Connect to GPT-5-mini.
-*   [ ] Implement specific logic to handle the "15 -> 4" expansion.
-*   [ ] **Cost Check**: Verify total input/output tokens stay under $0.08 per run.
-
----
-
-## Phase 3: UI Development (The Watch Page)
-
-### 1. Layout Components
-*   [ ] `HeroSection`: The Gold "Video Player" mock (40/60 Split).
-*   [ ] `CandidateCard`: Unified card for Silver/Blue tiers with Split Buttons (`[Inspect] | [Swap]`).
-*   [ ] `CandidateGrid`: Grid container for Runners-up & Contenders (3-col).
-*   [ ] `InspectionDrawer`: Slide-over detailed report panel.
-
-### 2. Visual Assets
-*   [ ] Create/Find icons for the 8 Formats (Wizard, Scale, Book, Beaker, Megaphone, Hug, Flame, Sparkle).
-*   [ ] Design the "Thumbnail Text" overlay style (Bold, Impact font).
-
-### 3. State Management
-*   [ ] Handle "Promote to Hero" (Swap data between Winner and Runner-up state).
-*   [ ] Handle "Is Trending?" toggle (Refreshes analysis with Velocity bias).
+- [x] Define 7 primary format buckets with 38 sub-formats
+- [x] Define 8 emotions for Format Feeling
+- [x] Define 4 mindsets
+- [x] Define 14 algorithm targets with primary metrics
+- [x] Create GPT-5 mini prompt structure (`1-6-gpt-mini-super-topics.md`)
+- [x] Create taxonomy reference (`1-7-video-format-taxonomy.md`)
+- [x] Define 17 output fields per phrase
+- [x] Establish readability rules (8th grade reading, 6th-7th vocabulary)
 
 ---
 
-## Phase 4: Validation
+## 🔲 Phase 2: UI Development (In Progress)
 
-*   [ ] **Test**: Does "YouTube Algorithm" return "Vent/Validate" goal?
-*   [ ] **Test**: Does "How to bake" return "Tutorial / Learn" goal?
-*   [ ] **Test**: Are thumbnail phrases consistently < 5 words?
-*   [ ] **Test**: Cost audit on 10 runs.
+### Current State
+- [x] Basic top tile layout (thumbnail + info panel)
+- [x] Pills row (format + algorithm targets)
+- [x] Scores row (emotion, intent, clickability)
+- [x] Action buttons (Lock, Report, YouTube)
+
+### Remaining UI Work
+- [ ] Add 3 text sections with mini-headings:
+  - [ ] Section 1: "Viewer Goal" (2-3 sentences)
+  - [ ] Section 2: "Why This Could Work" (2-3 sentences)
+  - [ ] Section 3: "Algorithm Angle" (2-3 sentences)
+- [ ] Improve spacing and padding throughout
+- [ ] Format pill styling (distinguish from algorithm targets)
+- [ ] Mobile responsiveness
 
 ---
 
-*Last Updated: December 7, 2025*
+## 🔲 Phase 3: Database Schema
+
+### New Fields to Store (per phrase)
+```sql
+-- Scores
+growth_fit_score INTEGER,
+clickability_score INTEGER,
+intent_score INTEGER,
+
+-- Video Format
+primary_bucket TEXT,
+sub_format TEXT,
+alternate_formats TEXT[],
+
+-- Emotional Format
+primary_emotion TEXT,
+secondary_emotion TEXT,
+mindset TEXT,
+
+-- Algorithm Targets
+algorithm_targets TEXT[],
+
+-- Core Content
+viewer_goal TEXT,
+viewer_angle TEXT,
+porch_talk TEXT,
+hook TEXT,
+
+-- Text Sections
+viewer_goal_description TEXT,
+why_this_could_work TEXT,
+algorithm_angle_description TEXT
+```
+
+- [ ] Design table structure (extend `builder_sessions` or new `super_topic_candidates` table?)
+- [ ] Run migration
+- [ ] Create TypeScript types matching schema
+
+---
+
+## 🔲 Phase 4: API & GPT Integration
+
+### Server Action
+- [ ] Create `actions/generate-super-topic.ts`
+- [ ] Build prompt from onboarding data + phrase
+- [ ] Connect to GPT-5 mini with `reasoning_effort: "medium"`
+- [ ] Parse JSON response
+- [ ] Store in database
+- [ ] Handle errors gracefully
+
+### Testing
+- [ ] Test with different reasoning levels (minimal, low, medium, high)
+- [ ] Measure latency for each
+- [ ] Cost audit (target: under $0.05 for 13 phrases)
+
+---
+
+## 🔲 Phase 5: Integration & Polish
+
+- [ ] Wire UI to real data (replace mock data)
+- [ ] Loading states while GPT generates
+- [ ] Error handling in UI
+- [ ] Lock/save functionality
+- [ ] Report generation
+
+---
+
+## Recommended Order
+
+1. **UI Text Sections** — Add the 3 sections with mock data
+2. **Database Schema** — Design and migrate
+3. **API Integration** — Connect GPT-5 mini
+4. **Wire It Up** — Replace mock data with real
+5. **Polish** — Loading states, errors, mobile
+
+---
+
+*Last Updated: December 8, 2025*
