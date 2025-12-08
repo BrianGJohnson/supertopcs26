@@ -17,7 +17,7 @@ GPT-5 mini returns:
 
 ## The 7 Primary Buckets
 
-### 1. EDUCATIONAL
+### 1. INFO
 Teaching something specific. The viewer learns a skill, concept, or process.
 
 **Sub-formats:**
@@ -184,7 +184,7 @@ The overall tone/approach of the video content.
 
 These are the YouTube algorithm signals we want to tap. GPT picks 2-3 that apply to each phrase.
 
-**The 14 Algorithm Targets:**
+**The 13 Algorithm Targets:**
 
 **Long-Term Views**
 Timeless content that compounds views over months and years. Not dependent on trends or timing.
@@ -208,13 +208,8 @@ Sparks discussion, debate, and comments. Viewers have opinions and will share th
 Example: "Why I stopped using [popular thing]" — people will argue.
 
 **Return Viewer**
-Brings viewers back to your channel. Great for series content and building audience habits.
+Brings viewers back to your channel. Personal, lifestyle, subscriber updates, deeply personal content.
 Example: Weekly updates, ongoing series, "Part 2" content.
-
-**Loyalty Builder**
-Content that turns casual viewers into regulars. Creates connection and habit.
-Viewers think: "I need to check back for more from this creator."
-Example: Personality-driven content, consistent format viewers expect.
 
 **Masterclass Method**
 Exhaustive, definitive content. "The best guide on the internet" for this topic.

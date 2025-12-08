@@ -16,22 +16,22 @@ import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle
 export const user_profiles = pgTable('user_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull().unique(), // References auth.users(id)
-  
+
   // Account tier determines channel limits
   // basic: 1 channel, plus: 3 channels, pro: 10 channels
   account_tier: text('account_tier').default('basic'), // basic, plus, pro
-  
+
   // Profile info
   display_name: text('display_name'),
   email: text('email'),
   avatar_url: text('avatar_url'),
-  
+
   // Display preferences
   display_mode: text('display_mode').default('essentials'), // "essentials" or "full" - user-level, applies across all channels
-  
+
   // Preferences
   preferences: jsonb('preferences'), // UI settings, defaults, etc.
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -44,28 +44,28 @@ export const user_profiles = pgTable('user_profiles', {
 export const channels = pgTable('channels', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull(), // References auth.users(id)
-  
+
   // Channel identity
   name: text('name').notNull(),
   youtube_channel_id: text('youtube_channel_id'), // e.g., "UCxxxxxx" (optional)
   youtube_channel_url: text('youtube_channel_url'), // Full URL from onboarding
   thumbnail_url: text('thumbnail_url'),
-  
+
   // Channel context (used for AI scoring)
   niche: text('niche'), // e.g., "Tech Reviews", "Cooking", "Gaming"
   niche_score: integer('niche_score'), // 1-10 demand score from GPT analysis
   target_audience: text('target_audience'), // e.g., "Beginners learning to code"
   channel_description: text('channel_description'),
-  
+
   // Onboarding data
   onboarding_step: integer('onboarding_step'), // 1-4, null = not started
   onboarding_completed_at: timestamp('onboarding_completed_at'),
-  
+
   // Goals (from onboarding step 2)
   goals: jsonb('goals'), // ["growth", "adsense", "sell_products"]
   motivations: jsonb('motivations'), // Same as goals, alternate name
   primary_motivation: text('primary_motivation'), // Their #1 goal
-  
+
   // Monetization (from onboarding step 3)
   monetization_methods: jsonb('monetization_methods'), // ["adsense", "affiliates", "products"] - ordered by priority
   monetization_priority: jsonb('monetization_priority'), // Priority order of methods
@@ -76,36 +76,36 @@ export const channels = pgTable('channels', {
   adsense_status: text('adsense_status'), // monetized, not_yet, etc.
   sponsorship_niche: text('sponsorship_niche'), // Brands they want to work with
   has_channel: boolean('has_channel'), // Whether they have an existing YouTube channel
-  
+
   // Niche & Content Style (from onboarding step 4)
   topic_ideas: jsonb('topic_ideas'), // Initial topic ideas they entered
   content_style: integer('content_style'), // 1-7 scale: 1=Scholar, 7=Performer
   content_style_name: text('content_style_name'), // "The Scholar", "The Teacher", etc.
   video_formats: jsonb('video_formats'), // ["tutorials", "reviews", "vlogs"] - formats they create
-  
+
   // Content pillars (from onboarding step 5 - AI generated)
   content_pillars: jsonb('content_pillars'), // ["AI Tools", "No-Code Builds", "Cursor Tips"] - legacy
   pillar_strategy: jsonb('pillar_strategy'), // Full pillar data: { evergreen: {...}, trending: {...}, monetization: {...} }
   niche_demand_score: integer('niche_demand_score'), // 1-10 from GPT validation
   niche_validated: boolean('niche_validated'), // Whether GPT has validated their niche
-  
+
   // Audience details (from onboarding step 4)
   audience_who: text('audience_who'), // "Developers wanting to speed up coding"
   audience_struggle: text('audience_struggle'), // "Spending too much time on boilerplate"
   audience_goal: text('audience_goal'), // "Ship projects faster"
   audience_expertise: text('audience_expertise'), // "beginner", "intermediate", "advanced"
-  
+
   // GPT analysis cache (from onboarding step 3)
   niche_analysis: jsonb('niche_analysis'), // Full GPT response for reference
-  
+
   // Stats (can be synced from YouTube API later)
   subscriber_count: integer('subscriber_count'),
   video_count: integer('video_count'),
-  
+
   // Status
   is_active: boolean('is_active').default(true),
   is_default: boolean('is_default').default(false), // User's primary channel
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -119,21 +119,21 @@ export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull(), // Denormalized for easy queries
   channel_id: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }), // Nullable during migration
-  
+
   // Core
   name: text('name').notNull(),
   seed_phrase: text('seed_phrase'), // The 2-word starter phrase
   current_step: integer('current_step').default(1), // 1=Seed, 2=Refine, 3=Super
   status: text('status').default('active'), // active, completed, archived, deleted
-  
+
   // Session stats (summary for display after deletion)
   total_phrases_generated: integer('total_phrases_generated'),
   total_super_topics: integer('total_super_topics'),
-  
+
   // Data intake stats (modifiers, anchors, rare words, percentiles)
   // This is the full pattern extraction from Page 1
   intake_stats: jsonb('intake_stats'),
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -148,19 +148,19 @@ export const sessions = pgTable('sessions', {
 export const seeds = pgTable('seeds', {
   id: uuid('id').primaryKey().defaultRandom(),
   session_id: uuid('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
-  
+
   // The phrase itself
   phrase: text('phrase').notNull(),
-  
+
   // How it was generated
   generation_method: text('generation_method'), // top10, child, a2z, prefix
   parent_seed_id: uuid('parent_seed_id'), // For child phrases
   position: integer('position'), // Order in results (1-10 for top10)
-  
+
   // User selection state
   is_selected: boolean('is_selected').default(false),
   is_finalist: boolean('is_finalist').default(false),
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
 });
@@ -172,7 +172,7 @@ export const seeds = pgTable('seeds', {
 export const seed_analysis = pgTable('seed_analysis', {
   id: uuid('id').primaryKey().defaultRandom(),
   seed_id: uuid('seed_id').notNull().unique().references(() => seeds.id, { onDelete: 'cascade' }),
-  
+
   // Core scores (0-100)
   topic_strength: integer('topic_strength'),
   audience_fit: integer('audience_fit'),
@@ -180,28 +180,28 @@ export const seed_analysis = pgTable('seed_analysis', {
   demand_base: integer('demand_base'), // Raw demand score before session size multiplier
   opportunity: integer('opportunity'), // Opportunity score (0-99) - to be implemented
   overall_score: integer('overall_score'),
-  
+
   // Visibility state (for Refine page bulk hide)
   is_hidden: boolean('is_hidden').default(false),
-  
+
   // LTV (Long-Term Views) - measures Top 10 alignment
   // Hidden on Page 2, boosts Demand, badge on Page 3 for score >= 50
   ltv_score: integer('ltv_score').default(0),
   ltv_strategy: text('ltv_strategy'), // FULL_TOP10, FULL_ANCHOR, BIGRAM, SINGLE, or null
   ltv_match: text('ltv_match'), // The text that matched
   ltv_boost: integer('ltv_boost').default(0), // +0, +3, +5, +8, or +10
-  
+
   // Emotions
   primary_emotion: text('primary_emotion'),
   secondary_emotion: text('secondary_emotion'),
-  
+
   // Intent
   viewer_intent: text('viewer_intent'), // learn, buy, compare, etc.
-  
+
   // Modifiers
   modifier_type: text('modifier_type'), // how_to, what_is, best, etc.
   is_rare_modifier: boolean('is_rare_modifier').default(false),
-  
+
   // Reasons/explanations (3-5 sentences each)
   topic_strength_reason: text('topic_strength_reason'),
   audience_fit_reason: text('audience_fit_reason'),
@@ -210,14 +210,14 @@ export const seed_analysis = pgTable('seed_analysis', {
   overall_reason: text('overall_reason'),
   primary_emotion_reason: text('primary_emotion_reason'),
   viewer_intent_reason: text('viewer_intent_reason'),
-  
+
   // Video planning (for later)
   video_angle_ideas: jsonb('video_angle_ideas'),
   bullet_points: jsonb('bullet_points'),
-  
+
   // Catch-all for anything else
   extra: jsonb('extra'),
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
 });
@@ -228,21 +228,60 @@ export const seed_analysis = pgTable('seed_analysis', {
 // ------------------------------------------------------------
 export const super_topics = pgTable('super_topics', {
   id: uuid('id').primaryKey().defaultRandom(),
-  
+
   // Ownership - tied to channel, survives session deletion
   channel_id: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
   user_id: uuid('user_id').notNull(), // Denormalized for easy queries
-  
+
   // Origin tracking - preserved even after session deletion
   source_session_id: uuid('source_session_id'), // No FK - session may be deleted
   source_session_name: text('source_session_name'), // Preserved copy
   source_seed_phrase: text('source_seed_phrase'), // Preserved copy: "Content Creation"
   source_seed_id: uuid('source_seed_id'), // No FK - seed may be deleted
-  
+
   // The phrase itself
   phrase: text('phrase').notNull(),
-  
-  // All scores at time of promotion (preserved snapshot)
+
+  // ============================================================
+  // PAGE 4: GPT-5 MINI ANALYSIS (17 fields)
+  // ============================================================
+
+  // --- Scores (3) ---
+  growth_fit_score: integer('growth_fit_score'), // 0-99: How well this fits creator's growth
+  clickability_score: integer('clickability_score'), // 0-99: How likely viewers click
+  intent_score: integer('intent_score'), // 0-99: How strong is viewer intent
+
+  // --- Video Format (3) ---
+  primary_bucket: text('primary_bucket'), // info, opinion, review, entertainment, analysis, news, list
+  sub_format: text('sub_format'), // Tutorial, Hot Take, Product Review, etc.
+  alternate_formats: jsonb('alternate_formats'), // ["First Impressions", "How-To"]
+
+  // --- Emotional Format (1 new, 2 existing) ---
+  // primary_emotion and secondary_emotion already exist below
+  mindset: text('mindset'), // positive, negative, neutral, insightful
+
+  // --- Algorithm Targets (1) ---
+  algorithm_targets: jsonb('algorithm_targets'), // ["Long-Term Views", "High Click Trigger", "Secret Strategy"]
+
+  // --- Core Content (4) ---
+  viewer_goal: text('viewer_goal'), // Learn, Validate, Solve, Vent, Be Entertained
+  viewer_angle: text('viewer_angle'), // 1 sentence: "They feel like the algorithm is working against them."
+  porch_talk: text('porch_talk'), // 2 sentences: "Why This Topic" aka the pitch
+  hook: text('hook'), // 1-2 sentences: Opening hook suggestion
+
+  // --- Text Sections (3) ---
+  viewer_goal_description: text('viewer_goal_description'), // 2-3 sentences about viewer goal
+  why_this_could_work: text('why_this_could_work'), // 2-3 sentences about creator fit
+  algorithm_angle_description: text('algorithm_angle_description'), // 2-3 sentences about strategy
+
+  // --- Page 4 Display ---
+  is_winner: boolean('is_winner').default(false), // The "Locked" video
+  tier: text('tier'), // winner, runner-up, contender
+  rank_order: integer('rank_order'), // 1-13 position in the list
+
+  // ============================================================
+  // LEGACY SCORES (from Pages 2-3)
+  // ============================================================
   topic_strength: integer('topic_strength'),
   audience_fit: integer('audience_fit'),
   search_volume: integer('search_volume'),
@@ -250,34 +289,34 @@ export const super_topics = pgTable('super_topics', {
   demand_base: integer('demand_base'), // Before LTV boost
   opportunity: integer('opportunity'), // Opportunity score
   opportunity_score: integer('opportunity_score'), // Composite for Page 3
-  
+
   // LTV preserved for Page 3 badge display
   ltv_score: integer('ltv_score'),
   ltv_strategy: text('ltv_strategy'),
   ltv_match: text('ltv_match'),
-  
+
   // P&C component breakdown (for transparency)
   pc_breakdown: jsonb('pc_breakdown'), // { prefix: 45, seedPlus1: 72, seedPlus2: 68, suffix: 55 }
-  
-  // Analysis preserved
+
+  // Analysis preserved (emotions already here)
   primary_emotion: text('primary_emotion'),
   secondary_emotion: text('secondary_emotion'),
   viewer_intent: text('viewer_intent'),
   modifier_type: text('modifier_type'),
-  
+
   // Reasons preserved
   topic_strength_reason: text('topic_strength_reason'),
   audience_fit_reason: text('audience_fit_reason'),
-  
+
   // User additions
   notes: text('notes'), // User's personal notes
   tags: jsonb('tags'), // e.g., ["tutorial", "beginner", "monetization"]
-  
+
   // Usage tracking
   status: text('status').default('active'), // active, used, archived
   used_in_video_id: text('used_in_video_id'), // YouTube video ID if they made a video
   used_at: timestamp('used_at'), // When they marked it as used
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(), // When phrase was first generated
   promoted_at: timestamp('promoted_at').defaultNow(), // When it became a Super Topic
@@ -290,17 +329,17 @@ export const super_topics = pgTable('super_topics', {
 export const seed_phrases = pgTable('seed_phrases', {
   id: uuid('id').primaryKey().defaultRandom(),
   user_id: uuid('user_id').notNull(), // References auth.users(id)
-  
+
   // Context
   pillar: text('pillar').notNull(), // 'evergreen', 'trending', 'monetization'
   sub_niche: text('sub_niche').notNull(), // e.g., "AI Tools", "Thumbnail Design"
-  
+
   // The 75 generated phrases
   phrases: jsonb('phrases').notNull().default([]), // ["ai thumbnails", "chatgpt scripts", ...]
-  
+
   // Tracking which phrases user has already selected
   used_phrases: jsonb('used_phrases').notNull().default([]), // Phrases they've clicked on
-  
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -312,23 +351,23 @@ export const seed_phrases = pgTable('seed_phrases', {
 export const scoring_logs = pgTable('scoring_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   session_id: uuid('session_id').notNull(),
-  
+
   // What was scored
   scoring_type: text('scoring_type').notNull(), // 'demand', 'topic_strength', 'audience_fit', etc.
   phrases_scored: integer('phrases_scored').notNull(),
-  
+
   // Timing
   duration_ms: integer('duration_ms').notNull(),
   started_at: timestamp('started_at').notNull(),
   finished_at: timestamp('finished_at').notNull(),
-  
+
   // API usage
   api_calls: integer('api_calls').default(0),
   estimated_cost_usd: text('estimated_cost_usd'), // stored as text to avoid float issues
-  
+
   // Optional details
   details: jsonb('details'), // any extra info like error counts, batch sizes, etc.
-  
+
   created_at: timestamp('created_at').defaultNow(),
 });
 
