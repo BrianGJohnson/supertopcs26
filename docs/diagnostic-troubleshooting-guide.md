@@ -39,6 +39,47 @@ grep -r "await fetch.*\/api\/(seed-signal|topics)" src/
 
 ---
 
+## Common Issue: "Session has no channel"
+
+**Symptom:** Super Topics page shows "Session has no channel" error
+
+**Cause:** The session was created without a `channel_id` linked. This can happen if:
+1. Session was created before channel-linking was implemented
+2. User has no channel (hasn't completed onboarding)
+
+**Quick Fix (manual):**
+```bash
+# Check session and available channels
+node -e "
+require('dotenv').config({ path: '.env.local' });
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+async function check() {
+  const sessionId = 'YOUR_SESSION_ID';
+  const { data: session } = await supabase.from('sessions').select('id, name, user_id, channel_id').eq('id', sessionId).single();
+  console.log('Session:', session);
+  if (session?.user_id) {
+    const { data: channels } = await supabase.from('channels').select('id, name').eq('user_id', session.user_id);
+    console.log('Available channels:', channels);
+  }
+}
+check();
+"
+
+# Link session to channel
+node -e "
+require('dotenv').config({ path: '.env.local' });
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+supabase.from('sessions').update({ channel_id: 'CHANNEL_ID' }).eq('id', 'SESSION_ID').then(console.log);
+"
+```
+
+**Permanent Fix:** The `createSession()` function in `src/hooks/useSessions.ts` now automatically links sessions to the user's channel.
+
+---
+
 ## The Process
 
 ### Step 1: Define the Desired Outcome

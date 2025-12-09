@@ -39,28 +39,28 @@ export interface AudienceFitScoringResult {
 export interface CreatorProfile {
   // Identity
   niche: string;
-  
+
   // Content Style (The 7 Archetypes)
   contentStyleNumber: number;  // 1-7
   contentStyleName: string;    // "The Scholar", "The Teacher", etc.
-  
+
   // What they make
   videoFormats: string[];      // ["tutorials", "reviews", "vlogs"]
   topicIdeas: string[];        // ["YouTube algorithm", "AI tools", "YouTube updates"] - from onboarding
-  
+
   // Who they serve
   audienceWho: string;         // "Developers wanting to speed up coding"
   audienceStruggle: string;    // "Spending too much time on boilerplate"
   audienceGoal: string;        // "Ship projects faster"
   audienceExpertise: string;   // "beginner", "intermediate", "advanced"
-  
+
   // Monetization (CRITICAL - specific data matters here)
   primaryMonetization: string; // "products", "affiliate", "adsense", "sponsorships"
   monetizationMethods: string[]; // All methods in priority order
   productsDescription?: string;  // EXACT description of what they sell
   affiliateProducts?: string;    // EXACT products they promote
   sponsorshipNiche?: string;     // Brands they want to work with
-  
+
   // Content Pillars - supports both flat and nested structure
   pillarStrategy?: {
     pillars?: {
@@ -73,7 +73,7 @@ export interface CreatorProfile {
     trending?: { subNiches?: Array<{ name: string }> };
     monetization?: { subNiches?: Array<{ name: string }>; selectedSubNiches?: string[] };
   };
-  
+
   // Session context
   seedPhrase: string;  // Root topic for this session
 }
@@ -154,54 +154,70 @@ const CONTENT_STYLE_MAP: Record<number, { name: string; traits: string; bestFit:
 export const SYSTEM_PROMPT = `You are scoring how well each phrase fits a specific YouTube creator's channel.
 Return a JSON object with a "scores" key containing exactly N integers from 0-97.
 
-YOUR JOB: Score each phrase based on whether THIS SPECIFIC CREATOR would make this video and their audience would click on it.
+YOUR JOB: Score each phrase based on whether THIS SPECIFIC CREATOR'S AUDIENCE would want this content.
 
 ═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: THE SESSION SEED TOPIC IS THE STRONGEST SIGNAL
+CRITICAL: AUDIENCE FIT = DOES THIS MATCH THE CHANNEL?
 ═══════════════════════════════════════════════════════════════════════════════
-The "SESSION SEED TOPIC" in the user prompt is what the creator is actively researching RIGHT NOW.
-Any phrase closely related to the seed topic should score HIGH (75+).
-The seed topic IS their intent - they chose to research this.
+Audience Fit measures ONE thing: Does this phrase match what this creator's channel is about?
+
+If the channel is about "YouTube Growth" and the phrase is about "No Code Apps":
+→ Score LOW (20-40) because the audience came for YouTube tips, not app building.
+
+If the channel is about "YouTube Growth" and the phrase is about "Algorithm Tips":
+→ Score HIGH (80-97) because the audience wants exactly this.
+
+The NICHE and AUDIENCE are what matter. Not what session the user is in.
 
 ═══════════════════════════════════════════════════════════════════════════════
 SCORING RULES (IN ORDER OF PRIORITY)
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. PHRASES RELATED TO SESSION SEED TOPIC → Score 75-97
-   The seed topic is what they're actively researching. Related phrases = high fit.
+1. PHRASES MATCHING THEIR EXPLICIT TOPIC IDEAS → Score 80-97
+   If they listed "YouTube algorithm" as a topic, phrases about algorithms fit perfectly.
 
-2. PHRASES MATCHING THEIR EXPLICIT TOPIC IDEAS → Score 80-97
-   If they listed "YouTube algorithm" as a topic, ANY phrase about algorithms fits.
-   Use SEMANTIC matching, not just keywords. "How algorithm works" = matches "algorithm"
+2. PHRASES MATCHING THEIR PRODUCTS → Score 85-97
+   If they sell something, phrases about that capability = money phrases.
 
-3. PHRASES MATCHING THEIR PRODUCTS → Score 85-97
-   If they sell something, phrases about that capability are MONEY PHRASES.
-
-4. PHRASES MATCHING MONETIZATION PILLARS → Score 80-95
+3. PHRASES MATCHING MONETIZATION PILLARS → Score 80-95
    These drive their revenue.
 
-5. PHRASES MATCHING EVERGREEN/TRENDING PILLARS → Score 65-85
+4. PHRASES MATCHING EVERGREEN/TRENDING PILLARS → Score 65-85
    Core content they regularly make.
 
-6. PHRASES IN THEIR NICHE → Score 55-75
+5. PHRASES IN THEIR NICHE → Score 55-75
    Generally on-brand for their channel.
 
-7. PHRASES OUTSIDE THEIR NICHE → Score 20-50
-   Could work but not obviously a fit.
+6. PHRASES LOOSELY RELATED TO NICHE → Score 35-55
+   Tangentially connected, audience might be interested.
 
-8. PHRASES COMPLETELY UNRELATED → Score 0-20
-   Wrong audience entirely.
+7. PHRASES OUTSIDE THEIR NICHE → Score 15-35
+   Different topic area. Their audience didn't subscribe for this.
+
+8. PHRASES COMPLETELY UNRELATED → Score 0-15
+   Wrong audience entirely. Would confuse subscribers.
+
+═══════════════════════════════════════════════════════════════════════════════
+KEY PRINCIPLE: NICHE MISMATCH = LOW SCORE
+═══════════════════════════════════════════════════════════════════════════════
+If the phrase topic is NOT what their channel covers, score it LOW.
+
+Examples for a "YouTube Growth" channel:
+- "How to get more views" → 90 (perfect fit)
+- "Thumbnail design tips" → 85 (core topic)
+- "Best camera for YouTube" → 70 (related equipment)
+- "Vlog editing software" → 55 (somewhat related)
+- "No code app builder" → 25 (different topic entirely)
+- "Best cooking recipes" → 10 (completely unrelated)
 
 ═══════════════════════════════════════════════════════════════════════════════
 SEMANTIC MATCHING IS CRITICAL
 ═══════════════════════════════════════════════════════════════════════════════
 Don't just look for exact keyword matches. Use semantic understanding:
 
-- "YouTube algorithm" topic → matches "how algorithm works", "algorithm explained", "algorithm tips"
-- "Thumbnail Design" pillar → matches "thumbnail mistakes", "best thumbnails", "thumbnail CTR"
+- "YouTube algorithm" topic → matches "how algorithm works", "algorithm explained"
+- "Thumbnail Design" pillar → matches "thumbnail mistakes", "best thumbnails"
 - "Topic Research" product → matches "find video ideas", "what to make videos about"
-
-If the MEANING relates to their topics/pillars/products, it's a match.
 
 ═══════════════════════════════════════════════════════════════════════════════
 OUTPUT FORMAT
@@ -227,18 +243,18 @@ export function buildAudienceFitPrompt(
   // Extract pillar data (handle both nested and flat structure)
   // -------------------------------------------------------------------------
   const pillars = profile.pillarStrategy?.pillars || profile.pillarStrategy;
-  
+
   const evergreenPillar = pillars?.evergreen;
   const trendingPillar = pillars?.trending;
   const monetizationPillar = pillars?.monetization;
-  
+
   // Get selected sub-niches (what user actually picked) or fall back to all
-  const evergreenTopics = evergreenPillar?.selectedSubNiches?.length 
-    ? evergreenPillar.selectedSubNiches 
+  const evergreenTopics = evergreenPillar?.selectedSubNiches?.length
+    ? evergreenPillar.selectedSubNiches
     : evergreenPillar?.subNiches?.map(s => s.name) || [];
-  
+
   const trendingTopics = trendingPillar?.subNiches?.map(s => s.name) || [];
-  
+
   const monetizationTopics = monetizationPillar?.selectedSubNiches?.length
     ? monetizationPillar.selectedSubNiches
     : monetizationPillar?.subNiches?.map(s => s.name) || [];
@@ -247,7 +263,7 @@ export function buildAudienceFitPrompt(
   // Build monetization context - USE ALL METHODS, not just primary
   // -------------------------------------------------------------------------
   let monetizationContext = "";
-  
+
   // Always include products description if they sell products
   if (profile.productsDescription) {
     monetizationContext += `
@@ -256,7 +272,7 @@ PRODUCTS THEY SELL (PROTECT THESE PHRASES - SCORE 85+):
 → ANY phrase related to what this product does should score 85+
 → These are MONEY PHRASES - they lead directly to sales`;
   }
-  
+
   // Always include affiliate info if they do affiliate
   if (profile.affiliateProducts) {
     monetizationContext += `
@@ -266,7 +282,7 @@ AFFILIATE PRODUCTS THEY PROMOTE (PROTECT THESE PHRASES - SCORE 85+):
 → ANY phrase related to these products should score 85+
 → Content about these topics earns them money`;
   }
-  
+
   // Include sponsorship info
   if (profile.sponsorshipNiche) {
     monetizationContext += `
@@ -275,14 +291,14 @@ SPONSORSHIP BRANDS THEY WANT:
 "${profile.sponsorshipNiche}"
 → BOOST phrases that would attract these types of sponsors`;
   }
-  
+
   // If no specific monetization data, note the methods they use
   if (!monetizationContext && profile.monetizationMethods?.length) {
     monetizationContext = `
 MONETIZATION METHODS: ${profile.monetizationMethods.join(", ")}
 → Score phrases that support these revenue methods higher`;
   }
-  
+
   if (!monetizationContext) {
     monetizationContext = `
 MONETIZATION: Not specified
@@ -293,23 +309,23 @@ MONETIZATION: Not specified
   // Build pillar context - INCLUDE ALL PILLARS
   // -------------------------------------------------------------------------
   let pillarContext = "";
-  
+
   if (evergreenTopics.length || trendingTopics.length || monetizationTopics.length) {
     pillarContext = `
 CONTENT PILLARS (from their onboarding - phrases matching these should score HIGH):`;
-    
+
     if (evergreenTopics.length) {
       pillarContext += `
 • EVERGREEN TOPICS: ${evergreenTopics.join(", ")}
   → These are their core, always-relevant topics. Score 65+ if phrase matches.`;
     }
-    
+
     if (trendingTopics.length) {
       pillarContext += `
 • TRENDING TOPICS: ${trendingTopics.join(", ")}
   → These are timely topics they care about. Score 60+ if phrase matches.`;
     }
-    
+
     if (monetizationTopics.length) {
       pillarContext += `
 • MONETIZATION TOPICS: ${monetizationTopics.join(", ")}
@@ -338,17 +354,10 @@ ${profile.topicIdeas.map(t => `• "${t}"`).join("\n")}
     .join('\n\n');
 
   // -------------------------------------------------------------------------
-  // BUILD THE FULL PROMPT - ALL DATA INCLUDED
+  // BUILD THE FULL PROMPT - CHANNEL FIT ONLY (NO SEED TOPIC)
   // -------------------------------------------------------------------------
   return `═══════════════════════════════════════════════════════════════════════════════
-CRITICAL: SESSION SEED TOPIC (HIGHEST PRIORITY)
-═══════════════════════════════════════════════════════════════════════════════
-The creator is actively researching: "${profile.seedPhrase}"
-→ ANY phrase related to "${profile.seedPhrase}" should score 75-97
-→ This is what they chose to research - it's their current focus
-
-═══════════════════════════════════════════════════════════════════════════════
-CREATOR PROFILE
+CREATOR'S CHANNEL PROFILE
 ═══════════════════════════════════════════════════════════════════════════════
 CHANNEL NICHE: ${profile.niche}
 CONTENT STYLE: ${profile.contentStyleName} (#${profile.contentStyleNumber})
@@ -372,14 +381,15 @@ ${pillarContext}
 ═══════════════════════════════════════════════════════════════════════════════
 SCORING PRIORITY (in order)
 ═══════════════════════════════════════════════════════════════════════════════
-1. Related to seed topic "${profile.seedPhrase}" → 75-97
-2. Matches their topic ideas → 80-97  
-3. Matches their products/monetization → 85-97
-4. Matches their pillars → 65-85
-5. In their niche → 55-75
-6. Loosely related → 40-55
-7. Unrelated → 0-40
+1. Matches their topic ideas → 80-97  
+2. Matches their products/monetization → 85-97
+3. Matches their pillars → 65-85
+4. In their niche → 55-75
+5. Loosely related to niche → 35-55
+6. Outside their niche → 15-35
+7. Completely unrelated → 0-15
 
+KEY: If the phrase topic doesn't match what their CHANNEL is about, score LOW.
 Maximum score is 97 (never 98-100).
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -404,14 +414,14 @@ export function parseAudienceFitResponse(
 ): (number | null)[] {
   try {
     const parsed = JSON.parse(content);
-    
+
     let scores: unknown;
-    
+
     if (Array.isArray(parsed)) {
       scores = parsed;
     } else if (typeof parsed === 'object' && parsed !== null) {
       scores = parsed.scores || parsed.results || parsed.values || parsed.data;
-      
+
       if (!Array.isArray(scores)) {
         const arrayValue = Object.values(parsed).find(v => Array.isArray(v));
         if (arrayValue) {
@@ -419,16 +429,16 @@ export function parseAudienceFitResponse(
         }
       }
     }
-    
+
     if (!Array.isArray(scores)) {
       console.error('[AudienceFit] Unexpected response format:', JSON.stringify(parsed).slice(0, 200));
       throw new Error('Response is not an array');
     }
-    
+
     if (scores.length !== expectedCount) {
       console.warn(`[AudienceFit] Count mismatch: expected ${expectedCount}, got ${scores.length}`);
     }
-    
+
     const validatedScores: (number | null)[] = [];
     for (let idx = 0; idx < expectedCount; idx++) {
       if (idx < scores.length) {
@@ -443,7 +453,7 @@ export function parseAudienceFitResponse(
         validatedScores.push(null);
       }
     }
-    
+
     return validatedScores;
   } catch (error) {
     const arrayMatch = content.match(/\[[\d,\s]+\]/);
@@ -494,7 +504,7 @@ export function calculateDistribution(scores: number[]): AudienceFitScoringResul
     "20-39": 0,
     "0-19": 0,
   };
-  
+
   for (const score of scores) {
     if (score >= 80) distribution["80-99"]++;
     else if (score >= 60) distribution["60-79"]++;
@@ -502,7 +512,7 @@ export function calculateDistribution(scores: number[]): AudienceFitScoringResul
     else if (score >= 20) distribution["20-39"]++;
     else distribution["0-19"]++;
   }
-  
+
   return distribution;
 }
 

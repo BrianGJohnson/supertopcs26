@@ -399,112 +399,88 @@ export function ActionToolbar({
       </div>
 
       {/* Unified Auto-Pick / Continue Button */}
+      {/* Auto-Pick Button - Always targets 18 total */}
       {(() => {
-        // Gate: need 3-13 starred phrases to proceed
-        const MIN_TO_PROCEED = 3;
-        const MAX_TO_PROCEED = 13;
         const AUTO_PICK_TARGET = 18;
-
-        // Check if all scoring is complete (required for auto-pick)
         const allScoringComplete = topicStrengthComplete && audienceFitComplete && demandComplete && opportunityComplete;
-
-        // Determine button state
         const toAdd = AUTO_PICK_TARGET - starredCount;
-        const canAutoPick = starredCount < AUTO_PICK_TARGET;
-        const overLimit = starredCount > MAX_TO_PROCEED;
-        const readyToProceed = starredCount >= MIN_TO_PROCEED && starredCount <= MAX_TO_PROCEED;
+        const underTarget = starredCount < AUTO_PICK_TARGET;
 
-        // Button label and style logic
+        // Button states
         let buttonLabel: string;
-        let buttonStyle: 'autopick' | 'proceed' | 'deselect' | 'disabled' = 'autopick';
         let isClickable = true;
-        let action: 'autopick' | 'proceed' | 'none' = 'none';
+        let buttonStyle: 'autopick' | 'disabled' = 'autopick';
 
         if (!allScoringComplete) {
-          // State 0: Scoring incomplete - disable auto-pick
           buttonLabel = "Run All Scoring First";
           buttonStyle = 'disabled';
           isClickable = false;
-        } else if (overLimit) {
-          // State 1: Too many selected (14+) - need to deselect to get to 13 or below
-          // This MUST come before canAutoPick check!
-          const toDeselect = starredCount - MAX_TO_PROCEED;
-          buttonLabel = `${starredCount} Selected — Deselect ${toDeselect}`;
-          buttonStyle = 'deselect';
-          isClickable = false;
-        } else if (readyToProceed) {
-          // State 2: Ready to proceed (3-13 stars) - can go to Super Topics
-          buttonLabel = `${starredCount} Selected — Go to Super Topics`;
-          buttonStyle = 'proceed';
-          action = 'proceed';
-        } else if (canAutoPick) {
-          // State 3: Can auto-pick (0-17 stars AND not over limit) - fill to 18
+        } else if (underTarget) {
           if (starredCount === 0) {
             buttonLabel = "Auto-Pick 18";
           } else {
-            buttonLabel = `Auto-Pick ${toAdd} more`;
+            buttonLabel = `Auto-Pick +${toAdd}`;
           }
           buttonStyle = 'autopick';
-          action = 'autopick';
         } else {
-          // Fallback
-          buttonLabel = "Run All Scoring First";
+          // At 18+ - button disabled, they need to deselect
+          buttonLabel = "18 Selected ✓";
           buttonStyle = 'disabled';
           isClickable = false;
         }
 
-        const handleClick = () => {
-          if (action === 'autopick') {
-            onAutoPick();
-          } else if (action === 'proceed') {
-            onContinue();
-          }
-        };
-
-        // Style classes based on state
-        const getButtonClasses = () => {
-          const base = "h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap transition-all";
-
-          switch (buttonStyle) {
-            case 'autopick':
-              // Glassy cyan style (matches tag pills)
-              return `${base} bg-[#39C7D8]/15 border border-[#39C7D8]/40 text-[#39C7D8] hover:bg-[#39C7D8]/25 hover:border-[#39C7D8]/60`;
-            case 'proceed':
-              // Glassy green style (matches brand success) - same pattern as amber
-              return `${base} bg-[#2BD899]/15 border border-[#2BD899]/40 text-[#2BD899] hover:bg-[#2BD899]/25 hover:border-[#2BD899]/60`;
-            case 'deselect':
-              // Glassy amber style for deselect
-              return `${base} bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] cursor-not-allowed`;
-            case 'disabled':
-              // Muted gray for disabled/incomplete state
-              return `${base} bg-white/5 border border-white/10 text-white/40 cursor-not-allowed`;
-            default:
-              return `${base} bg-white/5 border border-white/10 text-white/40 cursor-not-allowed`;
-          }
-        };
+        const base = "h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap transition-all";
+        const buttonClasses = buttonStyle === 'autopick'
+          ? `${base} bg-[#39C7D8]/15 border border-[#39C7D8]/40 text-[#39C7D8] hover:bg-[#39C7D8]/25 hover:border-[#39C7D8]/60`
+          : `${base} bg-white/5 border border-white/10 text-white/40 cursor-not-allowed`;
 
         return (
           <button
-            className={getButtonClasses()}
-            onClick={isClickable ? handleClick : undefined}
+            className={buttonClasses}
+            onClick={isClickable ? onAutoPick : undefined}
             disabled={!isClickable}
-            title={
-              buttonStyle === 'disabled'
-                ? "Complete all 4 scoring runs (Topic, Fit, Demand, Opportunity) to enable Auto-Pick"
-                : action === 'autopick'
-                  ? starredCount === 0
-                    ? "Auto-select 18 top phrases based on scores"
-                    : `Add ${toAdd} more phrases to reach 18`
-                  : buttonStyle === 'deselect'
-                    ? `Deselect ${starredCount - MAX_TO_PROCEED} phrases to proceed`
-                    : "Continue to Super Topics"
-            }
+            title={!allScoringComplete
+              ? "Complete all 4 scoring runs first"
+              : `Auto-select ${toAdd} more phrases to reach 18`}
           >
-            {buttonStyle === 'autopick' && <IconBolt className="w-4 h-4" />}
-            {buttonStyle === 'proceed' && <IconStarFilled className="w-4 h-4 text-yellow-400" />}
-            {buttonStyle === 'deselect' && <IconStar className="w-4 h-4 text-[#F59E0B]" />}
+            <IconBolt className="w-4 h-4" />
             <span>{buttonLabel}</span>
-            {buttonStyle === 'proceed' && <IconArrowRight className="w-4 h-4" />}
+          </button>
+        );
+      })()}
+
+      {/* Go to Super Topics Button - Visible when 3-13 stars */}
+      {(() => {
+        const MIN_TO_PROCEED = 3;
+        const MAX_TO_PROCEED = 13;
+        const readyToProceed = starredCount >= MIN_TO_PROCEED && starredCount <= MAX_TO_PROCEED;
+        const overLimit = starredCount > MAX_TO_PROCEED;
+        const toDeselect = starredCount - MAX_TO_PROCEED;
+
+        if (starredCount < MIN_TO_PROCEED) {
+          // Not enough stars - don't show button
+          return null;
+        }
+
+        if (overLimit) {
+          // Too many stars - show deselect message
+          return (
+            <div className="h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B]">
+              <IconStar className="w-4 h-4" />
+              <span>{starredCount} Selected — Deselect {toDeselect}</span>
+            </div>
+          );
+        }
+
+        // Ready to proceed!
+        return (
+          <button
+            className="h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap bg-[#2BD899]/15 border border-[#2BD899]/40 text-[#2BD899] hover:bg-[#2BD899]/25 hover:border-[#2BD899]/60 transition-all"
+            onClick={onContinue}
+            title="Continue to Super Topics"
+          >
+            <IconStarFilled className="w-4 h-4 text-yellow-400" />
+            <span>{starredCount} ★ → Super Topics</span>
           </button>
         );
       })()}

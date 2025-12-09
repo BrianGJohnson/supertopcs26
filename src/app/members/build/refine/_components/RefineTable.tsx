@@ -22,6 +22,7 @@ interface RefinePhrase {
   fit: number | null;
   demand: number | null;
   opp: number | null;
+  ltvScore: number; // Long-Term Views score (0-100)
   isStarred: boolean;
   isRejected: boolean;
   isHidden: boolean;

@@ -8,7 +8,7 @@ This document defines the GPT-5 mini API call structure for generating candidate
 
 For each of the 13 candidate phrases, we make **one GPT-5 mini call** that generates all scores, classifications, and text content.
 
-All 13 calls run in parallel. Estimated cost: ~$0.03-0.05 total.
+All 13 calls run in parallel with **prompt caching** enabled. Estimated cost: ~$0.10 total.
 
 ---
 
@@ -19,7 +19,7 @@ const MODEL_CONFIG = {
   model: "gpt-5-mini",
   temperature: 1,                    // Creative, natural prose
   top_p: 1,
-  max_completion_tokens: 2500,
+  max_completion_tokens: 30000,      // High limit for reasoning tokens
   reasoning_effort: "medium",        // Better scoring accuracy
   response_format: { type: "json_object" },
 };
@@ -30,6 +30,46 @@ const MODEL_CONFIG = {
 - `low` — Balanced
 - `medium` — Recommended: good balance of accuracy and speed
 - `high` — Highest accuracy, slowest (experiment to test latency)
+
+---
+
+## Prompt Caching Strategy (Critical for Cost)
+
+To reduce costs from ~$1.00 to ~$0.10 per page load, we leverage OpenAI's automatic prompt caching.
+
+### How It Works
+
+1. **Automatic for prompts ≥1024 tokens** — No special flag needed
+2. **Cache hits on identical prefixes** — Runs 2-13 get ~90% discount on input tokens
+3. **Retention** — Cache stays active 5-10 minutes (up to 1 hour)
+
+### Implementation Rules
+
+```
+┌─────────────────────────────────────────────────┐
+│ SYSTEM PROMPT (identical for all 13 requests)  │ ← Cached after Run #1
+│ - Creator context                               │
+│ - Scoring rubric                                │
+│ - Format taxonomy (all 7 buckets)               │
+│ - Algorithm targets (all 13)                    │
+│ - Output JSON schema                            │
+├─────────────────────────────────────────────────┤
+│ USER MESSAGE                                    │
+│ - "Analyze this phrase: {PHRASE}"               │ ← Only dynamic part
+└─────────────────────────────────────────────────┘
+```
+
+**Key Rules:**
+- **Static content FIRST** — System prompt, taxonomy, rubric (identical across all 13 calls)
+- **Dynamic content LAST** — The keyword phrase at the very end of the user message
+- **Do NOT put dynamic variables in the system prompt**
+
+### Cost Breakdown
+
+| Run | Input Tokens | Discount |
+|-----|--------------|----------|
+| Run 1 (Cold) | Full price | 0% |
+| Runs 2-13 (Warm) | Cached prefix | 90% |
 
 ---
 
@@ -78,13 +118,10 @@ Open to Quick Tips: ${show_quick_tips}
 Target audience: ${target_audience}
 Audience expertise: ${audience_expertise}
 
-=== PHRASE TO ANALYZE ===
-"${phrase}"
-
 === VIDEO FORMAT OPTIONS ===
 Pick a primaryBucket and subFormat from these options:
 
-1. EDUCATIONAL: Tutorial, How-To, Explainer, Walkthrough, Crash Course, Masterclass
+1. INFO: Tutorial, How-To, Explainer, Walkthrough, Crash Course, Masterclass
 2. OPINION: Commentary, Hot Take, Rant, Reaction, My Take, Unpopular Opinion
 3. REVIEW: Product Review, First Impressions, Comparison, Honest Review, Long-Term Review, Buyer's Guide
 4. ENTERTAINMENT: Vlog, Lifestyle, Challenge, Behind-the-Scenes, Story, Day in the Life, Q&A
@@ -100,20 +137,59 @@ Curiosity, FOMO, Fear, Hope, Frustration, Validation, Excitement, Relief
 Pick one: Positive, Negative, Neutral, Insightful
 
 === ALGORITHM TARGETS (pick 2-3) ===
-- Long-Term Views: Evergreen content that compounds over months/years
-- High Click Trigger: Topic naturally drives clicks and CTR
-- View Multiplier: Suited for 3-5 video series
-- High Intent: Viewers ready to take action
-- Polarizing & Engaging: Sparks comments and debate
-- Return Viewer: Brings viewers back to channel
-- Loyalty Builder: Turns casual viewers into regulars
-- Masterclass Method: Exhaustive, long-form authority content
-- Trust Builder: Vulnerable, honest content that builds connection
-- Transformational View Boost: Journey content (struggle → result), boosts AVD
-- Secret Strategy: "Hidden truth" curiosity play, drives CTR
-- Mistakes & Warnings: Fear-driven "don't do this" content, drives CTR + trust
-- Comparison Trigger: X vs Y decision content, drives AVD + intent
-- Story Hook: Personal narrative that holds attention, boosts AVD
+Pick 2-3 targets that best match this phrase. Use the selection criteria.
+
+- Long-Term Views
+  When: Evergreen topic, question-based phrase, info-based video
+  Metric: Search traffic over time
+
+- High Click Trigger
+  When: Phrase creates urgency, curiosity, or fear. Compelling words.
+  Metric: CTR
+
+- View Multiplier
+  When: Lots of sub-topics cluster around this phrase (series potential)
+  Metric: Session time, channel views
+
+- High Intent
+  When: High viewer intent score, clear viewer goal
+  Metric: Conversions, engagement
+
+- Polarizing & Engaging
+  When: Topic sparks debate, people have opinions
+  Metric: Comments, shares, CTR
+
+- Return Viewer
+  When: Personal, lifestyle, subscriber update content
+  Metric: Returning viewers
+
+- Masterclass Method
+  When: Topic is deep enough for 30+ min, exhaustive coverage
+  Metric: Average View Duration (AVD)
+
+- Trust Builder
+  When: Vulnerable, honest, admitting mistakes
+  Metric: Subscribers, loyalty
+
+- Transformational View Boost
+  When: Journey content (struggle → result)
+  Metric: AVD
+
+- Secret Strategy
+  When: "Hidden truth" framing, high curiosity, compelling title potential
+  Metric: CTR
+
+- Mistakes & Warnings
+  When: "Don't do this" / "X mistakes killing your..."
+  Metric: CTR + Trust
+
+- Comparison Trigger
+  When: X vs Y, review of two products
+  Metric: AVD + Intent
+
+- Story Hook
+  When: Personal narrative, "The time I..."
+  Metric: AVD + Loyalty
 
 === SCORES TO GENERATE (0-99) ===
 - growthFitScore: How well this phrase fits this creator's growth potential
@@ -144,6 +220,9 @@ SECTION 3: Algorithm Angle (2-3 sentences)
 - Include a hook suggestion (1 opening line).
 - Why does this phrase win?
 
+=== PHRASE TO ANALYZE ===
+"${phrase}"
+
 === RETURN JSON ===
 ```
 
@@ -159,7 +238,7 @@ SECTION 3: Algorithm Angle (2-3 sentences)
     "intentScore": 87
   },
   "videoFormat": {
-    "primaryBucket": "Educational",
+    "primaryBucket": "Info",
     "subFormat": "Tutorial",
     "alternateFormats": ["First Impressions", "How-To"]
   },
@@ -193,7 +272,7 @@ SECTION 3: Algorithm Angle (2-3 sentences)
 - intentScore (0-99)
 
 **Video Format (3)**
-- primaryBucket (one of 7)
+- primaryBucket (one of 7: Info, Opinion, Review, Entertainment, Analysis, News, List)
 - subFormat (from bucket options)
 - alternateFormats (array of 2)
 
@@ -203,7 +282,7 @@ SECTION 3: Algorithm Angle (2-3 sentences)
 - mindset (one of 4)
 
 **Algorithm Targets (1)**
-- algorithmTargets (array of 2-3 from 14 options)
+- algorithmTargets (array of 2-3 from 13 options)
 
 **Core Content (4)**
 - viewerGoal (enum: Learn, Validate, Solve, Vent, Be Entertained)
@@ -253,3 +332,7 @@ SECTION 3: Algorithm Angle (2-3 sentences)
 
 **Words to USE:** grow, views, channel, video, topic, get, make, build
 **Words to AVOID:** leverage, utilize, optimize, implement, synergy
+
+---
+
+*Last Updated: December 8, 2025*

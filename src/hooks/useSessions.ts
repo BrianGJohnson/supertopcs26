@@ -15,15 +15,32 @@ function throwSupabaseError(error: unknown): never {
 /**
  * Create a new builder session
  * Name and seed phrase are automatically converted to Title Case
+ * Automatically links to the user's channel (or first channel if multiple)
  */
 export async function createSession(
   name: string,
-  seedPhrase?: string
+  seedPhrase?: string,
+  channelId?: string
 ): Promise<Session> {
   const userId = await getCurrentUserId();
 
+  // If no channel_id provided, fetch the user's channel
+  let linkedChannelId = channelId;
+  if (!linkedChannelId) {
+    const { data: channels } = await supabase
+      .from('channels')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (channels && channels.length > 0) {
+      linkedChannelId = channels[0].id;
+    }
+  }
+
   const insert: SessionInsert = {
     user_id: userId,
+    channel_id: linkedChannelId || null,
     name: toTitleCase(name),
     seed_phrase: seedPhrase ? toTitleCase(seedPhrase) : null,
     current_step: 1,

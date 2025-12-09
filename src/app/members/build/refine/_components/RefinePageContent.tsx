@@ -26,6 +26,7 @@ interface SeedAnalysis {
   audience_fit: number | null;
   demand: number | null; // Apify autocomplete-based demand score
   opportunity: number | null; // Opportunity score (lower competition = higher opportunity)
+  ltv_score: number | null; // Long-Term Views score (Top 10 alignment)
   is_hidden?: boolean;
   extra?: {
     demand_v2?: {
@@ -44,6 +45,7 @@ interface RefinePhrase {
   fit: number | null;
   demand: number | null;
   opp: number | null;
+  ltvScore: number; // Long-Term Views score (0-100)
   isStarred: boolean;
   isRejected: boolean;
   isHidden: boolean;
@@ -90,6 +92,7 @@ function mapSeedToRefinePhrase(
     fit: analysis?.audience_fit ?? null,
     demand: demandScore,  // From 'demand' column (Apify autocomplete)
     opp: analysis?.opportunity ?? null,
+    ltvScore: analysis?.ltv_score ?? 0,
     isStarred: seed.is_selected || false,
     isRejected: false,
     isHidden: analysis?.is_hidden ?? false,
@@ -183,7 +186,7 @@ export function RefinePageContent() {
       const seedIds = seeds.map(s => s.id);
       const { data: analyses } = await supabase
         .from("seed_analysis")
-        .select("seed_id, topic_strength, audience_fit, demand, opportunity, is_hidden, extra")
+        .select("seed_id, topic_strength, audience_fit, demand, opportunity, ltv_score, is_hidden, extra")
         .in("seed_id", seedIds);
 
       // Create lookup map
@@ -640,21 +643,43 @@ export function RefinePageContent() {
     );
 
     // Calculate composite score for each candidate
-    // Formula: Opportunity 35%, Demand 25%, Topic 20%, Fit 20%
+    // Formula: Opportunity 35%, Audience Fit 25%, Topic Strength 25%, Demand 15%
+    // Plus boosts: LTV (+8 if score >= 50), Length (+3 for 4-6 words, -2 for 3 words, -5 for 2 words)
     const scored = candidates.map(p => {
       const topic = p.topic ?? 0;
       const fit = p.fit ?? 0;
       const demand = p.demand ?? 0;
       const opp = p.opp ?? 0;
+      const ltvScore = p.ltvScore ?? 0;
 
-      const compositeScore = (
-        (topic * 0.20) +
-        (fit * 0.20) +
-        (demand * 0.25) +
-        (opp * 0.35)
+      // Base composite score
+      let compositeScore = (
+        (opp * 0.35) +      // Opportunity: 35% - Low competition is key
+        (fit * 0.25) +      // Audience Fit: 25% - Will subs click?
+        (topic * 0.25) +    // Topic Strength: 25% - Good video topic?
+        (demand * 0.15)     // Demand: 15% - People searching? (lower because high demand = hard to rank)
       );
 
-      return { phrase: p, score: compositeScore };
+      // LTV boost: phrases with strong Top 10 alignment get long-term views
+      if (ltvScore >= 50) {
+        compositeScore += 8;
+      }
+
+      // Length adjustments: prefer 4-6 word phrases
+      const wordCount = p.phrase.split(' ').length;
+      if (wordCount >= 4 && wordCount <= 6) {
+        compositeScore += 3;  // Ideal length boost
+      } else if (wordCount === 3) {
+        compositeScore -= 2;  // Slight penalty for short
+      } else if (wordCount <= 2) {
+        compositeScore -= 5;  // Strong penalty for very short
+      }
+
+      return {
+        phrase: p,
+        score: compositeScore,
+        hasLtvBoost: ltvScore >= 50,
+      };
     });
 
     // ============================================================
@@ -672,7 +697,7 @@ export function RefinePageContent() {
     const getLengthCategory = (text: string): 'short' | 'medium' | 'long' => {
       const wordCount = text.split(' ').length;
       if (wordCount <= 3) return 'short';
-      if (wordCount <= 5) return 'medium';
+      if (wordCount <= 6) return 'medium';  // 4-6 words is ideal
       return 'long';
     };
 
@@ -712,10 +737,13 @@ export function RefinePageContent() {
     const selected: typeof categorized = [];
     const OVERLAP_THRESHOLD = 0.70; // Skip if 70%+ word overlap
     const TARGET_QUESTION_RATIO = 0.40; // ~40% questions, 60% statements
+    const TARGET_LTV_RATIO = 0.40; // Target 35-45% LTV phrases
+    const MIN_LTV_RATIO = 0.30; // Minimum acceptable LTV ratio
 
     // Track diversity stats
     let questionCount = 0;
     let statementCount = 0;
+    let ltvCount = 0;
     const lengthCounts = { short: 0, medium: 0, long: 0 };
     const methodCounts = new Map<string, number>();
 
@@ -748,6 +776,13 @@ export function RefinePageContent() {
         if (candidate.score < categorized[0].score * 0.85) continue;
       }
 
+      // LTV balance: prefer LTV phrases if we're below target
+      const currentLtvRatio = selected.length > 0 ? ltvCount / selected.length : 0;
+      if (!candidate.hasLtvBoost && currentLtvRatio < MIN_LTV_RATIO && selected.length >= 5) {
+        // We need more LTV phrases, skip non-LTV unless score is exceptional
+        if (candidate.score < categorized[0].score * 0.90) continue;
+      }
+
       // Check method diversity (soft limit: no more than 6 from same method)
       const methodCount = methodCounts.get(candidate.method) || 0;
       if (methodCount >= 6) {
@@ -766,6 +801,7 @@ export function RefinePageContent() {
       // Update counters
       if (candidate.isQuestion) questionCount++;
       else statementCount++;
+      if (candidate.hasLtvBoost) ltvCount++;
       lengthCounts[candidate.lengthCategory]++;
       methodCounts.set(candidate.method, (methodCounts.get(candidate.method) || 0) + 1);
     }
