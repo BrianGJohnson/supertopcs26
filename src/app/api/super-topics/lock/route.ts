@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
     try {
-        const { superTopicId, selectedFormats, notes } = await request.json();
+        const { superTopicId, selectedFormats } = await request.json();
 
         if (!superTopicId) {
             return NextResponse.json(
@@ -34,20 +34,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Set this one as the winner with user selections
-        // Store selectedFormats in alternate_formats and notes in notes field
         const [updated] = await db
             .update(super_topics)
             .set({
                 is_winner: true,
-                alternate_formats: selectedFormats || [],
-                notes: notes || null,
+                selected_formats: selectedFormats || [],
             })
             .where(eq(super_topics.id, superTopicId))
             .returning();
 
         console.log(`[Super Topics] Locked winner: "${topic.phrase}"`);
         console.log(`[Super Topics] Selected formats: ${(selectedFormats || []).join(", ")}`);
-        if (notes) console.log(`[Super Topics] Notes: ${notes}`);
+
 
         return NextResponse.json({
             success: true,

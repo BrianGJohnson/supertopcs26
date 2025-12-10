@@ -224,30 +224,23 @@ export function SuperPageContent() {
         setError(null);
 
         try {
-            // First, try to fetch existing super topics for this session
-            const checkResponse = await fetch(`/api/super-topics/list?session_id=${sessionId}`);
+            // =====================================================================
+            // ALWAYS GENERATE FRESH
+            // =====================================================================
+            // The generate API will:
+            // 1. Delete any existing super_topics for this session
+            // 2. Score all 13 starred phrases with GPT
+            // 3. Assign ranks (1-13) based on stable sorting
+            // 4. Assign tiers: rank 1 = winner, ranks 2-4 = runner-up, 5+ = contender
+            // 5. Save to database with ONLY ONE winner
+            //
+            // Database is the single source of truth for tier assignment.
+            // UI simply reads and displays what the database says.
+            // =====================================================================
 
-            if (checkResponse.ok) {
-                const existingData = await checkResponse.json();
-
-                if (existingData.topics && existingData.topics.length > 0) {
-                    // Data exists - transform and use it
-                    const transformed = existingData.topics.map(transformDbToCandidate);
-                    // Sort by rank order
-                    transformed.sort((a: SuperTopicCandidate, b: SuperTopicCandidate) =>
-                        (a.growthScore > b.growthScore ? -1 : 1)
-                    );
-                    setCandidates(transformed);
-                    setIsLoading(false);
-                    return;
-                }
-            }
-
-            // No existing data - need to generate
             setIsGenerating(true);
-            console.log("[SuperPageContent] No existing data, triggering generation...");
+            console.log("[SuperPageContent] Generating fresh super topics...");
 
-            // Trigger generation - API will look up channel/user from session
             const generateResponse = await fetch("/api/super-topics/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -263,15 +256,17 @@ export function SuperPageContent() {
             console.log("[SuperPageContent] Generation complete:", result.stats);
 
             // Transform and set the generated data
+            // Tier comes directly from database - we don't recalculate it
             const transformed = result.topics.map(transformDbToCandidate);
-            // Sort by growth fit score
+
+            // Sort by growth fit score to establish display order
             transformed.sort((a: SuperTopicCandidate, b: SuperTopicCandidate) =>
                 (a.growthScore > b.growthScore ? -1 : 1)
             );
             setCandidates(transformed);
 
         } catch (err) {
-            console.error("[SuperPageContent] Error loading/generating data:", err);
+            console.error("[SuperPageContent] Error generating data:", err);
             setError(err instanceof Error ? err.message : "Failed to load data");
         } finally {
             setIsLoading(false);
@@ -313,7 +308,7 @@ export function SuperPageContent() {
     };
 
     // Called when user confirms in modal
-    const handleLockConfirm = async (selectedFormats: string[], notes: string) => {
+    const handleLockConfirm = async (selectedFormats: string[]) => {
         if (!topTileCandidate) return;
         setShowLockModal(false);
         setIsLocked(true);
@@ -326,7 +321,6 @@ export function SuperPageContent() {
                 body: JSON.stringify({
                     superTopicId: topTileCandidate.id,
                     selectedFormats,
-                    notes,
                 }),
             });
 
@@ -850,6 +844,9 @@ export function SuperPageContent() {
                 isOpen={showLockModal}
                 onClose={() => setShowLockModal(false)}
                 phrase={topTileCandidate?.phrase || ""}
+                primaryBucket={topTileCandidate?.primaryBucket}
+                recommendedFormat={topTileCandidate?.subFormat}
+                alternateFormats={topTileCandidate?.alternateFormats}
                 onConfirm={handleLockConfirm}
             />
         </>

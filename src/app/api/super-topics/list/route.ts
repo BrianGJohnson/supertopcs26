@@ -15,12 +15,16 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Fetch all super topics for this session
+        // Fetch super topics for this session (max 13)
         const topics = await db
             .select()
             .from(super_topics)
             .where(eq(super_topics.source_session_id, sessionId))
-            .orderBy(desc(super_topics.growth_fit_score));
+            .orderBy(desc(super_topics.growth_fit_score))
+            .limit(13);
+
+        console.log(`[Super Topics List] Found ${topics.length} topics for session`);
+
 
         return NextResponse.json({
             success: true,

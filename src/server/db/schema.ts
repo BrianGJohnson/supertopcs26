@@ -239,6 +239,10 @@ export const super_topics = pgTable('super_topics', {
   source_seed_phrase: text('source_seed_phrase'), // Preserved copy: "Content Creation"
   source_seed_id: uuid('source_seed_id'), // No FK - seed may be deleted
 
+  // Smart caching: hash of starred seed IDs at generation time
+  // If stars haven't changed, we skip regeneration
+  starred_phrase_hash: text('starred_phrase_hash'),
+
   // The phrase itself
   phrase: text('phrase').notNull(),
 
@@ -311,6 +315,14 @@ export const super_topics = pgTable('super_topics', {
   // User additions
   notes: text('notes'), // User's personal notes
   tags: jsonb('tags'), // e.g., ["tutorial", "beginner", "monetization"]
+
+  // ============================================================
+  // TITLE GENERATION (Page 5)
+  // ============================================================
+  selected_formats: jsonb('selected_formats'), // Formats user selected in lock modal
+  title_options: jsonb('title_options'), // All generated titles from GPT
+  locked_title: text('locked_title'), // The title user selected
+  title_locked_at: timestamp('title_locked_at'), // When title was locked
 
   // Usage tracking
   status: text('status').default('active'), // active, used, archived

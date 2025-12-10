@@ -488,9 +488,9 @@ export function ActionToolbar({
       {/* Jump to Title Button */}
       <button
         className={`
-          h-[52px] flex items-center gap-2 px-6 rounded-lg text-base font-medium whitespace-nowrap transition-colors
+          h-[52px] flex items-center gap-2 px-6 rounded-xl text-base font-semibold whitespace-nowrap transition-all
           ${canJumpToTitle
-            ? "bg-white/10 border border-white/20 text-white hover:bg-white/15 cursor-pointer"
+            ? "bg-[#7A5CFA]/15 border border-[#7A5CFA]/40 text-[#A78BFA] hover:bg-[#7A5CFA]/25 hover:border-[#7A5CFA]/60 cursor-pointer"
             : "bg-white/5 border border-white/10 text-white/40 cursor-not-allowed"
           }
         `}

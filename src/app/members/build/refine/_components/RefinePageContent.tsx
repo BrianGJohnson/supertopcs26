@@ -1064,19 +1064,19 @@ export function RefinePageContent() {
     if (scores.length >= 10) {
       const sorted = [...scores].sort((a, b) => a - b);
 
-      // Calculate 53rd percentile for stepper
-      const index53 = Math.floor(sorted.length * 0.53);
-      const threshold53 = sorted[index53] ?? 65;
+      // Calculate 62nd percentile for stepper (shows top ~38%, targeting ~100 phrases)
+      const index62 = Math.floor(sorted.length * 0.62);
+      const threshold62 = sorted[index62] ?? 65;
 
-      // Calculate 58th percentile for preset button
-      const index58 = Math.floor(sorted.length * 0.58);
-      const threshold58 = sorted[index58] ?? 70;
+      // Calculate 67th percentile for preset button
+      const index67 = Math.floor(sorted.length * 0.67);
+      const threshold67 = sorted[index67] ?? 70;
 
-      setFilterState(prev => ({ ...prev, scoreThreshold: threshold53 }));
-      setPresetValue(threshold58);
+      setFilterState(prev => ({ ...prev, scoreThreshold: threshold62 }));
+      setPresetValue(threshold67);
       setThresholdAutoSet(true);
 
-      console.log(`[RefinePageContent] Auto-set threshold=${threshold53}, preset=${threshold58} (${scores.length} scores)`);
+      console.log(`[RefinePageContent] Auto-set threshold=${threshold62}, preset=${threshold67} (${scores.length} scores)`);
     }
   }, [scoreData, filterState.scoreMetric, thresholdAutoSet]);
 

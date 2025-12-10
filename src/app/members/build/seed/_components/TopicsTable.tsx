@@ -17,9 +17,25 @@ const TAG_STYLES: Record<string, { label: string; textColor: string; borderColor
     textColor: "text-[#FF8A3D]",      // Orange - competitive but doable
     borderColor: "border-[#FF8A3D]/45",
   },
+  // Child variants all use the same "Child" styling
   child: {
     label: "Child",
     textColor: "text-[#D4E882]",      // Yellow-green - opportunity zone
+    borderColor: "border-[#D4E882]/45",
+  },
+  child_phrase: {
+    label: "Child",
+    textColor: "text-[#D4E882]",
+    borderColor: "border-[#D4E882]/45",
+  },
+  child_prefix_how_to: {
+    label: "Child",
+    textColor: "text-[#D4E882]",
+    borderColor: "border-[#D4E882]/45",
+  },
+  child_prefix_what_does: {
+    label: "Child",
+    textColor: "text-[#D4E882]",
     borderColor: "border-[#D4E882]/45",
   },
   az: {
@@ -34,6 +50,13 @@ const TAG_STYLES: Record<string, { label: string; textColor: string; borderColor
   },
 };
 
+// Default style for unknown methods (NOT "Seed" - that's reserved)
+const UNKNOWN_TAG_STYLE = {
+  label: "Other",
+  textColor: "text-white/50",
+  borderColor: "border-white/20",
+};
+
 interface TopicsTableProps {
   seeds: Seed[];
   isLoading: boolean;
@@ -44,15 +67,16 @@ interface TopicsTableProps {
 export function TopicsTable({ seeds, isLoading, maxRows = 15, onPhraseClick }: TopicsTableProps) {
   // Track which seed IDs we've already shown (for animation purposes)
   const shownSeedIds = useRef<Set<string>>(new Set());
-  
+
   // Limit to maxRows for display
   const displaySeeds = seeds.slice(0, maxRows);
 
-  // Get tag style for a seed
+  // Get tag style for a seed - uses UNKNOWN for unrecognized methods, NOT "Seed"
   const getTagStyle = (method: string | null) => {
-    return TAG_STYLES[method || ""] || TAG_STYLES.seed;
+    if (!method) return UNKNOWN_TAG_STYLE;
+    return TAG_STYLES[method] || UNKNOWN_TAG_STYLE;
   };
-  
+
   // Check if a seed is new (for animation)
   const isNewSeed = (seedId: string) => {
     if (shownSeedIds.current.has(seedId)) {
@@ -87,8 +111,8 @@ export function TopicsTable({ seeds, isLoading, maxRows = 15, onPhraseClick }: T
               const tagStyle = getTagStyle(seed.generation_method);
               const isNew = isNewSeed(seed.id);
               return (
-                <tr 
-                  key={seed.id} 
+                <tr
+                  key={seed.id}
                   className={`hover:bg-white/[0.04] transition-colors group cursor-pointer ${isNew ? "animate-in fade-in duration-300" : ""}`}
                   onClick={() => onPhraseClick?.(seed.phrase)}
                 >

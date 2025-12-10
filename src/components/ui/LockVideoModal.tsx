@@ -4,61 +4,64 @@ import React, { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { IconX, IconLock } from "@tabler/icons-react";
 
+// Video format taxonomy - maps bucket to sub-formats
+const BUCKET_FORMATS: Record<string, { description: string; formats: string[] }> = {
+    "Info": {
+        description: "Teaching something specific",
+        formats: ["Tutorial", "How-To", "Explainer", "Walkthrough", "Crash Course", "Masterclass"],
+    },
+    "Opinion": {
+        description: "Your perspective on something",
+        formats: ["Commentary", "Hot Take", "Rant", "Reaction", "My Take", "Unpopular Opinion"],
+    },
+    "Review": {
+        description: "Evaluating something",
+        formats: ["Product Review", "First Impressions", "Comparison", "Honest Review", "Long-Term Review", "Buyer's Guide"],
+    },
+    "Entertainment": {
+        description: "Engaging, fun, or lifestyle",
+        formats: ["Vlog", "Lifestyle", "Challenge", "Behind-the-Scenes", "Story", "Day in the Life", "Q&A"],
+    },
+    "Analysis": {
+        description: "Going deep on a topic",
+        formats: ["Deep Dive", "Breakdown", "Case Study", "Postmortem", "Research Report", "Why X Happened"],
+    },
+    "News": {
+        description: "What's happening now",
+        formats: ["Update", "Announcement", "Trending Coverage", "Recap", "Breaking", "Weekly Roundup"],
+    },
+    "List": {
+        description: "Curated collections",
+        formats: ["Top 10", "Ranking", "Roundup", "Best Of", "Tier List", "X Things You Need"],
+    },
+};
+
 interface LockVideoModalProps {
     isOpen: boolean;
     onClose: () => void;
     phrase: string;
-    onConfirm: (selectedFormats: string[], notes: string) => void;
+    // AI-analyzed data from super_topics
+    primaryBucket?: string;      // Info, Opinion, Review, etc.
+    recommendedFormat?: string;  // AI's recommended sub-format
+    alternateFormats?: string[]; // 2 alternate formats from AI
+    onConfirm: (selectedFormats: string[]) => void;
 }
-
-// Video format taxonomy from 1-7-video-format-taxonomy.md
-const VIDEO_FORMAT_GROUPS = [
-    {
-        bucket: "Info",
-        description: "Teaching something specific",
-        formats: ["Tutorial", "How-To", "Explainer", "Walkthrough", "Crash Course", "Masterclass"],
-    },
-    {
-        bucket: "Opinion",
-        description: "Your perspective on something",
-        formats: ["Commentary", "Hot Take", "Rant", "Reaction", "My Take", "Unpopular Opinion"],
-    },
-    {
-        bucket: "Review",
-        description: "Evaluating something",
-        formats: ["Product Review", "First Impressions", "Comparison", "Honest Review", "Long-Term Review", "Buyer's Guide"],
-    },
-    {
-        bucket: "Entertainment",
-        description: "Engaging, fun, or lifestyle",
-        formats: ["Vlog", "Lifestyle", "Challenge", "Behind-the-Scenes", "Story", "Day in the Life", "Q&A"],
-    },
-    {
-        bucket: "Analysis",
-        description: "Going deep on a topic",
-        formats: ["Deep Dive", "Breakdown", "Case Study", "Postmortem", "Research Report", "Why X Happened"],
-    },
-    {
-        bucket: "News",
-        description: "What's happening now",
-        formats: ["Update", "Announcement", "Trending Coverage", "Recap", "Breaking", "Weekly Roundup"],
-    },
-    {
-        bucket: "List",
-        description: "Curated collections",
-        formats: ["Top 10", "Ranking", "Roundup", "Best Of", "Tier List", "X Things You Need"],
-    },
-];
 
 export function LockVideoModal({
     isOpen,
     onClose,
     phrase,
+    primaryBucket = "Info",
+    recommendedFormat,
+    alternateFormats = [],
     onConfirm,
 }: LockVideoModalProps) {
     const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
-    const [notes, setNotes] = useState("");
     const [mounted, setMounted] = useState(false);
+
+    // Get formats for the identified bucket
+    const bucketData = BUCKET_FORMATS[primaryBucket] || BUCKET_FORMATS["Info"];
+    const availableFormats = bucketData.formats;
 
     useEffect(() => {
         setMounted(true);
@@ -84,13 +87,27 @@ export function LockVideoModal({
         };
     }, [isOpen, handleEscape]);
 
-    // Reset state when modal opens
+    // Pre-select AI recommendations when modal opens
     useEffect(() => {
         if (isOpen) {
-            setSelectedFormats([]);
-            setNotes("");
+            const preSelected: string[] = [];
+            // Pre-select recommended format
+            if (recommendedFormat && availableFormats.includes(recommendedFormat)) {
+                preSelected.push(recommendedFormat);
+            }
+            // Pre-select alternate formats
+            alternateFormats.forEach(format => {
+                if (availableFormats.includes(format) && !preSelected.includes(format)) {
+                    preSelected.push(format);
+                }
+            });
+            // If no pre-selections, default to first format
+            if (preSelected.length === 0 && availableFormats.length > 0) {
+                preSelected.push(availableFormats[0]);
+            }
+            setSelectedFormats(preSelected);
         }
-    }, [isOpen]);
+    }, [isOpen, recommendedFormat, alternateFormats, availableFormats]);
 
     const toggleFormat = (format: string) => {
         setSelectedFormats((prev) =>
@@ -100,8 +117,12 @@ export function LockVideoModal({
         );
     };
 
+    const selectAll = () => {
+        setSelectedFormats([...availableFormats]);
+    };
+
     const handleConfirm = () => {
-        onConfirm(selectedFormats, notes);
+        onConfirm(selectedFormats);
     };
 
     if (!mounted || !isOpen) return null;
@@ -116,8 +137,8 @@ export function LockVideoModal({
 
             {/* Centering container */}
             <div className="relative z-[10001] flex min-h-full items-center justify-center p-4">
-                {/* Modal Card */}
-                <div className="relative w-full max-w-4xl bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col my-8">
+                {/* Modal Card - Narrower, cleaner */}
+                <div className="relative w-full max-w-2xl bg-[#1A1E24] border border-white/10 rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col my-8">
                     {/* Close button */}
                     <button
                         onClick={onClose}
@@ -129,100 +150,86 @@ export function LockVideoModal({
                     {/* Content */}
                     <div className="px-10 py-10">
                         {/* Header */}
-                        <div className="flex items-center gap-4 mb-2">
+                        <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 rounded-xl bg-gradient-to-br from-[#2BD899]/20 to-[#2BD899]/5 border border-[#2BD899]/30">
                                 <IconLock size={28} className="text-[#2BD899]" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-bold text-white">Lock This Video Topic</h2>
-                                <p className="text-white/50 text-lg mt-1">You're choosing to move forward with:</p>
+                                <h2 className="text-2xl font-bold text-white">Lock This Video</h2>
+                                <p className="text-white/50 text-base mt-1">Let's create some killer titles</p>
                             </div>
                         </div>
 
                         {/* Phrase display */}
-                        <div className="mt-4 px-6 py-4 bg-white/5 rounded-xl border border-white/10">
+                        <div className="px-6 py-5 bg-gradient-to-br from-[#FFD700]/10 to-[#FFD700]/5 rounded-xl border border-[#FFD700]/30 mb-8">
                             <p className="text-xl font-semibold text-white">{phrase}</p>
                         </div>
 
-                        {/* Divider */}
-                        <div className="my-6 border-t border-white/10" />
-
                         {/* Format Selection */}
                         <div>
-                            <h3 className="text-lg font-semibold text-white/80 mb-2">
-                                What kind of video are you thinking?
+                            <h3 className="text-lg font-semibold text-white mb-3">
+                                What kind of format are you open to?
                             </h3>
-                            <p className="text-white/50 text-sm mb-5">
-                                Select formats you're open to making. This helps us generate better titles.
+                            <p className="text-white/50 text-base mb-5">
+                                The more you select, the better we can guide your title. Select any that sound good!
                             </p>
 
-                            <div className="space-y-5 max-h-[340px] overflow-y-auto pr-2">
-                                {VIDEO_FORMAT_GROUPS.map((group) => (
-                                    <div key={group.bucket}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-sm font-bold text-white/60 uppercase tracking-wide">
-                                                {group.bucket}
-                                            </span>
-                                            <span className="text-xs text-white/30">
-                                                — {group.description}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {group.formats.map((format) => {
-                                                const isSelected = selectedFormats.includes(format);
-                                                return (
-                                                    <button
-                                                        key={format}
-                                                        onClick={() => toggleFormat(format)}
-                                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isSelected
-                                                                ? "bg-[#6B9BD1] text-white border border-[#6B9BD1]"
-                                                                : "bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:text-white"
-                                                            }`}
-                                                    >
-                                                        {format}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
+                            {/* Format pills - Select All first, then formats */}
+                            <div className="flex flex-wrap gap-3">
+                                {/* Select All Button - First position */}
+                                <button
+                                    onClick={selectAll}
+                                    className={`px-5 py-3 rounded-xl text-base font-semibold transition-all ${selectedFormats.length === availableFormats.length
+                                            ? "bg-[#2BD899] text-[#0B1220] border-2 border-[#2BD899] shadow-lg shadow-[#2BD899]/20"
+                                            : "bg-[#2BD899]/15 text-[#2BD899] border-2 border-[#2BD899]/40 hover:bg-[#2BD899]/25 hover:border-[#2BD899]/60"
+                                        }`}
+                                >
+                                    Select All
+                                </button>
+
+                                {availableFormats.map((format) => {
+                                    const isSelected = selectedFormats.includes(format);
+                                    const isRecommended = format === recommendedFormat;
+                                    return (
+                                        <button
+                                            key={format}
+                                            onClick={() => toggleFormat(format)}
+                                            className={`px-5 py-3 rounded-xl text-base font-semibold transition-all ${isSelected
+                                                ? "bg-[#6B9BD1] text-[#0B1220] border-2 border-[#6B9BD1] shadow-lg shadow-[#6B9BD1]/20"
+                                                : "bg-white/5 text-white/70 border-2 border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20"
+                                                }`}
+                                        >
+                                            {format}
+                                            {isRecommended && (
+                                                <span className="ml-2 text-xs opacity-70">★</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        </div>
 
-                        {/* Divider */}
-                        <div className="my-6 border-t border-white/10" />
-
-                        {/* Additional Notes */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-white/80 mb-2">
-                                Anything else we should know?
-                            </h3>
-                            <p className="text-white/50 text-sm mb-3">
-                                Optional: Add context about your video idea, angle, or style.
+                            {/* Bucket hint */}
+                            <p className="text-white/30 text-sm mt-4">
+                                {bucketData.description}
                             </p>
-                            <textarea
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="e.g., I want to focus on beginners, keep it under 10 minutes, or make it a series..."
-                                className="w-full h-24 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 resize-none focus:outline-none focus:border-[#6B9BD1]/50 transition-colors"
-                            />
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex gap-5 mt-8">
+                        <div className="flex gap-4 mt-10">
                             <button
                                 onClick={handleConfirm}
                                 disabled={selectedFormats.length === 0}
-                                className={`flex-1 px-8 py-5 font-bold text-xl rounded-xl transition-all ${selectedFormats.length === 0
-                                        ? "bg-white/10 text-white/30 cursor-not-allowed"
-                                        : "bg-gradient-to-b from-[#2BD899] to-[#1FA87A] text-white hover:from-[#33E5A8] hover:to-[#2BD899] shadow-[0_4px_20px_rgba(43,216,153,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                                className={`flex-1 px-8 py-5 font-bold text-xl rounded-xl transition-all flex items-center justify-center gap-3 ${selectedFormats.length === 0
+                                    ? "bg-white/10 text-white/30 cursor-not-allowed"
+                                    : "bg-gradient-to-b from-[#2BD899] to-[#1FA87A] text-white hover:from-[#33E5A8] hover:to-[#2BD899] shadow-[0_4px_20px_rgba(43,216,153,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]"
                                     }`}
                             >
-                                Lock & Continue →
+                                <IconLock size={22} className="text-[#0D1117]" />
+                                <span className="text-[#0D1117]">Lock & Generate Titles</span>
                             </button>
                             <button
                                 onClick={onClose}
-                                className="flex-1 px-8 py-5 bg-white/5 text-white/80 font-bold text-xl rounded-xl hover:bg-white/10 hover:text-white transition-all border border-white/10"
+                                className="px-8 py-5 bg-white/5 text-white/60 font-semibold text-lg rounded-xl hover:bg-white/10 hover:text-white transition-all border border-white/10"
                             >
                                 Cancel
                             </button>
@@ -230,8 +237,8 @@ export function LockVideoModal({
 
                         {/* Helper text */}
                         {selectedFormats.length > 0 && (
-                            <p className="text-center text-white/40 text-sm mt-4">
-                                Selected: {selectedFormats.join(", ")}
+                            <p className="text-center text-white/40 text-sm mt-5">
+                                {selectedFormats.length} format{selectedFormats.length > 1 ? "s" : ""} selected
                             </p>
                         )}
                     </div>

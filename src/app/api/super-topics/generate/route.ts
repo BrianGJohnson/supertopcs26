@@ -443,29 +443,61 @@ export async function POST(request: NextRequest) {
         }
 
         // =====================================================================
-        // CHECK FOR EXISTING DATA (Upsert Logic)
+        // GET STARRED PHRASES FIRST (needed for hash calculation)
+        // =====================================================================
+        const starredSeeds = await db
+            .select({ id: seeds.id })
+            .from(seeds)
+            .where(
+                and(
+                    eq(seeds.session_id, sessionId),
+                    eq(seeds.is_selected, true)
+                )
+            )
+            .orderBy(seeds.id); // Consistent ordering for hash
+
+        if (starredSeeds.length === 0) {
+            return NextResponse.json(
+                { error: "No starred phrases found. Please star at least 10 phrases on the Refine page." },
+                { status: 400 }
+            );
+        }
+
+        // Compute hash of starred seed IDs
+        const starredIds = starredSeeds.map(s => s.id).sort();
+        const currentHash = starredIds.join(',');
+
+        // =====================================================================
+        // SMART CACHE: Only regenerate if starred phrases changed
         // =====================================================================
         const existingTopics = await db
-            .select({ id: super_topics.id })
+            .select()
             .from(super_topics)
             .where(eq(super_topics.source_session_id, sessionId))
-            .limit(1);
+            .orderBy(desc(super_topics.growth_fit_score));
 
         if (existingTopics.length > 0) {
-            console.log("[Super Topics] Data already exists for session, skipping generation");
-            // Return existing data instead of generating new
-            const topics = await db
-                .select()
-                .from(super_topics)
-                .where(eq(super_topics.source_session_id, sessionId))
-                .orderBy(desc(super_topics.growth_fit_score));
+            const storedHash = existingTopics[0].starred_phrase_hash;
 
-            return NextResponse.json({
-                success: true,
-                message: "Super topics already exist for this session",
-                stats: { cached: true, total: topics.length },
-                topics,
-            });
+            if (storedHash === currentHash) {
+                // Stars haven't changed - return cached data
+                console.log("[Super Topics] Stars unchanged, returning cached data");
+                return NextResponse.json({
+                    success: true,
+                    message: "Using cached super topics (starred phrases unchanged)",
+                    stats: { cached: true, total: existingTopics.length },
+                    topics: existingTopics,
+                });
+            }
+
+            // Stars changed - delete old data and regenerate
+            console.log("[Super Topics] Stars changed, regenerating...");
+            console.log(`[Super Topics] Old hash: ${storedHash?.slice(0, 40)}...`);
+            console.log(`[Super Topics] New hash: ${currentHash.slice(0, 40)}...`);
+            await db
+                .delete(super_topics)
+                .where(eq(super_topics.source_session_id, sessionId));
+            console.log("[Super Topics] Deleted old super_topics");
         }
 
         // =====================================================================
@@ -517,12 +549,7 @@ export async function POST(request: NextRequest) {
             .orderBy(desc(seed_analysis.demand), desc(seed_analysis.opportunity))
             .limit(13);
 
-        if (seedsWithAnalysis.length === 0) {
-            return NextResponse.json(
-                { error: "No starred phrases found. Please star at least 10 phrases on the Refine page." },
-                { status: 400 }
-            );
-        }
+        // Note: We already validated starred phrases exist in the hash calculation block above
 
         const phraseData = seedsWithAnalysis.map((s) => ({
             seedId: s.seed.id,
@@ -575,8 +602,13 @@ export async function POST(request: NextRequest) {
             return { ...p, ...scores, growthFit };
         });
 
-        // Sort by Growth Fit (highest first) and assign ranks
-        rankedPhrases.sort((a, b) => b.growthFit - a.growthFit);
+        // Sort by Growth Fit (highest first), with tiebreakers: clickability, intent, then phrase
+        rankedPhrases.sort((a, b) => {
+            if (b.growthFit !== a.growthFit) return b.growthFit - a.growthFit;
+            if (b.clickabilityScore !== a.clickabilityScore) return b.clickabilityScore - a.clickabilityScore;
+            if (b.intentScore !== a.intentScore) return b.intentScore - a.intentScore;
+            return a.phrase.localeCompare(b.phrase); // Alphabetical as final tiebreaker
+        });
         rankedPhrases.forEach((p, i) => {
             (p as typeof p & { rank: number; tier: string }).rank = i + 1;
             (p as typeof p & { tier: string }).tier = assignTier(i + 1);
@@ -661,6 +693,8 @@ export async function POST(request: NextRequest) {
                         opportunity: p.opportunity,
                         audience_fit: p.audienceFit,
                         topic_strength: p.topicStrength,
+                        // Smart caching hash
+                        starred_phrase_hash: currentHash,
                     })
                     .returning();
 

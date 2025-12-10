@@ -1,9 +1,10 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
 import { BuilderStepper } from "@/components/stepper/BuilderStepper";
 import { IconForms } from "@tabler/icons-react";
+import { TitlePageContent } from "./_components/TitlePageContent";
 
 export default function TitlePage() {
   return (
@@ -17,9 +18,14 @@ export default function TitlePage() {
           icon={IconForms}
           line1="Create Magnetic Titles"
           line2="That Perform"
-          description="Use emotional triggers and clarity to generate high-click titles."
+          description="AI-generated titles optimized for clicks and engagement."
         />
         <BuilderStepper activeStep={5} />
+
+        {/* Main Content */}
+        <Suspense fallback={<div className="text-white/50">Loading...</div>}>
+          <TitlePageContent />
+        </Suspense>
 
         {/* Footer */}
         <footer className="text-center text-[15px] text-white/[0.49] font-normal leading-snug tracking-wide border-b border-white/[0.07] pt-4 pb-5 -mt-4 -mb-5">
