@@ -382,18 +382,22 @@ export function TitlePageContent() {
                 <div
                     className="relative w-full max-w-3xl aspect-video rounded-2xl overflow-hidden shadow-2xl"
                     style={{
-                        // Dark glass background with emotion tint
-                        background: `linear-gradient(135deg, ${emotionColors.from}40 0%, #0a0a0f 50%, ${emotionColors.to}30 100%)`,
-                        // Glowing emotion-colored border (like the buttons)
-                        border: `2px solid ${emotionColors.accent}60`,
-                        boxShadow: `0 0 30px ${emotionColors.accent}20, inset 0 0 60px ${emotionColors.accent}10`,
+                        opacity: 0.65,
+                        // Brighter edges with subtle dark center vignette
+                        background: `radial-gradient(ellipse at center, #0a0a0f 0%, ${emotionColors.from}80 80%, ${emotionColors.from} 100%)`,
+                        // Bright glowing emotion-colored border
+                        border: `2px solid ${emotionColors.accent}`,
+                        boxShadow: `0 0 40px ${emotionColors.accent}40, 0 0 80px ${emotionColors.accent}20, inset 0 0 80px ${emotionColors.accent}25`,
                     }}
                 >
-                    {/* Subtle inner glow overlay */}
+                    {/* Brighter corner glows */}
                     <div
                         className="absolute inset-0 pointer-events-none"
                         style={{
-                            background: `radial-gradient(ellipse at top left, ${emotionColors.accent}15 0%, transparent 50%)`,
+                            background: `
+                                radial-gradient(ellipse at top left, ${emotionColors.accent}35 0%, transparent 50%),
+                                radial-gradient(ellipse at bottom right, ${emotionColors.accent}25 0%, transparent 50%)
+                            `,
                         }}
                     ></div>
 
@@ -433,6 +437,13 @@ export function TitlePageContent() {
 
                 {/* Title Below Thumbnail */}
                 <div className="mt-6 text-center max-w-3xl">
+                    {/* Super Topic / Keyword Phrase */}
+                    {phrase && (
+                        <p className="text-white/50 text-sm mb-2">
+                            <span className="text-white/30">Super Topic:</span>{" "}
+                            <span className="text-white/70 font-medium">{phrase}</span>
+                        </p>
+                    )}
                     <h2 className="text-2xl font-bold text-white leading-tight">
                         {selectedTitle.title}
                     </h2>

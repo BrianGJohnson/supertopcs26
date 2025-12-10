@@ -1,257 +1,182 @@
-# Blueprint Lab — Master Vision
+# Title Page — Implementation Status
 
 > From tool to weapon. The cockpit for crafting the highest-CTR title + thumbnail combo.
 
 ---
 
-## The Experience
+## ✅ IMPLEMENTED (December 9, 2025)
 
-### Stage 1: Title Selection
+### Current State
 
-User lands on page with their keyword phrase. GPT has generated 15 titles.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  🔒 LOCKED PHRASE                                               │
-│  "How To Beat YouTube Algorithm"                                │
-│                                                                 │
-│  ─────────────────────────────────────────────────────────────  │
-│                                                                 │
-│  🏆 TOP PICK                                            [52ch]  │
-│  ┌────────────────────────────────────────────────────────────┐│
-│  │ How To Beat The YouTube Algorithm (What Actually Works)   ││
-│  └────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  RUNNER-UPS                                                     │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐│
-│  │ Beat YouTube's   │ │ How To Beat The  │ │ YouTube Algorithm││
-│  │ Algorithm: The   │ │ Algorithm Step   │ │ Secrets: How To  ││
-│  │ Simple Truth     │ │ by Step          │ │ Beat It          ││
-│  └──────────────────┘ └──────────────────┘ └──────────────────┘│
-│                                                                 │
-│  [Show 11 More Alternatives ↓]                                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-User clicks a title → **Page morphs into Stage 2.**
+The Title page (`/members/build/title`) is now fully functional with a premium "cockpit" experience for title and thumbnail phrase selection.
 
 ---
 
-### Stage 2: The Cockpit
+## UI Components
 
-Page transforms. The selected title is locked. Now they're in the cockpit.
+### Hero Section
+- **Top Pick Badge** — Yellow pill with trophy icon, centered above thumbnail
+- **Thumbnail Preview** — Large 16:9 aspect ratio with emotion-based styling
+- **Title Display** — Selected title shown below thumbnail with character count badge
 
-**The Big Visual:**
-- Giant mock thumbnail (16:9 ratio)
-- Color based on PRIMARY EMOTION from phrase analysis
-- Title displayed below like YouTube watch page
+### Thumbnail Styling (COMPLETED)
+The thumbnail uses a dark glass + glowing border effect based on the primary emotion:
 
-**Emotion → Color Mapping:**
+```css
+/* Dark center with emotion-colored edges */
+background: radial-gradient(ellipse at center, #0a0a0f 0%, {emotion.from}80 80%, {emotion.from} 100%);
 
-| Emotion | Color | Gradient |
-|---------|-------|----------|
-| Curiosity | Blue | `from-[#1e3a5f] to-[#0a1929]` |
-| Hope | Green | `from-[#1a4d2e] to-[#0d2818]` |
-| Fear | Red | `from-[#5f1e1e] to-[#290a0a]` |
-| Frustration | Orange | `from-[#5f3d1e] to-[#291a0a]` |
-| FOMO | Purple | `from-[#3d1e5f] to-[#1a0a29]` |
-| Validation | Gold | `from-[#5f4d1e] to-[#29210a]` |
-| Excitement | Pink | `from-[#5f1e4d] to-[#290a21]` |
-| Relief | Teal | `from-[#1e5f5f] to-[#0a2929]` |
+/* Glowing emotion-colored border */  
+border: 2px solid {emotion.accent};
+box-shadow: 0 0 40px {accent}40, 0 0 80px {accent}20, inset 0 0 80px {accent}25;
 
+/* Overall opacity for subtle blend */
+opacity: 0.65;
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  THE COCKPIT                                                    │
-│  ═══════════                                                    │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │                                                           │ │
-│  │                    [GRADIENT BACKGROUND]                  │ │
-│  │                     based on emotion                      │ │
-│  │                                                           │ │
-│  │             ┌─────────────────────────┐                   │ │
-│  │             │     "THE TRUTH"         │ ← clickable phrase│ │
-│  │             └─────────────────────────┘                   │ │
-│  │                                                           │ │
-│  │                                                           │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│  "How To Beat The YouTube Algorithm (What Actually Works)"      │
-│  ───────────────────────────────────────────────────────────── │
-│  52 chars • Curiosity • Recommended Mode                        │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  THUMBNAIL PHRASES                                              │
-│  ─────────────────                                              │
-│                                                                 │
-│  Click to preview on thumbnail:                                 │
-│                                                                 │
-│  Compelling:                                                    │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│  │THE TRUTH│ │ FINALLY │ │ IT WORKS│ │ PROVEN  │              │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘              │
-│    ↑ active                                                    │
-│                                                                 │
-│  Wild Cards:                                                    │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐                          │
-│  │GAME OVER│ │CRACKED IT│ │ SHOOK  │                          │
-│  └─────────┘ └─────────┘ └─────────┘                          │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  TOOLS                                                          │
-│  ─────                                                          │
-│                                                                 │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │ 🔍 Search     │  │ 🔄 More       │  │ ✏️ Refine     │       │
-│  │    Titles     │  │    Titles     │  │    Direction  │       │
-│  └───────────────┘  └───────────────┘  └───────────────┘       │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│     ┌──────────────────────────────────────────────────────┐   │
-│     │ ✅ Lock Blueprint → Create Thumbnail                 │   │
-│     └──────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  ┌────────────────────────────────────────────────────────────┐│
-│  │ ← Change Title                                             ││
-│  └────────────────────────────────────────────────────────────┘│
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+
+**Emotion → Color Mapping** (stored in EMOTION_GRADIENTS):
+
+| Emotion | From | To | Accent |
+|---------|------|-----|--------|
+| Curiosity | `#1e3a5f` | `#0a1929` | `#60a5fa` (blue) |
+| Hope | `#1a4d2e` | `#0d2818` | `#4ade80` (green) |
+| Fear | `#5f1e1e` | `#290a0a` | `#f87171` (red) |
+| Frustration | `#5f3d1e` | `#291a0a` | `#fb923c` (orange) |
+| FOMO | `#3d1e5f` | `#1a0a29` | `#c084fc` (purple) |
+| Validation | `#5f4d1e` | `#29210a` | `#fbbf24` (amber) |
+| Excitement | `#5f1e4d` | `#290a21` | `#f472b6` (pink) |
+| Relief | `#1e5f5f` | `#0a2929` | `#2dd4bf` (teal) |
+
+### Phrase Display
+- **4 phrases at a time** — Top picks from the judge
+- **Clickable pills** — Click to preview on thumbnail
+- **Selected state** — Green border with checkmark
+
+### Action Buttons (Unified Styling)
+All buttons use the same amber/gold glowing glass style from Page 3:
+
+```css
+h-[52px] min-w-[160px] px-6 rounded-xl
+bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B]
+hover:bg-[#F59E0B]/25 hover:border-[#F59E0B]/60
 ```
+
+**Buttons:**
+1. **Balanced** (dropdown) — Optimization mode selector
+2. **Generate Phrases** — Triggers two-pass API (costs ~1¢)
+3. **Refresh** — Cycles through 12 top picks, 4 at a time (FREE)
+4. **Mad Scientist** — Reveals 18 wild card phrases (FREE)
+5. **Lock & Continue** — Saves and navigates to Package page
+
+### Runner-Ups Section
+- 3-column grid of alternative titles
+- Character count badge per title
+- "Swap to Top" button to promote a runner-up
+
+### Alternatives Section
+- Collapsible section with remaining titles
+- Click to swap to top
 
 ---
 
-## Interactive Phrase Clicking
+## Ruthless Phrase Generation API
 
-User clicks a phrase → It appears on the mock thumbnail instantly.
+**Endpoint:** `/api/titles/thumbnail-phrases`
 
-**The feedback loop:**
-1. See phrase in list
-2. Click it
-3. See it on the thumbnail preview
-4. Decide if it works
-5. Click another to compare
-6. Pick the winner
+### Two-Pass System
 
-This is tactile. This is fun. This is how you make decisions.
-
----
-
-## The Morph Effect
-
-When user selects a title:
-
-1. Title selection cards fade/shrink
-2. Selected title moves to center-bottom (like YouTube title position)
-3. Mock thumbnail expands from above
-4. Phrase options appear below
-5. Tools section slides in
-
-**CSS transition:** 300-500ms, smooth ease-out. Feels intentional.
-
----
-
-## GPT Prompt Rules (Title Generation)
-
-### Core Rules:
-1. **Keyword phrase must appear** — core words, same order
-2. **Never replace the main verb** — "beat" stays "beat"
-3. **Add words, don't substitute**
-4. **Length: 45-52 chars** for Recommended mode
-5. **No year tags** unless Search mode
-
-### What We Send:
-```
-KEYWORD PHRASE: "How To Beat YouTube Algorithm"
-
-PRIMARY EMOTION: Curiosity (from Page 4 analysis)
-VIEWER GOAL: Learn
-FORMAT: Tutorial
-
-RULES:
-- The phrase "beat YouTube algorithm" MUST appear in every title
-- You may add articles (the, a), timeframes, or qualifiers
-- NEVER replace "beat" with synonyms like "master", "crack", "dominate"
-- Target length: 45-52 characters
-- Make it compelling — this is about CTR, not just SEO
+**Pass 1: Creative Generation**
+```typescript
+Model: gpt-4o (full model for cultural knowledge)
+Temperature: 1.2 (pushed high for wild ideas)
+Output: 30 raw phrases
 ```
 
----
-
-## GPT Prompt Rules (Thumbnail Phrases)
-
-### Two-Pass System:
-
-**Pass 1: Creative (High Temp)**
-```
+**Pass 2: Judge & Filter**
+```typescript
 Model: gpt-4o-mini
-Temperature: 1.2
-Max Tokens: 500
-
-Generate 15-20 short thumbnail phrases (1-4 words) for this video:
-Title: "How To Beat The YouTube Algorithm (What Actually Works)"
-Emotion: Curiosity
-Goal: Learn
-
-Rules:
-- ALL CAPS or Title Case
-- Punchy, attention-grabbing
-- Can use synonyms (different from title)
-- Should COMPLEMENT the title, not repeat it
-- Mix of safe/proven and wild/risky
+Temperature: 0.3 (low for consistent picking)  
+Output: Top 12 ranked phrases
 ```
 
-**Pass 2: Filter (Cheap)**
-```
-Model: gpt-5-mini
-Reasoning: minimal
-Max Tokens: 200
+### Ruthless Prompt (Creative Pass)
 
-Pick the 8 best phrases from this list.
-Split into:
-- "Compelling" (4): Will definitely drive clicks
-- "Wild Cards" (4): Risky but could work big
+The prompt instructs GPT to be a "ruthless YouTube packaging strategist" with:
+
+**Banned Words:** `unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, amazing, incredible, hidden, transformative`
+
+**Format Rules:**
+- Max 4 words
+- Fragments over sentences
+- ALL CAPS
+- No punctuation except `?`
+
+**Tone Mix:**
+- 50% Negative/Warning (fear, urgency)
+- 50% Specific Gain/Numbers
+
+**Psychological Triggers:**
+- Curiosity Gap
+- FOMO
+- Fear of Loss
+- Urgency
+- Validation Seeking
+- Controversy
+
+### API Response Format
+```typescript
+{
+  success: true,
+  topPicks: string[],    // Best 12 phrases, ranked
+  wildCards: string[],   // Remaining ~18 "mad scientist" phrases
+  rawCount: number,      // Total generated (30)
+  stats: {
+    durationMs: number,
+    tokens: number,
+    costCents: string,
+    model: string,
+    temperature: number
+  }
+}
 ```
+
+### Cost Breakdown
+- **Pass 1** (gpt-4o @ 1.2 temp): ~0.5-0.7¢
+- **Pass 2** (gpt-4o-mini @ 0.3 temp): ~0.05¢
+- **Total per generation**: ~0.6-0.8¢
 
 ---
 
-## Cost Breakdown
+## User Flow
 
-| Component | Model | Est. Cost |
-|-----------|-------|-----------|
-| Title generation (15) | gpt-4o-mini | ~1.5¢ |
-| Thumbnail phrases (creative) | gpt-4o-mini temp 1.2 | ~0.5¢ |
-| Thumbnail phrases (filter) | gpt-5-mini minimal | ~0.2¢ |
-| Search titles (optional) | gpt-5-mini | ~0.5¢ |
-| More titles (optional) | gpt-4o-mini | ~0.5¢ |
-| **Typical run** | | **~2.2¢** |
-| **Everything** | | **~3.2¢** |
-
----
-
-## Files to Create/Modify
-
-| File | Action |
-|------|--------|
-| `/api/titles/generate/route.ts` | Update prompt with new rules |
-| `/api/titles/thumbnail-phrases/route.ts` | NEW: Two-pass phrase generation |
-| `/members/build/title/_components/TitlePageContent.tsx` | Rebuild with cockpit design |
-| `/members/build/title/_components/ThumbnailPreview.tsx` | NEW: Mock thumbnail with emotion colors |
-| `/members/build/title/_components/PhraseSelector.tsx` | NEW: Clickable phrase pills |
+1. **Page loads** → Titles generated automatically (or loaded from DB)
+2. **Top Pick displayed** → Winner title shown in hero section
+3. **Click Generate Phrases** → Two-pass API generates 30 phrases
+4. **Judge picks 12** → First 4 shown as clickable pills
+5. **Click Refresh (FREE)** → Cycle to next 4 from the 12
+6. **Click Mad Scientist (FREE)** → See remaining 18 wild phrases
+7. **Click a phrase** → Preview on thumbnail instantly
+8. **Click Lock & Continue** → Save selection, navigate to Package page
 
 ---
 
-## What User Walks Away With
+## Files
 
-1. **Locked Title** — 45-60 chars, keyword preserved
-2. **Selected Phrases** — 1-3 phrases for thumbnail
-3. **Thumbnail Direction** — Emotion, color, vibe
-4. **Ready for Creation** — Next page turns blueprint into reality
+| File | Purpose |
+|------|---------|
+| `/members/build/title/_components/TitlePageContent.tsx` | Main UI component (~680 lines) |
+| `/api/titles/thumbnail-phrases/route.ts` | Two-pass phrase generation API |
+| `/api/titles/generate/route.ts` | Title generation API |
+| `/api/titles/lock/route.ts` | Lock selection API |
+
+---
+
+## TODO / Future Work
+
+- [ ] Wire up optimization mode dropdown to actually affect title generation
+- [ ] Add "More Titles" regeneration feature
+- [ ] Consider A/B testing different temperature values (1.1-1.3)
+- [ ] Track phrase selection analytics
 
 ---
 

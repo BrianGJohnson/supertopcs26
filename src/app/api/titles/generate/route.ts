@@ -9,95 +9,133 @@ const openai = new OpenAI({
 });
 
 // =============================================================================
-// MODEL CONFIG - Optimized for creative title generation
+// MODEL CONFIG
 // =============================================================================
-const TITLE_GENERATION_CONFIG = {
-    model: "gpt-4o-mini",
-    temperature: 1,
+
+// Pass 1: Creative generation - GPT-4o at higher temperature for wild ideas
+const CREATIVE_CONFIG = {
+    model: "gpt-4o",
+    temperature: 1.1, // High but slightly lower than phrases for coherence
     top_p: 1,
-    max_completion_tokens: 3000,
+    max_completion_tokens: 2500,
+} as const;
+
+// Pass 2: Judge - GPT-4o-mini at low temperature for consistent ranking
+const JUDGE_CONFIG = {
+    model: "gpt-4o-mini",
+    temperature: 0.3,
+    max_completion_tokens: 2000,
     response_format: { type: "json_object" as const },
 } as const;
 
 // =============================================================================
-// SYSTEM PROMPT - Strict keyword preservation + maximum CTR
+// BANNED GENERIC PHRASES
 // =============================================================================
-const TITLE_SYSTEM_PROMPT = `You are a YouTube title expert focused on maximum CTR (click-through rate).
+const BANNED_PHRASES = [
+    "step by step",
+    "for beginners",
+    "ultimate guide",
+    "complete guide",
+    "everything you need",
+    "what you need to know",
+    "made easy",
+    "simplified",
+    "explained",
+    "like a pro",
+    "in 2024",
+    "in 2025",
+];
 
-## CRITICAL KEYWORD RULES (MUST FOLLOW)
+// =============================================================================
+// RUTHLESS CREATIVE PROMPT
+// =============================================================================
+const RUTHLESS_CREATIVE_PROMPT = `You are a ruthless YouTube title strategist. Your job is to create titles that DEMAND clicks.
 
-1. **The keyword phrase MUST appear in every title** — use the core words in the same relative order
-2. **NEVER replace the main verb with synonyms** — if the phrase says "beat", every title says "beat" (NOT "master", "crack", "dominate", "hack")
-3. **You may ADD words** — articles (the, a), qualifiers (finally, step by step), but NEVER substitute
+## KEYWORD PHRASE (CRITICAL - READ THIS FIRST)
+"{{phrase}}"
 
-Example for "how to beat YouTube algorithm":
-✅ "How To Beat The YouTube Algorithm (What Actually Works)"
-✅ "How To Beat YouTube Algorithm Step by Step"
-✅ "Beat The YouTube Algorithm: The Simple Truth"
-❌ "Master the YouTube Algorithm" (replaced "beat" with "master")
-❌ "Crack the YouTube Algorithm" (replaced "beat" with "crack")
+## ⚠️ MANDATORY KEYWORD RULE ⚠️
 
-## TITLE REQUIREMENTS
+**EVERY SINGLE TITLE MUST CONTAIN THE CORE WORDS FROM THE PHRASE.**
 
-- **Length: 45-52 characters** (ideal for CTR)
-- Create genuine curiosity or urgency
-- Make viewers NEED to click
-- No year tags (like "2025") — keep them timeless
+For the phrase "{{phrase}}":
+1. Identify the 3-4 most important words (ignore: how, to, for, the, a, an)
+2. EVERY title you generate MUST include AT LEAST 3 of those words
+3. Titles missing the core words will be REJECTED
 
-## OUTPUT STRUCTURE
+Example: If phrase is "how to start content creation"
+→ Core words are: START, CONTENT, CREATION
+→ Every title MUST contain: "start" AND "content" AND "creation" (or "creating")
 
-Return 15 titles in 3 tiers:
+ACCEPTABLE:
+✅ "Start Content Creation WITHOUT Making These Mistakes"
+✅ "Content Creation: Why You Need To Start TODAY"
+✅ "The WRONG Way To Start Content Creation"
+✅ "Start Creating Content That ACTUALLY Works"
 
-1. **Winner** (1): Your absolute #1 pick for highest CTR
-2. **Runner-Ups** (3): Strong alternatives with DIFFERENT hooks (vary the ending, not the keyword)
-3. **Alternatives** (11): Variety of approaches
+NOT ACCEPTABLE (will be rejected):
+❌ "Begin Your Creator Journey" (missing: start, content, creation)
+❌ "Unlock Your Media Potential" (missing everything)
+❌ "Content Tips for Beginners" (missing: start, creation)
 
-For each title, also suggest 1-2 thumbnail phrases (1-4 words, ALL CAPS). These go ON the thumbnail image, not in the title.
+## PRIMARY EMOTION: {{primaryEmotion}}
+Lead with this emotion. It's what the viewer feels.
 
-## RESPONSE FORMAT (JSON)
+## BANNED PHRASES (too generic)
+${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
+
+## LENGTH
+Target 45-52 characters. A little over or under is OK.
+
+## DISTRIBUTION (Generate exactly 30 titles)
+- **9 titles (30%)**: Lead with the PRIMARY EMOTION ({{primaryEmotion}})
+- **8 titles (25%)**: Negative/Warning angle (fear, what to avoid, mistakes)
+- **8 titles (25%)**: Curiosity-driven (open loops, reveals, secrets)
+- **5 titles (20%)**: Wildcard - whatever creates the most visceral click reaction
+
+## STYLE GUIDELINES
+- Create genuine curiosity gaps
+- Use specific numbers when impactful
+- Parenthetical hooks work great: "The Real Reason (Nobody Talks About)"
+- Questions can be powerful
+- Urgency without being clickbait
+- No years unless absolutely essential
+
+Generate exactly 30 titles, one per line. No numbering, no explanations.`;
+
+// =============================================================================
+// JUDGE PROMPT
+// =============================================================================
+const JUDGE_PROMPT = `You are a YouTube CTR expert. Pick the 15 best titles from this list and rank them.
+
+KEYWORD PHRASE: "{{phrase}}"
+
+## EVALUATION CRITERIA
+1. Does it create an irresistible urge to click?
+2. Does it preserve the keyword phrase meaning?
+3. Is it 45-52 characters (close enough)?
+4. Would you STOP scrolling if you saw this?
+5. Is it differentiated from typical YouTube titles?
+
+## INPUT TITLES
+{{titles}}
+
+## OUTPUT
+Pick exactly 15 titles. Categorize them:
+- "winner": Your absolute #1 pick
+- "runnerUps": 3 strong alternatives with DIFFERENT hooks
+- "alternatives": 11 more options
+
+For each title, include:
+- title: The title text
+- characters: Character count
+- angle: Brief note on why it works (1 sentence)
+
+Return as JSON:
 {
-  "winner": {
-    "title": "The title text",
-    "characters": 52,
-    "thumbnailPhrases": ["THE TRUTH", "FINALLY"],
-    "angle": "Brief note on the approach (1 sentence)"
-  },
-  "runnerUps": [
-    {
-      "title": "...",
-      "characters": 48,
-      "thumbnailPhrases": ["...", "..."],
-      "angle": "..."
-    }
-  ],
-  "alternatives": [
-    {
-      "title": "...",
-      "characters": 55,
-      "thumbnailPhrases": ["..."],
-      "angle": "..."
-    }
-  ]
-}`;
-
-// =============================================================================
-// REGENERATE PROMPT - 5 more titles
-// =============================================================================
-const REGENERATE_SYSTEM_PROMPT = `You are a YouTube title optimization expert. Generate 5 MORE title options that are DIFFERENT from the ones already generated.
-
-## OUTPUT STRUCTURE
-Return 5 titles:
-1. **Winner** (1): Your best new pick
-2. **Runner-Ups** (2): Strong alternatives with different angles
-3. **Alternatives** (2): More variety
-
-Same format as before - include title, characters, thumbnailPhrases, and angle.
-
-## RESPONSE FORMAT (JSON)
-{
-  "winner": { "title": "...", "characters": 52, "thumbnailPhrases": ["..."], "angle": "..." },
-  "runnerUps": [...],
-  "alternatives": [...]
+  "winner": { "title": "...", "characters": 52, "angle": "..." },
+  "runnerUps": [{ "title": "...", "characters": 48, "angle": "..." }, ...],
+  "alternatives": [{ "title": "...", "characters": 50, "angle": "..." }, ...]
 }`;
 
 // =============================================================================
@@ -130,50 +168,11 @@ function buildCreatorContext(channel: {
 }
 
 // =============================================================================
-// HELPER: Build phrase context
-// =============================================================================
-function buildPhraseContext(topic: {
-    phrase: string;
-    primary_bucket?: string | null;
-    sub_format?: string | null;
-    primary_emotion?: string | null;
-    secondary_emotion?: string | null;
-    mindset?: string | null;
-    viewer_goal?: string | null;
-    algorithm_targets?: string[] | null;
-    demand?: number | null;
-    opportunity?: number | null;
-    topic_strength?: number | null;
-    audience_fit?: number | null;
-}, selectedFormats: string[]): string {
-    const targets = Array.isArray(topic.algorithm_targets)
-        ? topic.algorithm_targets.join(", ")
-        : "";
-
-    return `KEYWORD PHRASE: "${topic.phrase}"
-
-VIDEO CONTEXT:
-- Format Category: ${topic.primary_bucket || "Info"}
-- User's Selected Formats: ${selectedFormats.join(", ")}
-- Primary Emotion: ${topic.primary_emotion || "Curiosity"}
-- Secondary Emotion: ${topic.secondary_emotion || "Hope"}
-- Mindset: ${topic.mindset || "Positive"}
-- Viewer Goal: ${topic.viewer_goal || "Learn"}
-- Algorithm Targets: ${targets || "Long-Term Views"}
-
-SCORES (for context):
-- Demand: ${topic.demand || 50}/99
-- Opportunity: ${topic.opportunity || 50}/99
-- Topic Strength: ${topic.topic_strength || 50}/99
-- Audience Fit: ${topic.audience_fit || 50}/99`;
-}
-
-// =============================================================================
 // MAIN API HANDLER
 // =============================================================================
 export async function POST(request: NextRequest) {
     try {
-        const { superTopicId, selectedFormats, regenerate = false, existingTitles = [] } = await request.json();
+        const { superTopicId, selectedFormats } = await request.json();
 
         if (!superTopicId) {
             return NextResponse.json(
@@ -212,87 +211,141 @@ export async function POST(request: NextRequest) {
         }
 
         const creatorContext = buildCreatorContext(channel);
-        const phraseContext = buildPhraseContext({
-            phrase: topic.phrase,
-            primary_bucket: topic.primary_bucket,
-            sub_format: topic.sub_format,
-            primary_emotion: topic.primary_emotion,
-            secondary_emotion: topic.secondary_emotion,
-            mindset: topic.mindset,
-            viewer_goal: topic.viewer_goal,
-            algorithm_targets: topic.algorithm_targets as string[] | null,
-            demand: topic.demand,
-            opportunity: topic.opportunity,
-            topic_strength: topic.topic_strength,
-            audience_fit: topic.audience_fit,
-        }, selectedFormats);
+        const primaryEmotion = topic.primary_emotion || "Curiosity";
 
-        console.log(`[Title Generation] ${regenerate ? "Regenerating" : "Generating"} titles for: "${topic.phrase}"`);
+        console.log(`[Title Generation] Generating ruthless titles for: "${topic.phrase}"`);
+        console.log(`[Title Generation] Primary emotion: ${primaryEmotion}`);
         const startTime = Date.now();
 
-        // Build the user prompt
-        let userPrompt = `${creatorContext}\n\n${phraseContext}`;
+        // =====================================================================
+        // PASS 1: Creative generation (30 wild titles)
+        // =====================================================================
+        const creativePrompt = RUTHLESS_CREATIVE_PROMPT
+            .replace(/\{\{phrase\}\}/g, topic.phrase)
+            .replace(/\{\{primaryEmotion\}\}/g, primaryEmotion);
 
-        if (regenerate && existingTitles.length > 0) {
-            userPrompt += `\n\nALREADY GENERATED TITLES (create DIFFERENT ones):\n${existingTitles.map((t: string, i: number) => `${i + 1}. "${t}"`).join("\n")}`;
-        }
+        const fullCreativePrompt = `${creatorContext}\n\n${creativePrompt}`;
 
-        // Call GPT
-        const completion = await openai.chat.completions.create({
-            model: TITLE_GENERATION_CONFIG.model,
-            temperature: TITLE_GENERATION_CONFIG.temperature,
-            top_p: TITLE_GENERATION_CONFIG.top_p,
-            max_completion_tokens: TITLE_GENERATION_CONFIG.max_completion_tokens,
-            response_format: TITLE_GENERATION_CONFIG.response_format,
-            messages: [
-                {
-                    role: "system",
-                    content: regenerate ? REGENERATE_SYSTEM_PROMPT : TITLE_SYSTEM_PROMPT
-                },
-                { role: "user", content: userPrompt },
-            ],
+        console.log(`[Title Generation] Pass 1: Calling GPT-4o @ temp ${CREATIVE_CONFIG.temperature}...`);
+
+        const creativeResponse = await openai.chat.completions.create({
+            model: CREATIVE_CONFIG.model,
+            temperature: CREATIVE_CONFIG.temperature,
+            top_p: CREATIVE_CONFIG.top_p,
+            max_completion_tokens: CREATIVE_CONFIG.max_completion_tokens,
+            messages: [{ role: "user", content: fullCreativePrompt }],
         });
 
-        const responseText = completion.choices[0]?.message?.content || "{}";
-        const parsed = JSON.parse(responseText.trim());
+        const rawTitles = creativeResponse.choices[0]?.message?.content || "";
+
+        // Parse titles (one per line, clean up)
+        const titleList = rawTitles
+            .split("\n")
+            .map(t => t.trim())
+            .filter(t => t.length > 10 && t.length < 80) // Reasonable title length
+            .map(t => t.replace(/^\d+\.\s*/, "")) // Remove numbering
+            .map(t => t.replace(/^["']|["']$/g, "")) // Remove quotes
+            .slice(0, 30);
+
+        console.log(`[Title Generation] Pass 1: Generated ${titleList.length} raw titles`);
+
+        // =====================================================================
+        // PASS 2: Judge picks the best 15
+        // =====================================================================
+        const judgePrompt = JUDGE_PROMPT
+            .replace("{{phrase}}", topic.phrase)
+            .replace("{{titles}}", titleList.map((t, i) => `${i + 1}. ${t}`).join("\n"));
+
+        console.log(`[Title Generation] Pass 2: Calling GPT-4o-mini @ temp ${JUDGE_CONFIG.temperature} to judge...`);
+
+        const judgeResponse = await openai.chat.completions.create({
+            model: JUDGE_CONFIG.model,
+            temperature: JUDGE_CONFIG.temperature,
+            max_completion_tokens: JUDGE_CONFIG.max_completion_tokens,
+            response_format: JUDGE_CONFIG.response_format,
+            messages: [{ role: "user", content: judgePrompt }],
+        });
+
+        const judgeResult = judgeResponse.choices[0]?.message?.content || "{}";
+
+        // Parse the judge response
+        let parsed: {
+            winner?: { title: string; characters: number; angle: string };
+            runnerUps?: Array<{ title: string; characters: number; angle: string }>;
+            alternatives?: Array<{ title: string; characters: number; angle: string }>;
+        } = {};
+
+        try {
+            const jsonMatch = judgeResult.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                parsed = JSON.parse(jsonMatch[0]);
+            }
+        } catch {
+            console.error("[Title Generation] Failed to parse judge response, using first 15");
+            // Fallback: create structure from raw titles
+            parsed = {
+                winner: { title: titleList[0], characters: titleList[0].length, angle: "Top pick" },
+                runnerUps: titleList.slice(1, 4).map(t => ({ title: t, characters: t.length, angle: "Alternative" })),
+                alternatives: titleList.slice(4, 15).map(t => ({ title: t, characters: t.length, angle: "Alternative" })),
+            };
+        }
+
+        // Add thumbnailPhrases placeholder (phrases are generated separately now)
+        const addPhrases = (item: { title: string; characters: number; angle: string }) => ({
+            ...item,
+            thumbnailPhrases: [], // Will be generated via the phrase API
+        });
+
+        const finalTitles = {
+            winner: parsed.winner ? addPhrases(parsed.winner) : null,
+            runnerUps: (parsed.runnerUps || []).map(addPhrases),
+            alternatives: (parsed.alternatives || []).map(addPhrases),
+        };
 
         const elapsed = Date.now() - startTime;
 
-        // Extract token usage for cost tracking
-        const usage = {
-            input_tokens: completion.usage?.prompt_tokens || 0,
-            output_tokens: completion.usage?.completion_tokens || 0,
-            total_tokens: completion.usage?.total_tokens || 0,
-        };
+        // Calculate costs
+        const pass1Tokens = creativeResponse.usage?.total_tokens || 0;
+        const pass2Tokens = judgeResponse.usage?.total_tokens || 0;
+        const totalTokens = pass1Tokens + pass2Tokens;
 
-        // Calculate cost (gpt-4o-mini pricing)
-        const cost = (usage.input_tokens / 1_000_000) * 0.15 + (usage.output_tokens / 1_000_000) * 0.60;
+        // Cost: gpt-4o = $2.50/1M input, $10/1M output (blended ~$6/1M)
+        // Cost: gpt-4o-mini = $0.15/1M input, $0.60/1M output (blended ~$0.375/1M)
+        const pass1Cost = (pass1Tokens / 1_000_000) * 6;
+        const pass2Cost = (pass2Tokens / 1_000_000) * 0.375;
+        const totalCost = pass1Cost + pass2Cost;
 
         console.log(`[Title Generation] Complete in ${elapsed}ms`);
-        console.log(`[Title Generation] Tokens: ${usage.total_tokens}, Cost: $${cost.toFixed(4)} (~${(cost * 100).toFixed(2)}¢)`);
+        console.log(`[Title Generation] Tokens: ${pass1Tokens} (pass1) + ${pass2Tokens} (pass2) = ${totalTokens}`);
+        console.log(`[Title Generation] Cost: ~${(totalCost * 100).toFixed(2)}¢`);
+        console.log(`[Title Generation] Winner: "${finalTitles.winner?.title}"`);
 
         // Store title options in database
         await db
             .update(super_topics)
             .set({
-                title_options: parsed,
+                title_options: finalTitles,
             })
             .where(eq(super_topics.id, superTopicId));
 
         return NextResponse.json({
             success: true,
-            message: regenerate ? "Generated 5 more titles" : "Generated 15 titles",
+            message: "Generated 15 ruthless titles",
             stats: {
                 durationMs: elapsed,
-                tokens: usage.total_tokens,
-                costCents: (cost * 100).toFixed(2),
+                tokens: totalTokens,
+                costCents: (totalCost * 100).toFixed(2),
+                model: CREATIVE_CONFIG.model,
+                temperature: CREATIVE_CONFIG.temperature,
+                rawCount: titleList.length,
             },
-            titles: parsed,
+            titles: finalTitles,
         });
     } catch (error) {
-        console.error("[Title Generation] Error:", error);
+        console.error("[Title Generation] ERROR:", error);
+        const message = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { error: "Failed to generate titles" },
+            { error: "Failed to generate titles", details: message },
             { status: 500 }
         );
     }
