@@ -251,48 +251,149 @@ Subtle info box for tips and notes.
 
 ## Buttons
 
-### Primary Button (CTA)
-Main action button with gradient.
+### ⚠️ IMPORTANT: Premium Glass-Card Style Required
 
+**All buttons in SuperTopics should use the premium "glass-card" style.** This creates a cohesive, polished aesthetic across the app.
+
+**DO NOT** use solid-fill buttons with white text. They look flat and generic.
+
+### Glass-Card Button (Standard)
+
+The standard button style features:
+- Semi-transparent gradient background (`from-[color]/15 to-[color]/15`)
+- 2px colored border with opacity (`border-2 border-[color]/30`)
+- Subtle outer glow shadow
+- Color-matched text (not white)
+- Hover: increased opacity on background and stronger glow
+
+**Green Variant (Primary Actions)**
 ```tsx
 <button
   onClick={handleClick}
   className="
-    inline-flex items-center gap-2 px-10 py-4 rounded-xl font-semibold text-lg
-    bg-gradient-to-b from-[#2BD899] to-[#25C78A] text-[#0B1220] 
-    shadow-[0_4px_20px_rgba(43,216,153,0.3)] hover:shadow-[0_4px_30px_rgba(43,216,153,0.4)]
-    transition-all duration-200
+    px-6 py-4 rounded-xl font-bold text-lg
+    bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 
+    hover:from-[#2BD899]/25 hover:to-[#25C78A]/25
+    text-[#2BD899] 
+    border-2 border-[#2BD899]/30 
+    shadow-[0_0_15px_rgba(43,216,153,0.15)] 
+    hover:shadow-[0_0_25px_rgba(43,216,153,0.25)]
+    transition-all flex items-center justify-center gap-2
   "
 >
-  Button Text
-  <IconChevronRight size={20} />
+  <IconSeedling size={22} />
+  Expand Topic
 </button>
 ```
 
-### Secondary Button (Back/Cancel)
-Subtle text button.
+**Purple Variant (AI/Premium Actions)**
+```tsx
+<button
+  onClick={handleClick}
+  className="
+    px-6 py-5 rounded-xl font-bold text-xl
+    bg-gradient-to-b from-[#7A5CFA]/20 to-[#6548E5]/20 
+    hover:from-[#7A5CFA]/30 hover:to-[#6548E5]/30
+    text-[#7A5CFA] 
+    border-2 border-[#7A5CFA]/40 
+    shadow-[0_0_20px_rgba(122,92,250,0.2)] 
+    hover:shadow-[0_0_30px_rgba(122,92,250,0.35)]
+    transition-all flex items-center justify-center gap-3
+  "
+>
+  <IconSparkles size={24} />
+  Fast-Track to Titles
+</button>
+```
+
+**Blue Variant (Secondary Actions)**
+```tsx
+<button
+  onClick={handleClick}
+  className="
+    px-6 py-4 rounded-xl font-bold text-lg
+    bg-gradient-to-b from-[#5AACFF]/15 to-[#4A9CFF]/15 
+    hover:from-[#5AACFF]/25 hover:to-[#4A9CFF]/25
+    text-[#5AACFF] 
+    border-2 border-[#5AACFF]/30 
+    shadow-[0_0_15px_rgba(90,172,255,0.15)] 
+    hover:shadow-[0_0_25px_rgba(90,172,255,0.25)]
+    transition-all flex items-center justify-center gap-2
+  "
+>
+  <IconPencil size={22} />
+  New Phrase
+</button>
+```
+
+### Color Reference for Glass Buttons
+
+| Color | Base Hex | Text Hex (Brighter) | Border | Shadow RGB |
+|-------|----------|---------------------|--------|------------|
+| Purple | `#7A5CFA` | `#A78BFA` | `/50` | `122,92,250` / `167,139,250` |
+| Green | `#2BD899` | `#4AE8B0` | `/50` | `43,216,153` / `74,232,176` |
+| Blue | `#5AACFF` | `#7CC4FF` | `/50` | `90,172,255` / `124,196,255` |
+| Orange | `#F59E0B` | `#FBBF24` | `/50` | `245,158,11` / `251,191,36` |
+
+**Key Rule:** Text color must be a **brighter** variant than the base color for contrast.
+Always include `drop-shadow-[0_0_6px_rgba(TEXT_RGB,0.4)]` for text glow.
+
+### Disabled State
+
+```tsx
+className="
+  bg-[#7A5CFA]/10 
+  border-[#7A5CFA]/20 
+  text-[#7A5CFA]/50 
+  cursor-not-allowed
+"
+```
+
+### Loading State
+
+```tsx
+className="cursor-wait"
+// Plus reduced opacity on colors
+// Icon: <IconLoader2 className="animate-spin" />
+```
+
+### Secondary Button (Text Only)
+
+For back/cancel actions, use subtle text buttons:
 
 ```tsx
 <button
   onClick={handleBack}
-  className="text-white/40 hover:text-white/60 text-sm"
+  className="text-white/40 hover:text-white/60 text-sm transition-colors"
 >
   ← Back
 </button>
 ```
 
-### Button Group (Stacked)
-Primary + secondary buttons stacked vertically.
+### Button Sizing
+
+| Size | Padding | Font | Icon | Use Case |
+|------|---------|------|------|----------|
+| Small | `px-4 py-2` | `text-sm` | 16px | Inline actions |
+| Medium | `px-6 py-4` | `text-lg` | 22px | Standard buttons |
+| Large | `px-6 py-5` | `text-xl` | 24px | Hero CTAs |
+
+### Button Group Layout
 
 ```tsx
-<div className="flex flex-col items-center gap-4">
-  <button className="...primary styles...">
-    Continue
-    <IconChevronRight size={20} />
+{/* Stacked: Primary full-width, secondary row below */}
+<div className="flex flex-col gap-4">
+  <button className="w-full ...purple-glass-styles...">
+    Primary Action
   </button>
-  <button className="text-white/40 hover:text-white/60 text-sm">
-    ← Back
-  </button>
+  <div className="flex gap-4">
+    <button className="flex-1 ...green-glass-styles...">
+      Secondary A
+    </button>
+    <button className="flex-1 ...blue-glass-styles...">
+      Secondary B
+    </button>
+  </div>
 </div>
 ```
 

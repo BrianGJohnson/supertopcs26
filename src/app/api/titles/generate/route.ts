@@ -109,6 +109,8 @@ Generate exactly 30 titles, one per line. No numbering, no explanations.`;
 const JUDGE_PROMPT = `You are a YouTube CTR expert. Pick the 15 best titles from this list and rank them.
 
 KEYWORD PHRASE: "{{phrase}}"
+PRIMARY EMOTION: "{{primaryEmotion}}"
+SECONDARY EMOTION: "{{secondaryEmotion}}"
 
 ## EVALUATION CRITERIA
 1. Does it create an irresistible urge to click?
@@ -116,6 +118,14 @@ KEYWORD PHRASE: "{{phrase}}"
 3. Is it 45-52 characters (close enough)?
 4. Would you STOP scrolling if you saw this?
 5. Is it differentiated from typical YouTube titles?
+
+## DIVERSITY REQUIREMENT
+Ensure the 15 titles you pick have a MIX of hook types:
+- At least 3-4 titles leveraging the PRIMARY emotion
+- At least 2-3 titles leveraging the SECONDARY emotion  
+- At least 2-3 curiosity-driven titles
+- At least 2-3 fear/warning/FOMO titles
+- 1-2 wild/unexpected angles
 
 ## INPUT TITLES
 {{titles}}
@@ -130,12 +140,13 @@ For each title, include:
 - title: The title text
 - characters: Character count
 - angle: Brief note on why it works (1 sentence)
+- hookType: One of "curiosity" | "fomo" | "fear" | "excitement" | "hope" | "validation" | "wild"
 
 Return as JSON:
 {
-  "winner": { "title": "...", "characters": 52, "angle": "..." },
-  "runnerUps": [{ "title": "...", "characters": 48, "angle": "..." }, ...],
-  "alternatives": [{ "title": "...", "characters": 50, "angle": "..." }, ...]
+  "winner": { "title": "...", "characters": 52, "angle": "...", "hookType": "curiosity" },
+  "runnerUps": [{ "title": "...", "characters": 48, "angle": "...", "hookType": "fear" }, ...],
+  "alternatives": [{ "title": "...", "characters": 50, "angle": "...", "hookType": "fomo" }, ...]
 }`;
 
 // =============================================================================
@@ -212,6 +223,7 @@ export async function POST(request: NextRequest) {
 
         const creatorContext = buildCreatorContext(channel);
         const primaryEmotion = topic.primary_emotion || "Curiosity";
+        const secondaryEmotion = topic.secondary_emotion || "Hope";
 
         console.log(`[Title Generation] Generating ruthless titles for: "${topic.phrase}"`);
         console.log(`[Title Generation] Primary emotion: ${primaryEmotion}`);
@@ -254,6 +266,8 @@ export async function POST(request: NextRequest) {
         // =====================================================================
         const judgePrompt = JUDGE_PROMPT
             .replace("{{phrase}}", topic.phrase)
+            .replace("{{primaryEmotion}}", primaryEmotion)
+            .replace("{{secondaryEmotion}}", secondaryEmotion)
             .replace("{{titles}}", titleList.map((t, i) => `${i + 1}. ${t}`).join("\n"));
 
         console.log(`[Title Generation] Pass 2: Calling GPT-4o-mini @ temp ${JUDGE_CONFIG.temperature} to judge...`);
@@ -269,10 +283,11 @@ export async function POST(request: NextRequest) {
         const judgeResult = judgeResponse.choices[0]?.message?.content || "{}";
 
         // Parse the judge response
+        type TitleItem = { title: string; characters: number; angle: string; hookType?: string };
         let parsed: {
-            winner?: { title: string; characters: number; angle: string };
-            runnerUps?: Array<{ title: string; characters: number; angle: string }>;
-            alternatives?: Array<{ title: string; characters: number; angle: string }>;
+            winner?: TitleItem;
+            runnerUps?: TitleItem[];
+            alternatives?: TitleItem[];
         } = {};
 
         try {
@@ -281,19 +296,20 @@ export async function POST(request: NextRequest) {
                 parsed = JSON.parse(jsonMatch[0]);
             }
         } catch {
-            console.error("[Title Generation] Failed to parse judge response, using first 15");
-            // Fallback: create structure from raw titles
+            // Fallback: create structure from raw titles with default hookTypes
+            const hookTypes = ["curiosity", "fear", "fomo", "excitement", "hope", "validation", "wild"];
             parsed = {
-                winner: { title: titleList[0], characters: titleList[0].length, angle: "Top pick" },
-                runnerUps: titleList.slice(1, 4).map(t => ({ title: t, characters: t.length, angle: "Alternative" })),
-                alternatives: titleList.slice(4, 15).map(t => ({ title: t, characters: t.length, angle: "Alternative" })),
+                winner: { title: titleList[0], characters: titleList[0].length, angle: "Top pick", hookType: "curiosity" },
+                runnerUps: titleList.slice(1, 4).map((t, i) => ({ title: t, characters: t.length, angle: "Alternative", hookType: hookTypes[i % hookTypes.length] })),
+                alternatives: titleList.slice(4, 15).map((t, i) => ({ title: t, characters: t.length, angle: "Alternative", hookType: hookTypes[(i + 3) % hookTypes.length] })),
             };
         }
 
-        // Add thumbnailPhrases placeholder (phrases are generated separately now)
-        const addPhrases = (item: { title: string; characters: number; angle: string }) => ({
+        // Add thumbnailPhrases placeholder and preserve hookType
+        const addPhrases = (item: TitleItem) => ({
             ...item,
             thumbnailPhrases: [], // Will be generated via the phrase API
+            hookType: item.hookType || "curiosity",
         });
 
         const finalTitles = {

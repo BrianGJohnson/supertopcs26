@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { authFetch } from "@/lib/supabase";
 
 import { ViewModeToggle } from "@/components/ui/ViewModeToggle";
+import { FastTrackModal } from "@/components/ui/FastTrackModal";
 import { useDisplayMode } from "@/hooks/useDisplayMode";
 import {
     type ViewerLandscape,
@@ -15,9 +16,7 @@ import {
     getVibeLabel,
     getVibeBgClass,
 } from "@/lib/viewer-landscape";
-import { createSession } from "@/hooks/useSessions";
-import { addSeeds } from "@/hooks/useSeedPhrases";
-import { IconSearch, IconChevronLeft, IconChevronRight, IconPencil, IconSparkles } from "@tabler/icons-react";
+import { IconSearch, IconChevronLeft, IconPencil, IconSparkles, IconSeedling, IconLoader2 } from "@tabler/icons-react";
 
 // =============================================================================
 // TYPES
@@ -86,28 +85,85 @@ export default function TopicDeepDivePage() {
 
     // Input State
     const [searchInput, setSearchInput] = useState("");
-    const [analyzedPhrase, setAnalyzedPhrase] = useState("");
+
+    // Navigation History - stores the full path of phrases explored
+    const [phraseHistory, setPhraseHistory] = useState<string[]>([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
+
+    // Cache landscape results by phrase (key = phrase, value = landscape data)
+    const landscapeCache = useRef<Map<string, ViewerLandscape>>(new Map());
 
     // Data State
     const [landscape, setLandscape] = useState<ViewerLandscape | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Drill Down State
-    const [drillDownStack, setDrillDownStack] = useState<DrillDownContext[]>([]);
-
     // Display Mode
     const { mode, isFull, setMode } = useDisplayMode();
 
-    const currentContext = drillDownStack.length > 0 ? drillDownStack[drillDownStack.length - 1] : null;
-    const currentPhrase = currentContext ? currentContext.phrase : analyzedPhrase;
-    const currentLevel = currentContext?.level || 0;
+    // Current phrase is derived from history
+    const currentPhrase = historyIndex >= 0 ? phraseHistory[historyIndex] : "";
+    const currentLevel = historyIndex; // -1 = none, 0 = first search, 1+ = drill down
 
     const wordCount = useMemo(() => getWordCount(currentPhrase), [currentPhrase]);
     const isOpportunityMode = wordCount >= 3;
 
-    const fetchLandscape = async (phrase: string, context?: DrillDownContext) => {
+    // Sync URL with current phrase (for sharing/bookmarking)
+    useEffect(() => {
+        if (currentPhrase && typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const urlPhrase = url.searchParams.get('phrase');
+            if (urlPhrase !== currentPhrase) {
+                url.searchParams.set('phrase', currentPhrase);
+                url.searchParams.set('level', String(currentLevel));
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    }, [currentPhrase, currentLevel]);
+
+    // Handle browser back/forward
+    useEffect(() => {
+        const handlePopState = () => {
+            // Go back one level in our history if possible
+            if (historyIndex > 0) {
+                const prevIndex = historyIndex - 1;
+                const prevPhrase = phraseHistory[prevIndex];
+                setHistoryIndex(prevIndex);
+
+                // Use cached data if available
+                const cached = landscapeCache.current.get(prevPhrase);
+                if (cached) {
+                    setLandscape(cached);
+                }
+            } else if (historyIndex === 0) {
+                // Going back from first search - reset to initial state
+                setHistoryIndex(-1);
+                setLandscape(null);
+                setPhraseHistory([]);
+
+                // Clear URL
+                const url = new URL(window.location.href);
+                url.searchParams.delete('phrase');
+                url.searchParams.delete('level');
+                window.history.replaceState({}, '', url.toString());
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [historyIndex, phraseHistory]);
+
+    // Fetch landscape data (with caching)
+    const fetchLandscape = async (phrase: string, parentDemandScore?: number, level?: number) => {
         if (!phrase.trim()) return;
+
+        // Check cache first
+        const cached = landscapeCache.current.get(phrase);
+        if (cached) {
+            setLandscape(cached);
+            setIsLoading(false);
+            return;
+        }
 
         setIsLoading(true);
         setError(null);
@@ -116,9 +172,11 @@ export default function TopicDeepDivePage() {
             const requestBody: { seed: string; parentDemandScore?: number; level?: number } = {
                 seed: phrase.trim(),
             };
-            if (context) {
-                requestBody.parentDemandScore = context.parentDemandScore;
-                requestBody.level = context.level;
+            if (parentDemandScore !== undefined) {
+                requestBody.parentDemandScore = parentDemandScore;
+            }
+            if (level !== undefined) {
+                requestBody.level = level;
             }
 
             const response = await authFetch("/api/seed-signal", {
@@ -130,13 +188,10 @@ export default function TopicDeepDivePage() {
             if (!response.ok) throw new Error("Failed to analyze topic");
 
             const data = await response.json();
-            setLandscape(data.landscape);
 
-            // If this is a new Top Level search, clear stack and set analyzed phrase
-            if (!context) {
-                setAnalyzedPhrase(phrase);
-                setDrillDownStack([]);
-            }
+            // Cache the result
+            landscapeCache.current.set(phrase, data.landscape);
+            setLandscape(data.landscape);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Analysis failed");
         } finally {
@@ -144,37 +199,43 @@ export default function TopicDeepDivePage() {
         }
     };
 
+    // Handle new search from input
     const handleSearch = (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (searchInput.trim().length < 2) return;
-        fetchLandscape(searchInput);
+        const phrase = searchInput.trim();
+        if (phrase.length < 2) return;
+
+        // Add to history (this is a new top-level search)
+        setPhraseHistory([phrase]);
+        setHistoryIndex(0);
+
+        // Push to browser history
+        window.history.pushState({}, '', `?phrase=${encodeURIComponent(phrase)}&level=0`);
+
+        // Fetch the data
+        fetchLandscape(phrase, undefined, 0);
     };
 
+    // Handle drill-down into a related topic
     const handleDrillDown = (phrase: string, position: number) => {
-        const fullPath = currentContext
-            ? [...currentContext.fullPath, phrase]
-            : [analyzedPhrase, phrase];
+        // Add to our history array
+        const newHistory = [...phraseHistory.slice(0, historyIndex + 1), phrase];
+        const newIndex = newHistory.length - 1;
 
-        const context: DrillDownContext = {
-            phrase,
-            position,
-            parentPhrase: currentPhrase,
-            level: (currentContext?.level || 0) + 1,
-            fullPath,
-            parentDemandScore: landscape?.demandScore,
-        };
+        setPhraseHistory(newHistory);
+        setHistoryIndex(newIndex);
+        setSearchInput(phrase); // Sync search input with current phrase
 
-        setDrillDownStack(prev => [...prev, context]);
-        fetchLandscape(phrase, context);
+        // Push to browser history
+        window.history.pushState({}, '', `?phrase=${encodeURIComponent(phrase)}&level=${newIndex}`);
+
+        // Fetch with parent context
+        fetchLandscape(phrase, landscape?.demandScore, newIndex);
     };
 
+    // Handle back navigation via UI button
     const handleGoBack = () => {
-        const newStack = drillDownStack.slice(0, -1);
-        const prevContext = newStack.length > 0 ? newStack[newStack.length - 1] : undefined;
-        const prevPhrase = prevContext ? prevContext.phrase : analyzedPhrase;
-
-        setDrillDownStack(newStack);
-        fetchLandscape(prevPhrase, prevContext);
+        window.history.back();
     };
 
     const getDisplayVibes = () => {
@@ -194,25 +255,126 @@ export default function TopicDeepDivePage() {
             .slice(0, isOpportunityMode ? 3 : 4);
     };
 
+    // Fast-Track state
+    const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [analyzeData, setAnalyzeData] = useState<{
+        channelId: string;
+        phrase: string;
+        growthFitScore: number;
+        clickabilityScore: number;
+        intentScore: number;
+        demand: number;
+        opportunity: number;
+        primaryBucket: string;
+        subFormat: string;
+        alternateFormats: string[];
+        primaryEmotion: string;
+        secondaryEmotion: string;
+        mindset: string;
+        viewerGoal: string;
+        algorithmTargets: string[];
+        viewerAngle: string;
+        porchTalk: string;
+        hook: string;
+        viewerGoalDescription: string;
+        whyThisCouldWork: string;
+        algorithmAngle: string;
+    } | null>(null);
+
+    // Step 1: User clicks button → Call analyze API
     const handleBuildTopic = async () => {
+        if (!currentPhrase || !landscape) return;
+
+        setIsAnalyzing(true);
+        try {
+            const response = await authFetch("/api/deep-dive/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    phrase: currentPhrase,
+                    demandScore: landscape.demandScore || 50,
+                    opportunityScore: landscape.opportunityScore || 50,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Analysis failed");
+            }
+
+            const data = await response.json();
+            console.log("[Deep Dive] Analysis complete:", data);
+
+            // Store the data and open modal
+            setAnalyzeData(data);
+            setFastTrackModalOpen(true);
+        } catch (error) {
+            console.error("[Deep Dive] Analysis error:", error);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    // Step 2: User confirms formats → Save to DB
+    const handleFastTrackConfirm = async (selectedFormats: string[]) => {
+        if (!analyzeData) return;
+
+        setIsSaving(true);
+        try {
+            const response = await authFetch("/api/deep-dive/fast-track", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ...analyzeData,
+                    selectedFormats,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Save failed");
+            }
+
+            const data = await response.json();
+            console.log("[Deep Dive] Fast-track complete:", data);
+
+            // Redirect to Title page
+            router.push(`/members/build/title?session_id=${data.sessionId}&topic_id=${data.superTopicId}`);
+        } catch (error) {
+            console.error("[Deep Dive] Save error:", error);
+            setIsSaving(false);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setFastTrackModalOpen(false);
+        setAnalyzeData(null);
+    };
+
+    const handleExpandTopic = async () => {
         if (!currentPhrase) return;
 
         try {
-            // Create a new session
-            const newSession = await createSession(currentPhrase, currentPhrase);
+            // Create session and add seed, then go to Seed page for full expansion
+            const response = await authFetch("/api/sessions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: currentPhrase,
+                    seedPhrase: currentPhrase,
+                }),
+            });
 
-            // Add the seed phrase
-            await addSeeds(newSession.id, [{
-                phrase: currentPhrase,
-                generationMethod: "deep_dive",
-            }]);
-
-            // Redirect to Title Builder (Page 5)
-            router.push(`/members/build/title?session_id=${newSession.id}`);
+            if (response.ok) {
+                const session = await response.json();
+                router.push(`/members/build/seed?session_id=${session.id}`);
+            } else {
+                // Fallback
+                router.push(`/members/build/seed`);
+            }
         } catch (error) {
             console.error("Failed to create session:", error);
-            // Fallback to just navigating
-            router.push(`/members/build/title?seed=${encodeURIComponent(currentPhrase)}`);
+            router.push(`/members/build/seed`);
         }
     };
 
@@ -223,8 +385,8 @@ export default function TopicDeepDivePage() {
 
                 {/* Header Section */}
                 <div className="flex flex-col gap-6 items-center text-center mt-8">
-                    <div className="w-20 h-20 rounded-2xl bg-[#7A5CFA]/20 flex items-center justify-center border border-[#7A5CFA]/30 shadow-[0_0_40px_rgba(122,92,250,0.15)]">
-                        <IconSearch size={40} className="text-[#7A5CFA]" />
+                    <div className="w-20 h-20 rounded-2xl bg-[#5AACFF]/20 flex items-center justify-center border border-[#5AACFF]/30 shadow-[0_0_40px_rgba(90,172,255,0.15)]">
+                        <IconSearch size={40} className="text-[#5AACFF]" />
                     </div>
                     <div>
                         <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Topic Deep Dive</h1>
@@ -240,14 +402,17 @@ export default function TopicDeepDivePage() {
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             placeholder="Enter a topic to analyze..."
-                            className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-xl text-white placeholder:text-white/30 focus:border-[#7A5CFA] focus:outline-none focus:ring-2 focus:ring-[#7A5CFA]/20 transition-all pl-14"
+                            className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-xl text-white/80 placeholder:text-white/30 focus:border-[#5AACFF] focus:outline-none focus:ring-2 focus:ring-[#5AACFF]/20 transition-all pl-14"
                             autoFocus
                         />
                         <IconSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-white/30" size={24} />
                         <button
                             type="submit"
                             disabled={searchInput.trim().length < 2 || isLoading}
-                            className="absolute right-3 top-2.5 bottom-2.5 px-6 bg-[#7A5CFA] hover:bg-[#684DEC] text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`absolute right-3 top-2.5 bottom-2.5 px-6 font-bold rounded-xl transition-all flex items-center justify-center ${searchInput.trim().length < 2 || isLoading
+                                ? "bg-[#5AACFF]/20 border-2 border-[#5AACFF]/40 text-white/80 cursor-not-allowed"
+                                : "bg-[#5AACFF]/30 hover:bg-[#5AACFF]/40 text-white border-2 border-[#5AACFF]/60 shadow-[0_0_15px_rgba(90,172,255,0.3)]"
+                                }`}
                         >
                             {isLoading ? 'Analyzing...' : 'Analyze'}
                         </button>
@@ -261,13 +426,13 @@ export default function TopicDeepDivePage() {
 
                             {/* Navigation Bar */}
                             <div className="flex items-center justify-between mb-8">
-                                {drillDownStack.length > 0 ? (
+                                {historyIndex > 0 ? (
                                     <button
                                         onClick={handleGoBack}
                                         className="flex items-center gap-2 text-white/50 hover:text-white transition-colors"
                                     >
                                         <IconChevronLeft size={20} />
-                                        <span>Back to {drillDownStack.length === 1 ? 'Search' : 'Previous'}</span>
+                                        <span>Back to {historyIndex === 1 ? 'Search' : 'Previous'}</span>
                                     </button>
                                 ) : (
                                     <div />
@@ -476,31 +641,78 @@ export default function TopicDeepDivePage() {
                                 </>
                             )}
 
-                            {/* Action Buttons - Two equal columns */}
-                            <div className="flex gap-4 mt-12 pb-8">
+                            {/* Action Buttons - Three options */}
+                            <div className="flex flex-col gap-4 mt-12 pb-8">
+                                {/* Primary: Fast-Track to Titles - Premium glass style */}
                                 <button
                                     onClick={handleBuildTopic}
-                                    className="flex-1 px-6 py-4 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#2BD899] font-bold text-lg rounded-xl transition-all border-2 border-[#2BD899]/30 shadow-[0_0_15px_rgba(43,216,153,0.15)] hover:shadow-[0_0_25px_rgba(43,216,153,0.25)] flex items-center justify-center gap-2"
+                                    disabled={isAnalyzing}
+                                    className={`w-full px-6 py-5 font-bold text-xl rounded-xl transition-all flex items-center justify-center gap-3 border-2 ${isAnalyzing
+                                        ? "bg-[#7A5CFA]/10 border-[#7A5CFA]/20 text-[#C3B6EB]/50 cursor-wait"
+                                        : "bg-gradient-to-b from-[#7A5CFA]/15 to-[#6548E5]/15 hover:from-[#7A5CFA]/20 hover:to-[#6548E5]/20 text-[#C3B6EB] border-[#7A5CFA]/40 shadow-[0_0_10px_rgba(122,92,250,0.1)] hover:shadow-[0_0_12px_rgba(122,92,250,0.15)]"
+                                        }`}
                                 >
-                                    <IconSparkles size={22} />
-                                    Build This Topic
+                                    {isAnalyzing ? (
+                                        <>
+                                            <IconLoader2 size={24} className="animate-spin" />
+                                            Analyzing Topic...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconSparkles size={24} />
+                                            Fast-Track to Titles
+                                        </>
+                                    )}
                                 </button>
-                                <button
-                                    onClick={() => {
-                                        setSearchInput("");
-                                        const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
-                                        if (inputEl) inputEl.focus();
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    className="flex-1 px-6 py-4 bg-gradient-to-b from-[#5AACFF]/15 to-[#4A9CFF]/15 hover:from-[#5AACFF]/25 hover:to-[#4A9CFF]/25 text-[#5AACFF] font-bold text-lg rounded-xl transition-all border-2 border-[#5AACFF]/30 shadow-[0_0_15px_rgba(90,172,255,0.15)] hover:shadow-[0_0_25px_rgba(90,172,255,0.25)] flex items-center justify-center gap-2"
-                                >
-                                    <IconPencil size={22} />
-                                    New Phrase
-                                </button>
+
+                                {/* Secondary row: Expand + New Phrase */}
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={handleExpandTopic}
+                                        className="flex-1 px-6 py-4 bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/20 hover:to-[#25C78A]/20 text-[#4AE8B0] font-bold text-lg rounded-xl transition-all border-2 border-[#2BD899]/40 shadow-[0_0_8px_rgba(43,216,153,0.08)] hover:shadow-[0_0_10px_rgba(43,216,153,0.12)] flex items-center justify-center gap-2"
+                                    >
+                                        <IconSeedling size={22} />
+                                        Expand Topic
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSearchInput("");
+                                            const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
+                                            if (inputEl) inputEl.focus();
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
+                                        className="flex-1 px-6 py-4 bg-gradient-to-b from-[#5AACFF]/15 to-[#4A9CFF]/15 hover:from-[#5AACFF]/20 hover:to-[#4A9CFF]/20 text-[#A0DCFF] font-bold text-lg rounded-xl transition-all border-2 border-[#5AACFF]/40 shadow-[0_0_8px_rgba(90,172,255,0.08)] hover:shadow-[0_0_10px_rgba(90,172,255,0.12)] flex items-center justify-center gap-2"
+                                    >
+                                        <IconPencil size={22} />
+                                        New Phrase
+                                    </button>
+                                </div>
+
+                                {/* Helper text */}
+                                <p className="text-center text-white/40 text-sm">
+                                    <span className="text-[#A78BFA]">Fast-Track</span> goes straight to title generation.
+                                    <span className="text-[#4AE8B0]"> Expand Topic</span> finds related phrases first.
+                                </p>
                             </div>
 
                         </div>
                     </div>
+                )}
+
+                {/* Fast-Track Modal */}
+                {analyzeData && (
+                    <FastTrackModal
+                        isOpen={fastTrackModalOpen}
+                        onClose={handleCloseModal}
+                        phrase={analyzeData.phrase}
+                        demandScore={analyzeData.demand}
+                        opportunityScore={analyzeData.opportunity}
+                        primaryBucket={analyzeData.primaryBucket}
+                        recommendedFormat={analyzeData.subFormat}
+                        alternateFormats={analyzeData.alternateFormats}
+                        onConfirm={handleFastTrackConfirm}
+                        isSaving={isSaving}
+                    />
                 )}
 
             </div>
