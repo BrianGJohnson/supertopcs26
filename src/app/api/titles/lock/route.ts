@@ -14,13 +14,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Update the super topic with the locked title
+        // Update the super topic with the locked title and first thumbnail phrase
+        const firstPhrase = thumbnailPhrases && thumbnailPhrases.length > 0 ? thumbnailPhrases[0] : null;
+
         const [updated] = await db
             .update(super_topics)
             .set({
                 locked_title: lockedTitle,
                 title_locked_at: new Date(),
-                // Store thumbnail phrases for package page
+                // Save the first/primary thumbnail phrase
+                thumbnail_phrase: firstPhrase,
+                // Store all thumbnail phrases for package page
                 notes: JSON.stringify({ thumbnailPhrases: thumbnailPhrases || [] }),
             })
             .where(eq(super_topics.id, superTopicId))

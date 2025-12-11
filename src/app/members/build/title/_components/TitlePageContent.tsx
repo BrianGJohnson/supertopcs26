@@ -12,7 +12,6 @@ import {
     IconChevronDown,
     IconChevronLeft,
     IconChevronRight,
-    IconSparkles,
     IconRefresh,
     IconFlask,
     IconSearch,
@@ -122,7 +121,7 @@ export function TitlePageContent() {
     const [topPicks, setTopPicks] = useState<string[]>([]); // All phrases from generation
     const [wildCards, setWildCards] = useState<string[]>([]); // Wild phrases (kept for potential future use)
     const [contenders, setContenders] = useState<string[]>([]); // Top row: shortlisted phrases (up to 4)
-    const [lockedPhrases, setLockedPhrases] = useState<Set<string>>(new Set()); // Green/committed phrases
+    const [lockedPhrases, setLockedPhrases] = useState<Map<string, number>>(new Map()); // Numbered selections (1, 2, 3) for split testing
     const [dismissedPhrases, setDismissedPhrases] = useState<Set<string>>(new Set()); // Hidden/dismissed phrases
     const [optionsPageIndex, setOptionsPageIndex] = useState(0); // Current page of Options row
     const [isGeneratingPhrases, setIsGeneratingPhrases] = useState(false);
@@ -256,7 +255,7 @@ export function TitlePageContent() {
         setTopPicks([]);
         setWildCards([]);
         setContenders([]);
-        setLockedPhrases(new Set());
+        setLockedPhrases(new Map());
         setOptionsPageIndex(0);
         setHasGeneratedOnce(false);
         setHighestSeenPage(0);
@@ -283,7 +282,7 @@ export function TitlePageContent() {
         setTopPicks([]);
         setWildCards([]);
         setContenders([]);
-        setLockedPhrases(new Set());
+        setLockedPhrases(new Map());
         setOptionsPageIndex(0);
         setHasGeneratedOnce(false);
         setHighestSeenPage(0);
@@ -304,12 +303,23 @@ export function TitlePageContent() {
         if (!selectedTitle || !topicId || isGeneratingPhrases) return;
 
         setIsGeneratingPhrases(true);
+
+        // Preserve existing contenders and locked phrases on regeneration
+        // Only reset on first generation (before hasGeneratedOnce is true)
+        const isFirstGeneration = !hasGeneratedOnce;
+        const existingContenders = isFirstGeneration ? [] : [...contenders];
+        const existingLockedPhrases = isFirstGeneration ? new Map<string, number>() : new Map(lockedPhrases);
+
         setTopPicks([]);
         setWildCards([]);
-        setContenders([]);
-        setLockedPhrases(new Set());
         setOptionsPageIndex(0);
         setHighestSeenPage(0);
+
+        // Only reset contenders/locked on first generation
+        if (isFirstGeneration) {
+            setContenders([]);
+            setLockedPhrases(new Map());
+        }
 
         try {
             const response = await fetch("/api/titles/thumbnail-phrases", {
@@ -324,15 +334,22 @@ export function TitlePageContent() {
             if (response.ok) {
                 const result = await response.json();
                 console.log(`[Title Page] Generated ${result.topPicks?.length || 0} top picks, ${result.wildCards?.length || 0} wild cards in ${result.stats.durationMs}ms (${result.stats.costCents}¢)`);
-                setTopPicks(result.topPicks || []);
-                setWildCards(result.wildCards || []);
+
+                // Filter out any phrases that are already in contenders
+                const newTopPicks = (result.topPicks || []).filter((p: string) => !existingContenders.includes(p));
+                const newWildCards = (result.wildCards || []).filter((p: string) => !existingContenders.includes(p));
+
+                setTopPicks(newTopPicks);
+                setWildCards(newWildCards);
                 setHasGeneratedOnce(true);
-                // Auto-add first phrase to contenders and lock it
-                if (result.topPicks?.length > 0) {
-                    const firstPhrase = result.topPicks[0];
+
+                // Only auto-add first phrase on FIRST generation when no contenders exist
+                if (isFirstGeneration && newTopPicks.length > 0) {
+                    const firstPhrase = newTopPicks[0];
                     setContenders([firstPhrase]);
-                    setLockedPhrases(new Set([firstPhrase]));
+                    setLockedPhrases(new Map([[firstPhrase, 1]]));
                 }
+                // On regeneration, keep existing contenders intact (already preserved above)
             }
         } catch (err) {
             console.error("[Title Page] Phrase generation error:", err);
@@ -359,16 +376,25 @@ export function TitlePageContent() {
     // Handle clicking a Contender → toggle lock state
     const handleToggleLock = (phrase: string) => {
         setLockedPhrases(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(phrase)) {
-                newSet.delete(phrase);
+            const newMap = new Map(prev);
+            if (newMap.has(phrase)) {
+                // Remove this phrase and renumber remaining
+                const removedNum = newMap.get(phrase)!;
+                newMap.delete(phrase);
+                // Renumber higher numbers down
+                newMap.forEach((num, key) => {
+                    if (num > removedNum) {
+                        newMap.set(key, num - 1);
+                    }
+                });
             } else {
-                // In essential mode, only 1 can be locked - clear others first
-                // TODO: Check display mode and adjust behavior
-                newSet.clear();
-                newSet.add(phrase);
+                // Add new phrase with next number (max 3 for split testing)
+                if (newMap.size < 3) {
+                    const nextNum = newMap.size + 1;
+                    newMap.set(phrase, nextNum);
+                }
             }
-            return newSet;
+            return newMap;
         });
     };
 
@@ -376,9 +402,18 @@ export function TitlePageContent() {
     const handleRemoveContender = (phrase: string) => {
         setContenders(prev => prev.filter(p => p !== phrase));
         setLockedPhrases(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(phrase);
-            return newSet;
+            const newMap = new Map(prev);
+            if (newMap.has(phrase)) {
+                const removedNum = newMap.get(phrase)!;
+                newMap.delete(phrase);
+                // Renumber higher numbers down
+                newMap.forEach((num, key) => {
+                    if (num > removedNum) {
+                        newMap.set(key, num - 1);
+                    }
+                });
+            }
+            return newMap;
         });
     };
 
@@ -391,7 +426,26 @@ export function TitlePageContent() {
         });
     };
 
-    // Refresh cycles through options
+    // Navigate to previous options page
+    const handlePrevOptions = () => {
+        if (optionsPageIndex > 0) {
+            setOptionsPageIndex(optionsPageIndex - 1);
+        }
+    };
+
+    // Navigate to next options page
+    const handleNextOptions = () => {
+        const nextPage = optionsPageIndex + 1;
+        if (nextPage < totalOptionsPages) {
+            setOptionsPageIndex(nextPage);
+            // Track highest seen page for Generate button gating
+            if (nextPage > highestSeenPage) {
+                setHighestSeenPage(nextPage);
+            }
+        }
+    };
+
+    // Refresh cycles through options (for the Refresh button - wraps around)
     const handleRefreshOptions = () => {
         const nextPage = (optionsPageIndex + 1) % totalOptionsPages;
         setOptionsPageIndex(nextPage);
@@ -412,13 +466,20 @@ export function TitlePageContent() {
                 body: JSON.stringify({
                     superTopicId: topicId,
                     lockedTitle: selectedTitle.title,
-                    thumbnailPhrases: Array.from(lockedPhrases),
+                    // Sort phrases by selection number (1, 2, 3) before sending
+                    thumbnailPhrases: [...lockedPhrases.entries()]
+                        .sort((a, b) => a[1] - b[1])
+                        .map(([phrase]) => phrase),
                 }),
             });
 
-            // Save data for Blueprint page
+            // Save data for Blueprint page (sorted by selection order)
             sessionStorage.setItem(`blueprint_emotion_${topicId}`, primaryEmotion);
-            sessionStorage.setItem(`blueprint_phrases_${topicId}`, JSON.stringify(Array.from(lockedPhrases)));
+            sessionStorage.setItem(`blueprint_phrases_${topicId}`, JSON.stringify(
+                [...lockedPhrases.entries()]
+                    .sort((a, b) => a[1] - b[1])
+                    .map(([phrase]) => phrase)
+            ));
             sessionStorage.setItem(`blueprint_title_${topicId}`, selectedTitle.title);
 
             // Navigate to Blueprint page
@@ -570,7 +631,7 @@ export function TitlePageContent() {
                             <span className="text-lg font-semibold text-white">{secondaryEmotion}</span>
                         </div>
 
-                        {/* First Locked Phrase */}
+                        {/* First Locked Phrase (Selection #1) */}
                         {lockedPhrases.size > 0 && (
                             <div
                                 className="px-6 py-3.5 rounded-lg text-3xl font-semibold tracking-tight"
@@ -580,7 +641,8 @@ export function TitlePageContent() {
                                     textShadow: "2px 2px 6px rgba(0,0,0,0.6)",
                                 }}
                             >
-                                {Array.from(lockedPhrases)[0]}
+                                {/* Get phrase with selection number 1 */}
+                                {[...lockedPhrases.entries()].find(([, num]) => num === 1)?.[0] || [...lockedPhrases.keys()][0]}
                             </div>
                         )}
                     </div>
@@ -593,24 +655,22 @@ export function TitlePageContent() {
                     )}
                 </div>
 
-                {/* Title Below Thumbnail */}
-                <div className="mt-10 text-center max-w-3xl space-y-3">
-                    {/* Super Topic / Keyword Phrase - subtle hierarchy */}
+                {/* Title Below Thumbnail - 3 lines, all centered */}
+                <div className="mt-10 flex flex-col items-center gap-2">
+                    {/* Line 1: Super Topic (no label) */}
                     {phrase && (
-                        <p className="text-[23px] font-semibold text-white/75">
-                            <span className="text-white/60">Super Topic:</span>{" "}
+                        <p className="text-[21px] font-semibold text-white/60">
                             {phrase.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
                         </p>
                     )}
-                    <div className="flex items-center justify-center gap-3">
-                        <p className="text-2xl font-bold text-white/75 leading-tight">
-                            <span className="text-white/60">Title:</span>{" "}
-                            {selectedTitle.title}
-                        </p>
-                        <span className={`px-3 py-1 text-sm font-medium rounded border ${charColor}`}>
-                            {selectedTitle.characters} chars
-                        </span>
-                    </div>
+                    {/* Line 2: Title (no label) */}
+                    <p className="text-2xl font-bold text-white/90">
+                        {selectedTitle.title}
+                    </p>
+                    {/* Line 3: Character count pill */}
+                    <span className="mt-2 px-3 py-1 text-sm font-medium rounded-full bg-white/10 text-white/40 border border-white/15">
+                        {selectedTitle.characters} chars
+                    </span>
                 </div>
             </div>
 
@@ -644,71 +704,76 @@ export function TitlePageContent() {
                                     Browse Potential Video Titles
                                 </h3>
 
-                                {/* Carousel with arrows */}
-                                <div className="flex items-center gap-4 justify-center">
-                                    {/* Left arrow */}
+                                {/* Carousel with arrows - Fixed width container for stability */}
+                                <div className="flex items-center justify-center gap-4">
+                                    {/* Left arrow - fixed width */}
                                     <button
                                         onClick={() => setTitleCarouselPage(prev => Math.max(0, prev - 1))}
                                         disabled={titleCarouselPage === 0}
-                                        className={`p-3 rounded-full transition-all ${titleCarouselPage === 0
+                                        className={`p-3 rounded-full transition-all shrink-0 ${titleCarouselPage === 0
                                             ? "text-white/20 cursor-not-allowed"
-                                            : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
+                                            : "text-white/60 hover:text-white/90 hover:bg-white/10"}`}
                                     >
                                         <IconChevronLeft className="w-7 h-7" />
                                     </button>
 
-                                    {/* Single Card */}
-                                    {currentTitle && (
-                                        <div
-                                            className="group w-full max-w-2xl p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/25 hover:bg-white/[0.06] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all cursor-pointer"
-                                            onClick={() => handleSwapToTop(currentTitle)}
-                                        >
-                                            {/* Title */}
-                                            <p className="text-2xl font-semibold text-white/75 mb-4 leading-snug text-center group-hover:text-white/90 transition-colors">
-                                                {currentTitle.title}
-                                            </p>
-
-                                            {/* Tags row */}
-                                            <div className="flex items-center justify-center gap-2 flex-wrap mb-6">
-                                                {hookStyle && (
-                                                    <span
-                                                        className={`px-2.5 py-1 text-sm font-semibold rounded-full border ${hookStyle.bgColor}`}
-                                                        style={{ color: hookStyle.color }}
-                                                    >
-                                                        {hookStyle.label}
-                                                    </span>
-                                                )}
-                                                <span className={`px-2.5 py-1 text-sm font-medium rounded-full border ${currentTitle.characters <= 52
-                                                    ? "bg-[#2BD899]/15 text-[#2BD899] border-[#2BD899]/30"
-                                                    : currentTitle.characters <= 60
-                                                        ? "bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30"
-                                                        : "bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30"
-                                                    }`}>
-                                                    {currentTitle.characters} chars
-                                                </span>
-                                            </div>
-
-                                            {/* Select button */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSwapToTop(currentTitle);
-                                                }}
-                                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/50 text-base font-semibold hover:bg-white/10 hover:text-white hover:border-white/20 transition-all"
+                                    {/* Fixed width card container - NEVER changes size */}
+                                    <div className="w-[700px] h-[220px] shrink-0">
+                                        {/* Single Card - fills the fixed container */}
+                                        {currentTitle && (
+                                            <div
+                                                className="group w-full h-full p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/25 hover:bg-white/[0.06] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all cursor-pointer flex flex-col"
+                                                onClick={() => handleSwapToTop(currentTitle)}
                                             >
-                                                <IconArrowUp className="w-5 h-5" />
-                                                Switch to This Title
-                                            </button>
-                                        </div>
-                                    )}
+                                                {/* Title - Fixed height area with vertical centering */}
+                                                <div className="flex-1 flex items-center justify-center min-h-0">
+                                                    <p className="text-2xl font-semibold text-white/75 leading-snug text-center group-hover:text-white/90 transition-colors line-clamp-3">
+                                                        {currentTitle.title}
+                                                    </p>
+                                                </div>
 
-                                    {/* Right arrow */}
+                                                {/* Tags row - balanced spacing */}
+                                                <div className="flex items-center justify-center gap-2 flex-wrap mt-2 mb-5">
+                                                    {hookStyle && (
+                                                        <span
+                                                            className={`px-2.5 py-1 text-sm font-semibold rounded-full border ${hookStyle.bgColor}`}
+                                                            style={{ color: hookStyle.color }}
+                                                        >
+                                                            {hookStyle.label}
+                                                        </span>
+                                                    )}
+                                                    <span className={`px-2.5 py-1 text-sm font-medium rounded-full border ${currentTitle.characters <= 52
+                                                        ? "bg-[#2BD899]/15 text-[#2BD899] border-[#2BD899]/30"
+                                                        : currentTitle.characters <= 60
+                                                            ? "bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30"
+                                                            : "bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30"
+                                                        }`}>
+                                                        {currentTitle.characters} chars
+                                                    </span>
+                                                </div>
+
+                                                {/* Select button - subtle cyan tint for visibility */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleSwapToTop(currentTitle);
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#5AACFF]/8 border border-[#5AACFF]/20 text-[#A0DCFF]/70 text-base font-semibold hover:bg-[#5AACFF]/15 hover:text-[#A0DCFF] hover:border-[#5AACFF]/30 transition-all"
+                                                >
+                                                    <IconArrowUp className="w-5 h-5" />
+                                                    Switch to This Title
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right arrow - fixed width */}
                                     <button
                                         onClick={() => setTitleCarouselPage(prev => Math.min(totalTitlePages - 1, prev + 1))}
                                         disabled={titleCarouselPage >= totalTitlePages - 1}
-                                        className={`p-3 rounded-full transition-all ${titleCarouselPage >= totalTitlePages - 1
+                                        className={`p-3 rounded-full transition-all shrink-0 ${titleCarouselPage >= totalTitlePages - 1
                                             ? "text-white/20 cursor-not-allowed"
-                                            : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
+                                            : "text-white/60 hover:text-white/90 hover:bg-white/10"}`}
                                     >
                                         <IconChevronRight className="w-7 h-7" />
                                     </button>
@@ -720,23 +785,40 @@ export function TitlePageContent() {
                                         {titleCarouselPage + 1} of {totalTitlePages}
                                     </div>
                                 )}
+
                             </div>
                         );
                     })()}
 
-                    {/* Separator before Show Phrases */}
+                    {/* Separator before buttons */}
                     <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-                    {/* Use This Title CTA Button */}
+                    {/* Action Buttons Row - Generate More Titles + Use This Title */}
                     <div className="flex flex-col items-center gap-4">
-                        <button
-                            onClick={handleShowPhrases}
-                            className="h-[52px] px-8 flex items-center justify-center gap-3 rounded-xl text-lg font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#4AE8B0] border-2 border-[#2BD899]/30 shadow-[0_0_12px_rgba(43,216,153,0.12)] hover:shadow-[0_0_18px_rgba(43,216,153,0.2)]"
-                        >
-                            <IconCheck className="w-5 h-5" />
-                            <span>Use This Title</span>
-                            <IconArrowRight className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center justify-center gap-4">
+                            {/* Generate More Titles - Purple AI/Premium button */}
+                            <button
+                                onClick={() => {
+                                    // TODO: Hook up to payment flow
+                                    console.log("[Title Page] Generate More Titles clicked - premium feature");
+                                }}
+                                className="h-[52px] px-6 flex items-center justify-center gap-2 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#7A5CFA]/15 to-[#6548E5]/15 hover:from-[#7A5CFA]/20 hover:to-[#6548E5]/20 text-[#C3B6EB] border-2 border-[#7A5CFA]/40 shadow-[0_0_10px_rgba(122,92,250,0.1)] hover:shadow-[0_0_12px_rgba(122,92,250,0.15)]"
+                                title="Generate fresh AI titles"
+                            >
+                                <IconWand className="w-5 h-5" />
+                                <span>Generate More Titles</span>
+                            </button>
+
+                            {/* Use This Title - Green primary CTA */}
+                            <button
+                                onClick={handleShowPhrases}
+                                className="h-[52px] px-8 flex items-center justify-center gap-3 rounded-xl text-lg font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/25 hover:to-[#25C78A]/25 text-[#4AE8B0] border-2 border-[#2BD899]/40 shadow-[0_0_8px_rgba(43,216,153,0.08)] hover:shadow-[0_0_10px_rgba(43,216,153,0.12)]"
+                            >
+                                <IconCheck className="w-5 h-5" />
+                                <span>Use This Title</span>
+                                <IconArrowRight className="w-5 h-5" />
+                            </button>
+                        </div>
 
                         <p className="text-sm text-white/40 text-center max-w-md">
                             Lock in your title and generate thumbnail phrase options.
@@ -751,18 +833,6 @@ export function TitlePageContent() {
                     {/* SEPARATOR 1 */}
                     <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-                    {/* Back to titles link */}
-                    <div className="flex justify-center">
-                        <button
-                            onClick={handleBackToTitles}
-                            className="flex items-center gap-2 text-base text-white/40 hover:text-white/60 transition-colors"
-                        >
-                            <IconChevronLeft className="w-4 h-4" />
-                            <span>Change Title</span>
-                            <IconChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-
                     {/* ================================================================ */}
                     {/* PHRASE SELECTION - Two Row System */}
                     {/* ================================================================ */}
@@ -772,15 +842,14 @@ export function TitlePageContent() {
                         <div className="space-y-4">
                             <h3 className="text-base font-semibold text-white/60 uppercase tracking-wider text-center">Contenders</h3>
                             <div className="flex justify-center gap-3">
-                                {/* Show existing contenders - locked ones first (on left) */}
+                                {/* Show existing contenders - locked ones first (on left), sorted by selection number */}
                                 {[...contenders].sort((a, b) => {
-                                    const aLocked = lockedPhrases.has(a);
-                                    const bLocked = lockedPhrases.has(b);
-                                    if (aLocked && !bLocked) return -1;
-                                    if (!aLocked && bLocked) return 1;
-                                    return 0;
+                                    const aNum = lockedPhrases.get(a) ?? 999;
+                                    const bNum = lockedPhrases.get(b) ?? 999;
+                                    return aNum - bNum;
                                 }).map((phrase, idx) => {
                                     const isLocked = lockedPhrases.has(phrase);
+                                    const selectionNum = lockedPhrases.get(phrase);
                                     return (
                                         <div key={idx} className="relative group">
                                             <button
@@ -791,9 +860,9 @@ export function TitlePageContent() {
                                                     }`}
                                             >
                                                 {phrase}
-                                                {isLocked && (
-                                                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#2BD899] rounded-full flex items-center justify-center">
-                                                        <IconCheck className="w-3 h-3 text-black" />
+                                                {isLocked && selectionNum && (
+                                                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#2BD899] rounded-full flex items-center justify-center text-xs font-bold text-black">
+                                                        {selectionNum}
                                                     </span>
                                                 )}
                                             </button>
@@ -825,7 +894,19 @@ export function TitlePageContent() {
                     {/* OPTIONS ROW - Bottom row: browse and pick */}
                     {currentOptions.length > 0 && (
                         <div className="space-y-4">
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center justify-center gap-3">
+                                {/* Left arrow - go to previous page */}
+                                <button
+                                    onClick={handlePrevOptions}
+                                    disabled={optionsPageIndex === 0}
+                                    className={`p-1.5 rounded-full transition-all ${optionsPageIndex === 0
+                                        ? "text-white/20 cursor-not-allowed"
+                                        : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
+                                >
+                                    <IconChevronLeft className="w-5 h-5" />
+                                </button>
+
+                                {/* Label and page indicator */}
                                 {isInWildMode && <IconFlask className="w-4 h-4 text-[#7A5CFA]/70" />}
                                 <h3 className={`text-base font-semibold uppercase tracking-wider ${isInWildMode ? "text-[#7A5CFA]/70" : "text-white/60"}`}>
                                     {isInWildMode ? "Wild Options" : "Options"}
@@ -833,6 +914,17 @@ export function TitlePageContent() {
                                 <span className="text-xs text-white/30">
                                     {currentOptionsPage + 1} of {totalOptionsPages}
                                 </span>
+
+                                {/* Right arrow - go to next page */}
+                                <button
+                                    onClick={handleNextOptions}
+                                    disabled={optionsPageIndex >= totalOptionsPages - 1}
+                                    className={`p-1.5 rounded-full transition-all ${optionsPageIndex >= totalOptionsPages - 1
+                                        ? "text-white/20 cursor-not-allowed"
+                                        : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
+                                >
+                                    <IconChevronRight className="w-5 h-5" />
+                                </button>
                             </div>
                             <div className="flex justify-center gap-3">
                                 {currentOptions
@@ -909,12 +1001,18 @@ export function TitlePageContent() {
                             )}
                         </div>
 
-                        {/* BUTTON 2: Generate Phrases - Disabled after first generation to prevent accidental re-gen */}
+                        {/* BUTTON 2: Generate Phrases - Re-enabled after viewing all pages */}
                         <button
                             onClick={handleGeneratePhrases}
-                            disabled={isGeneratingPhrases || hasGeneratedOnce}
-                            className={isGeneratingPhrases || hasGeneratedOnce ? disabledButtonStyle : actionButtonStyle}
-                            title={hasGeneratedOnce ? "Phrases already generated - use Refresh to see more" : "Generate thumbnail phrases"}
+                            disabled={isGeneratingPhrases || (hasGeneratedOnce && highestSeenPage + 1 < totalPages)}
+                            className={isGeneratingPhrases || (hasGeneratedOnce && highestSeenPage + 1 < totalPages) ? disabledButtonStyle : actionButtonStyle}
+                            title={
+                                hasGeneratedOnce && highestSeenPage + 1 < totalPages
+                                    ? "View all pages first, then you can regenerate"
+                                    : hasGeneratedOnce && highestSeenPage + 1 >= totalPages
+                                        ? "Generate fresh phrases with the mad scientist 🧪"
+                                        : "Generate thumbnail phrases"
+                            }
                         >
                             {isGeneratingPhrases ? (
                                 <>
@@ -953,6 +1051,18 @@ export function TitlePageContent() {
                             <IconCheck className="w-5 h-5" />
                             <span>Blueprint</span>
                             <IconArrowRight className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Change Title link - positioned below action buttons */}
+                    <div className="flex justify-center">
+                        <button
+                            onClick={handleBackToTitles}
+                            className="flex items-center gap-2 text-base text-white/40 hover:text-white/60 transition-colors"
+                        >
+                            <IconChevronLeft className="w-4 h-4" />
+                            <span>Change Title</span>
+                            <IconChevronRight className="w-4 h-4" />
                         </button>
                     </div>
                 </>

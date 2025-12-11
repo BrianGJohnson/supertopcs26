@@ -43,6 +43,12 @@ PRIMARY EMOTION TO TRIGGER: {{emotion}}
 SECONDARY EMOTION: {{secondaryEmotion}}
 VIEWER GOAL: {{goal}}
 
+## CRITICAL: ANALYZE THE TITLE FIRST
+Look at the title and determine its emotional intensity:
+- Is it HEAVILY NEGATIVE (fear, anger, warning, avoidance)? Examples: "Avoid X", "Don't Make This Mistake", "Pitfalls", "Traps"
+- Is it HEAVILY POSITIVE (hope, opportunity, achievement)? Examples: "Unlock X", "Master Y", "Achieve Z"
+- Is it BALANCED/NEUTRAL (curiosity, intrigue)? Examples: "What Happened", "The Truth About", "Inside Look"
+
 ## BANNED WORDS (never use these):
 unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, amazing, incredible, hidden, transformative
 
@@ -57,14 +63,26 @@ unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, a
 - Vague (creates curiosity gaps)
 - Emotional (makes people feel something)
 
-## PHRASE MIX (this is critical):
-- 45% should match the PRIMARY EMOTION: {{emotion}}
-- 25% should match the SECONDARY EMOTION: {{secondaryEmotion}}
-- 30% should be WILD CARDS - your absolute best click-getting phrases regardless of emotion
+## PHRASE MIX (CRITICAL - MATCH THE TITLE):
+
+**IF TITLE IS HEAVILY NEGATIVE (fear/warning/avoidance):**
+- 80% should be NEGATIVE/WARNING phrases matching the fear vibe
+- 10% should be relief/escape phrases (still negative context)
+- 10% wild cards
+
+**IF TITLE IS HEAVILY POSITIVE (hope/achievement/opportunity):**
+- 80% should be POSITIVE/ASPIRATIONAL phrases matching the hope vibe
+- 10% should be contrast/challenge phrases
+- 10% wild cards
+
+**IF TITLE IS BALANCED/NEUTRAL:**
+- 45% should match PRIMARY EMOTION: {{emotion}}
+- 25% should match SECONDARY EMOTION: {{secondaryEmotion}}
+- 30% wild cards
 
 ## EMOTION EXAMPLES:
 - Curiosity: "WHAT'S REALLY HAPPENING?", "THEY WON'T SAY THIS"
-- Fear/FOMO: "DON'T MISS THIS", "BEFORE IT'S GONE"
+- Fear/FOMO: "DON'T MISS THIS", "BEFORE IT'S GONE", "DANGER AHEAD", "ESCAPE THE TRAP"
 - Hope: "THIS CHANGES EVERYTHING", "FINALLY POSSIBLE"
 - Excitement: "IT'S HAPPENING", "GAME CHANGER"
 - Validation: "YOU WERE RIGHT", "CALLED IT"
@@ -72,6 +90,34 @@ unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, a
 
 Generate exactly 30 phrases. One per line. No numbering, no explanations.
 Be VISCERAL. Be EMOTIONAL. Generic = failure.`;
+
+// =============================================================================
+// POLISH PROMPT (Pass 1.5)
+// =============================================================================
+const POLISH_PROMPT = `You are a copy editor for YouTube thumbnails. Your job: POLISH the raw phrases to fix any issues while keeping them VISCERAL and POWERFUL.
+
+VIDEO TITLE: "{{title}}"
+
+## YOUR TASK:
+1. Fix any grammar errors or typos
+2. Improve clarity if confusing
+3. Make sure it's 4 words or less
+4. Keep the EMOTION and IMPACT
+5. Remove any banned words if they snuck in
+6. Ensure ALL CAPS format
+
+## BANNED WORDS (remove these):
+unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, amazing, incredible, hidden, transformative
+
+## INPUT PHRASES:
+{{phrases}}
+
+## OUTPUT:
+Return the polished phrases as JSON array.
+If a phrase is already perfect, return it unchanged.
+If a phrase has issues, improve it while keeping the core emotion.
+
+{"polishedPhrases": ["PHRASE 1", "PHRASE 2", ...]}`;
 
 // =============================================================================
 // RUTHLESS JUDGE PROMPT
@@ -160,11 +206,43 @@ export async function POST(request: NextRequest) {
         console.log(`[Ruthless Phrases] Pass 1: Generated ${phraseList.length} raw phrases`);
 
         // =================================================================
+        // PASS 1.5: Polish - gpt-4o-mini at medium temp to fix issues
+        // =================================================================
+        const polishPrompt = POLISH_PROMPT
+            .replace("{{title}}", title)
+            .replace("{{phrases}}", phraseList.join("\n"));
+
+        console.log(`[Ruthless Phrases] Pass 1.5: Calling gpt-4o-mini @ temp 0.5 to polish...`);
+
+        const polishResponse = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            temperature: 0.5, // Medium temp for creative fixes
+            max_completion_tokens: 800,
+            response_format: { type: 'json_object' },
+            messages: [{ role: 'user', content: polishPrompt }],
+        });
+
+        const polishResult = polishResponse.choices[0]?.message?.content || '{}';
+        let polishedPhrases: string[] = [];
+        try {
+            const jsonMatch = polishResult.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                polishedPhrases = parsed.polishedPhrases || parsed.phrases || phraseList;
+            }
+        } catch {
+            console.warn('[Ruthless Phrases] Polish failed, using raw phrases');
+            polishedPhrases = phraseList;
+        }
+
+        console.log(`[Ruthless Phrases] Pass 1.5: Polished ${polishedPhrases.length} phrases`);
+
+        // =================================================================
         // PASS 2: Judge - gpt-4o-mini at low temp for consistent picking
         // =================================================================
         const judgePrompt = JUDGE_PROMPT
             .replace("{{title}}", title)
-            .replace("{{phrases}}", phraseList.join("\n"));
+            .replace("{{phrases}}", polishedPhrases.join("\n"));
 
         console.log(`[Ruthless Phrases] Pass 2: Calling gpt-4o-mini @ temp ${JUDGE_CONFIG.temperature} to judge...`);
 
@@ -188,28 +266,30 @@ export async function POST(request: NextRequest) {
             }
         } catch {
             console.error("[Ruthless Phrases] Failed to parse judge response, using first 12");
-            topPicks = phraseList.slice(0, 12);
+            topPicks = polishedPhrases.slice(0, 12);
         }
 
-        // Compute wildCards = all phrases NOT in topPicks
+        // Compute wildCards = all phrases NOT in topPicks (from polished set)
         const topPicksSet = new Set(topPicks.map(p => p.toUpperCase()));
-        const wildCards = phraseList.filter(p => !topPicksSet.has(p.toUpperCase()));
+        const wildCards = polishedPhrases.filter(p => !topPicksSet.has(p.toUpperCase()));
 
         const elapsed = Date.now() - startTime;
 
-        // Calculate cost - gpt-4o for pass 1, gpt-4o-mini for pass 2
+        // Calculate cost - gpt-4o for pass 1, gpt-4o-mini for pass 1.5 and 2
         const pass1Tokens = creativeResponse.usage?.total_tokens || 0;
+        const pass15Tokens = polishResponse.usage?.total_tokens || 0;
         const pass2Tokens = judgeResponse.usage?.total_tokens || 0;
-        const totalTokens = pass1Tokens + pass2Tokens;
+        const totalTokens = pass1Tokens + pass15Tokens + pass2Tokens;
 
         // Cost: gpt-4o = $2.50/1M input, $10/1M output (blended ~$6/1M)
         // Cost: gpt-4o-mini = $0.15/1M input, $0.60/1M output (blended ~$0.375/1M)
         const pass1Cost = (pass1Tokens / 1_000_000) * 6;
+        const pass15Cost = (pass15Tokens / 1_000_000) * 0.375;
         const pass2Cost = (pass2Tokens / 1_000_000) * 0.375;
-        const totalCost = pass1Cost + pass2Cost;
+        const totalCost = pass1Cost + pass15Cost + pass2Cost;
 
         console.log(`[Ruthless Phrases] Complete in ${elapsed}ms`);
-        console.log(`[Ruthless Phrases] Tokens: ${pass1Tokens} (pass1) + ${pass2Tokens} (pass2) = ${totalTokens}`);
+        console.log(`[Ruthless Phrases] Tokens: ${pass1Tokens} (pass1) + ${pass15Tokens} (polish) + ${pass2Tokens} (judge) = ${totalTokens}`);
         console.log(`[Ruthless Phrases] Cost: ~${(totalCost * 100).toFixed(2)}¢`);
         console.log(`[Ruthless Phrases] Top picks: ${topPicks.length}, Wild cards: ${wildCards.length}`);
 

@@ -329,6 +329,15 @@ export const super_topics = pgTable('super_topics', {
   used_in_video_id: text('used_in_video_id'), // YouTube video ID if they made a video
   used_at: timestamp('used_at'), // When they marked it as used
 
+  // ============================================================
+  // THUMBNAIL BLUEPRINT (Page 6)
+  // ============================================================
+  thumbnail_phrase: text('thumbnail_phrase'), // The 4-word phrase for thumbnail
+  thumbnail_concept_batch_id: uuid('thumbnail_concept_batch_id'), // Last concept generation
+  thumbnail_selected_concept_id: uuid('thumbnail_selected_concept_id'), // User's choice
+  thumbnail_final_prompt_id: uuid('thumbnail_final_prompt_id'), // Final enhanced prompt
+  thumbnail_image_url: text('thumbnail_image_url'), // Generated image (Phase 2)
+
   // Timestamps
   created_at: timestamp('created_at').defaultNow(), // When phrase was first generated
   promoted_at: timestamp('promoted_at').defaultNow(), // When it became a Super Topic
@@ -409,3 +418,165 @@ export type NewSeedPhrase = typeof seed_phrases.$inferInsert;
 
 export type ScoringLog = typeof scoring_logs.$inferSelect;
 export type NewScoringLog = typeof scoring_logs.$inferInsert;
+
+// ------------------------------------------------------------
+// BRAND_STYLES - User's custom brand DNA for thumbnails
+// Channel-level: different brands per channel
+// ------------------------------------------------------------
+export const brand_styles = pgTable('brand_styles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user_id: uuid('user_id').notNull(), // References auth.users(id)
+  channel_id: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
+
+  // Brand identity
+  name: text('name').notNull(), // "My Tech Brand", "Gaming Style", etc.
+  is_default: boolean('is_default').default(false), // Auto-select this style
+
+  // Colors
+  primary_color: text('primary_color'), // Hex: "#FF5500"
+  secondary_color: text('secondary_color'),
+  accent_color: text('accent_color'),
+
+  // Avatar preferences
+  avatar_type: text('avatar_type'), // "human_male", "human_female", "no_humans", "custom"
+  avatar_description: text('avatar_description'), // "Bearded man with glasses"
+
+  // Default vibe
+  default_vibe: text('default_vibe'), // "professional", "hype", "friendly", "edgy"
+
+  // Style preferences
+  preferred_styles: jsonb('preferred_styles'), // ["dark_mode_dashboard", "glassmorphism"]
+
+  // Timestamps
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+// ------------------------------------------------------------
+// THUMBNAIL_CONCEPTS - AI-generated visual concepts (Phase 1)
+// Text-only descriptions from "The Architect" GPT-5 mini call
+// ------------------------------------------------------------
+export const thumbnail_concepts = pgTable('thumbnail_concepts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  super_topic_id: uuid('super_topic_id').references(() => super_topics.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id').notNull(),
+
+  // Generation metadata
+  generation_batch_id: uuid('generation_batch_id'), // Groups concepts from same API call
+  concept_count: integer('concept_count'), // 5 or 10
+
+  // The concept itself (text-only description)
+  title: text('title').notNull(), // "Robot Hand Crushing Keyboard"
+  description: text('description').notNull(), // 2-3 sentence visual description
+
+  // AI recommendations
+  emotion_match: text('emotion_match'), // "Fear + Urgency"
+  recommended_styles: jsonb('recommended_styles'), // ["dark_mode_dashboard", "neon_gamer"]
+
+  // User selection
+  is_selected: boolean('is_selected').default(false),
+  selected_at: timestamp('selected_at'),
+
+  // Timestamps
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+// ------------------------------------------------------------
+// THUMBNAIL_PROMPTS - Final enhanced prompts (Phase 1)
+// Model-specific prompts from "The Engineer" GPT-5 mini call
+// ------------------------------------------------------------
+export const thumbnail_prompts = pgTable('thumbnail_prompts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  concept_id: uuid('concept_id').references(() => thumbnail_concepts.id, { onDelete: 'cascade' }),
+  super_topic_id: uuid('super_topic_id').references(() => super_topics.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id').notNull(),
+
+  // Style selection
+  style_id: text('style_id').notNull(), // "dark_mode_dashboard"
+  style_name: text('style_name'), // "Dark Mode Dashboard"
+
+  // Brand DNA applied
+  brand_style_id: uuid('brand_style_id').references(() => brand_styles.id),
+
+  // The final prompt
+  enhanced_prompt: text('enhanced_prompt').notNull(),
+
+  // Model routing
+  recommended_model: text('recommended_model'), // "gemini_3", "ideogram_v2", "flux_1.1_pro"
+
+  // User hint (optional)
+  user_hint: text('user_hint'),
+
+  // Generation metadata
+  gpt_model: text('gpt_model'), // "gpt-5-mini"
+  generation_duration_ms: integer('generation_duration_ms'),
+  estimated_cost_cents: integer('estimated_cost_cents'),
+
+  // Phase 2: Image generation tracking
+  image_url: text('image_url'), // Generated image URL (Phase 2)
+  generated_at: timestamp('generated_at'),
+
+  // Timestamps
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+// ------------------------------------------------------------
+// STYLE_GALLERY - Curated library of thumbnail styles
+// Seed data: 15+ styles with recipes and metadata
+// ------------------------------------------------------------
+export const style_gallery = pgTable('style_gallery', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Style identity
+  style_id: text('style_id').notNull().unique(), // "dark_mode_dashboard"
+  name: text('name').notNull(), // "Dark Mode Dashboard"
+  description: text('description').notNull(), // 2-3 sentences
+
+  // Categorization
+  tier: integer('tier').notNull(), // 1, 2, or 3
+  tier_label: text('tier_label'), // "Production Ready", "Strong Potential", "Experimental"
+  category: text('category'), // "tech", "viral", "artistic"
+
+  // Best use cases
+  best_for: jsonb('best_for'), // ["SaaS", "Tech", "AI"]
+  use_cases: jsonb('use_cases'), // ["Tech tutorials", "AI news"]
+
+  // AI model recommendation
+  recommended_model: text('recommended_model'), // "gemini_3"
+  model_display_name: text('model_display_name'), // "Gemini 3 (Nano Banana)"
+  alternate_models: jsonb('alternate_models'), // ["ideogram_v2", "flux_1.1_pro"]
+
+  // The prompt recipe (backend template)
+  prompt_template: text('prompt_template').notNull(), // Full recipe from docs
+
+  // Text integration strategy
+  text_integration_rule: text('text_integration_rule'), // "Render as glowing monospace on screen"
+
+  // Gallery display
+  preview_image_url: text('preview_image_url'), // Thumbnail preview (we'll generate)
+  example_images: jsonb('example_images'), // [url1, url2, url3] for carousel
+
+  // Sorting
+  sort_order: integer('sort_order').notNull(), // 1-18
+
+  // Status
+  is_active: boolean('is_active').default(true),
+  is_experimental: boolean('is_experimental').default(false),
+
+  // Timestamps
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+export type BrandStyle = typeof brand_styles.$inferSelect;
+export type NewBrandStyle = typeof brand_styles.$inferInsert;
+
+export type ThumbnailConcept = typeof thumbnail_concepts.$inferSelect;
+export type NewThumbnailConcept = typeof thumbnail_concepts.$inferInsert;
+
+export type ThumbnailPrompt = typeof thumbnail_prompts.$inferSelect;
+export type NewThumbnailPrompt = typeof thumbnail_prompts.$inferInsert;
+
+export type StyleGallery = typeof style_gallery.$inferSelect;
+export type NewStyleGallery = typeof style_gallery.$inferInsert;
+

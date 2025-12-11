@@ -3,7 +3,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
 import { BuilderStepper } from "@/components/stepper/BuilderStepper";
-import { IconForms } from "@tabler/icons-react";
+import { IconFlask } from "@tabler/icons-react";
 import { TitlePageContent } from "./_components/TitlePageContent";
 
 export default function TitlePage() {
@@ -15,10 +15,10 @@ export default function TitlePage() {
 
         <MemberHeader />
         <HeroModule
-          icon={IconForms}
-          line1="Create Magnetic Titles"
-          line2="That Perform"
-          description="AI-generated titles optimized for clicks and engagement."
+          icon={IconFlask}
+          line1="Crazy Creative Titles"
+          line2="Win The Click"
+          description="No, for real. That's how we get incredible results."
         />
         <BuilderStepper activeStep={5} />
 

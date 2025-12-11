@@ -10,6 +10,27 @@ description: Premium glass-card button styling rules for SuperTopics
 
 ---
 
+## ⚠️ CRITICAL: Never Use Sparkles/AI Icons
+
+**Never use `IconSparkles` or similar "AI" icons in buttons.** They are:
+- Overused across the industry
+- Cliché and unoriginal
+- Make the product feel generic
+
+**Banned icons:**
+- `IconSparkles` ❌
+- `IconStars` ❌
+- Any "magic wand with sparkles" variants ❌
+
+**Use these alternatives instead:**
+- `IconWand` — for generation/creation actions
+- `IconBolt` — for fast/instant actions
+- `IconRefresh` — for regeneration actions
+- `IconFlame` — for "hot" or trending features
+- `IconRocket` — for launch/boost actions
+
+---
+
 ## Typography Standards (from Brand Guide)
 
 ### Font Family
