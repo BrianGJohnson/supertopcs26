@@ -558,8 +558,9 @@ export function TitlePageContent() {
 
     // BUTTON STYLES - Following /button-styling guide
 
-    // UNIFIED BUTTON SIZE: All buttons 180px wide for perfect symmetry
+    // UNIFIED BUTTON SIZE: All buttons same height, CTA slightly wider for longer text
     const buttonSize = "h-[52px] w-[180px]";
+    const ctaButtonSize = "h-[52px] w-[200px]"; // Slightly wider for "Polish & Package"
 
     // YouTube-red glass-card style for Target dropdown
     const neutralButtonStyle = `${buttonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#FF0000]/15 to-[#CC0000]/15 hover:from-[#FF0000]/20 hover:to-[#CC0000]/20 text-white/75 border-2 border-[#FF0000]/30 shadow-[0_0_10px_rgba(255,0,0,0.1)] hover:shadow-[0_0_12px_rgba(255,0,0,0.15)]`;
@@ -568,10 +569,10 @@ export function TitlePageContent() {
     const actionButtonStyle = `${buttonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-[#F59E0B]/15 border-2 border-[#F59E0B]/30 text-[#EAB308] hover:bg-[#F59E0B]/25 hover:border-[#F59E0B]/50`;
 
     // Green style for primary CTA (Lock & Continue)
-    const ctaButtonStyle = `${buttonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/20 hover:to-[#25C78A]/20 text-[#4AE8B0] border-2 border-[#2BD899]/30 shadow-[0_0_8px_rgba(43,216,153,0.08)] hover:shadow-[0_0_10px_rgba(43,216,153,0.12)]`;
+    const ctaButtonStyle = `${ctaButtonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/20 hover:to-[#25C78A]/20 text-[#4AE8B0] border-2 border-[#2BD899]/30 shadow-[0_0_8px_rgba(43,216,153,0.08)] hover:shadow-[0_0_10px_rgba(43,216,153,0.12)]`;
 
     // Green CTA disabled state
-    const ctaDisabledStyle = `${buttonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap bg-[#2BD899]/10 border-2 border-[#2BD899]/20 text-[#4AE8B0]/50 cursor-not-allowed`;
+    const ctaDisabledStyle = `${ctaButtonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap bg-[#2BD899]/10 border-2 border-[#2BD899]/20 text-[#4AE8B0]/50 cursor-not-allowed`;
 
     // Disabled style for inactive action buttons
     const disabledButtonStyle = `${buttonSize} flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap bg-white/5 border-2 border-white/10 text-white/30 cursor-not-allowed`;
@@ -894,65 +895,65 @@ export function TitlePageContent() {
                     {/* OPTIONS ROW - Bottom row: browse and pick */}
                     {currentOptions.length > 0 && (
                         <div className="space-y-4">
+                            {/* Header row - just label and page indicator */}
+                            <div className="flex items-center justify-center gap-2">
+                                {isInWildMode && <IconFlask className="w-4 h-4 text-[#A78BFA]" />}
+                                <h3 className={`text-base font-semibold uppercase tracking-wider ${isInWildMode ? "text-[#A78BFA]" : "text-white/60"}`}>
+                                    {isInWildMode ? "Wild Options" : "Options"}
+                                </h3>
+                                <span className="text-xs text-white/30">
+                                    {currentOptionsPage + 1} of {totalOptionsPages}
+                                </span>
+                            </div>
+
+                            {/* Phrase row with arrows on same line */}
                             <div className="flex items-center justify-center gap-3">
-                                {/* Left arrow - go to previous page */}
+                                {/* Left arrow - on same row as phrases */}
                                 <button
                                     onClick={handlePrevOptions}
                                     disabled={optionsPageIndex === 0}
-                                    className={`p-1.5 rounded-full transition-all ${optionsPageIndex === 0
+                                    className={`p-1.5 rounded-full transition-all shrink-0 ${optionsPageIndex === 0
                                         ? "text-white/20 cursor-not-allowed"
                                         : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
                                 >
                                     <IconChevronLeft className="w-5 h-5" />
                                 </button>
 
-                                {/* Label and page indicator */}
-                                {isInWildMode && <IconFlask className="w-4 h-4 text-[#7A5CFA]/70" />}
-                                <h3 className={`text-base font-semibold uppercase tracking-wider ${isInWildMode ? "text-[#7A5CFA]/70" : "text-white/60"}`}>
-                                    {isInWildMode ? "Wild Options" : "Options"}
-                                </h3>
-                                <span className="text-xs text-white/30">
-                                    {currentOptionsPage + 1} of {totalOptionsPages}
-                                </span>
+                                {/* Phrase pills */}
+                                {currentOptions.map((phrase, idx) => (
+                                    <div key={idx} className="relative group">
+                                        <button
+                                            onClick={() => handleAddToContenders(phrase)}
+                                            className={`px-5 py-3 rounded-xl font-semibold text-base transition-all ${isInWildMode
+                                                ? "bg-[#7A5CFA]/15 border-2 border-[#7A5CFA]/30 text-[#A78BFA] hover:bg-[#7A5CFA]/25 hover:border-[#7A5CFA]/50"
+                                                : "bg-white/10 border-2 border-white/30 text-white/75 hover:bg-white/20 hover:border-white/50"
+                                                }`}
+                                        >
+                                            {phrase}
+                                        </button>
+                                        {/* Dismiss button on hover */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDismissPhrase(phrase);
+                                            }}
+                                            className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
+                                        >
+                                            <IconX className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
 
-                                {/* Right arrow - go to next page */}
+                                {/* Right arrow - on same row as phrases */}
                                 <button
                                     onClick={handleNextOptions}
                                     disabled={optionsPageIndex >= totalOptionsPages - 1}
-                                    className={`p-1.5 rounded-full transition-all ${optionsPageIndex >= totalOptionsPages - 1
+                                    className={`p-1.5 rounded-full transition-all shrink-0 ${optionsPageIndex >= totalOptionsPages - 1
                                         ? "text-white/20 cursor-not-allowed"
                                         : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
                                 >
                                     <IconChevronRight className="w-5 h-5" />
                                 </button>
-                            </div>
-                            <div className="flex justify-center gap-3">
-                                {currentOptions
-                                    .map((phrase, idx) => {
-                                        return (
-                                            <div key={idx} className="relative group">
-                                                <button
-                                                    onClick={() => handleAddToContenders(phrase)}
-                                                    className={`px-5 py-3 rounded-xl font-semibold text-base transition-all ${isInWildMode
-                                                        ? "bg-[#7A5CFA]/15 border-2 border-[#7A5CFA]/30 text-[#A78BFA] hover:bg-[#7A5CFA]/25 hover:border-[#7A5CFA]/50"
-                                                        : "bg-white/10 border-2 border-white/30 text-white/75 hover:bg-white/20 hover:border-white/50"
-                                                        }`}
-                                                >
-                                                    {phrase}
-                                                </button>
-                                                {/* Dismiss button on hover */}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDismissPhrase(phrase);
-                                                    }}
-                                                    className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hidden group-hover:flex"
-                                                >
-                                                    <IconX className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
                             </div>
                         </div>
                     )}
@@ -961,47 +962,9 @@ export function TitlePageContent() {
                     <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
                     {/* ================================================================ */}
-                    {/* ACTION BUTTONS ROW - All 4 buttons always visible */}
+                    {/* ACTION BUTTONS ROW - Generate, Refresh, Blueprint */}
                     {/* ================================================================ */}
                     <div className="flex items-center justify-center gap-3">
-                        {/* BUTTON 1: Target Settings - YouTube red glass */}
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setShowModeDropdown(!showModeDropdown)}
-                                className="h-[52px] min-w-[180px] flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#FF0000]/15 to-[#CC0000]/15 hover:from-[#FF0000]/20 hover:to-[#CC0000]/20 text-white/75 border-2 border-[#FF0000]/30 shadow-[0_0_10px_rgba(255,0,0,0.1)] hover:shadow-[0_0_12px_rgba(255,0,0,0.15)]"
-                            >
-                                <IconBrandYoutubeFilled className="w-5 h-5 shrink-0 text-white/75" />
-                                <span>Target: {currentMode.label}</span>
-                                <IconChevronDown className={`w-4 h-4 shrink-0 transition-transform ${showModeDropdown ? "rotate-180" : ""}`} />
-                            </button>
-
-                            {showModeDropdown && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-white/20 rounded-xl shadow-xl overflow-hidden z-20">
-                                    {(Object.entries(OPTIMIZATION_MODES) as [OptimizationMode, typeof OPTIMIZATION_MODES.balanced][]).map(([key, mode]) => {
-                                        const Icon = mode.icon;
-                                        return (
-                                            <button
-                                                key={key}
-                                                onClick={() => {
-                                                    setOptimizationMode(key);
-                                                    setShowModeDropdown(false);
-                                                }}
-                                                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-white/10 ${optimizationMode === key ? "bg-white/5" : ""
-                                                    }`}
-                                            >
-                                                <Icon className="w-5 h-5" style={{ color: mode.color }} />
-                                                <span className="text-white/75">{mode.label}</span>
-                                                {optimizationMode === key && (
-                                                    <IconCheck className="w-4 h-4 ml-auto text-[#2BD899]" />
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* BUTTON 2: Generate Phrases - Re-enabled after viewing all pages */}
                         <button
                             onClick={handleGeneratePhrases}
                             disabled={isGeneratingPhrases || (hasGeneratedOnce && highestSeenPage + 1 < totalPages)}
@@ -1016,12 +979,12 @@ export function TitlePageContent() {
                         >
                             {isGeneratingPhrases ? (
                                 <>
-                                    <IconLoader2 className="w-5 h-5 animate-spin" />
+                                    <IconLoader2 size={24} className="shrink-0 animate-spin" />
                                     <span>Generating...</span>
                                 </>
                             ) : (
                                 <>
-                                    <IconWand className="w-5 h-5" />
+                                    <IconWand size={24} className="shrink-0" />
                                     <span>Generate Phrases</span>
                                 </>
                             )}
@@ -1034,7 +997,7 @@ export function TitlePageContent() {
                             className={totalPages > 1 && topPicks.length > 0 ? actionButtonStyle : disabledButtonStyle}
                             title={totalPages > 1 ? `Browse options (${currentOptionsPage + 1}/${totalOptionsPages})` : "Generate phrases first"}
                         >
-                            <IconRefresh className="w-5 h-5" />
+                            <IconRefresh size={24} className="shrink-0" />
                             <span>Refresh</span>
                             {totalPages > 1 && topPicks.length > 0 && (
                                 <span className="text-xs opacity-60">{currentOptionsPage + 1}/{totalOptionsPages}</span>
@@ -1048,9 +1011,9 @@ export function TitlePageContent() {
                             className={lockedPhrases.size > 0 ? ctaButtonStyle : ctaDisabledStyle}
                             title={lockedPhrases.size > 0 ? `Continue with ${lockedPhrases.size} phrase${lockedPhrases.size > 1 ? "s" : ""}` : "Select a phrase first"}
                         >
-                            <IconCheck className="w-5 h-5" />
-                            <span>Blueprint</span>
-                            <IconArrowRight className="w-5 h-5" />
+                            <IconCheck size={24} className="shrink-0" />
+                            <span>Polish & Package</span>
+                            <IconArrowRight size={24} className="shrink-0" />
                         </button>
                     </div>
 
@@ -1066,7 +1029,8 @@ export function TitlePageContent() {
                         </button>
                     </div>
                 </>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

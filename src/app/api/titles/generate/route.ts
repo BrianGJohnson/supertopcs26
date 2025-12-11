@@ -15,7 +15,7 @@ const openai = new OpenAI({
 // Pass 1: Creative generation - GPT-4o at higher temperature for wild ideas
 const CREATIVE_CONFIG = {
     model: "gpt-4o",
-    temperature: 1.1, // High but slightly lower than phrases for coherence
+    temperature: 1.15, // Match phrase generation temperature for creativity
     top_p: 1,
     max_completion_tokens: 2500,
 } as const;
@@ -59,24 +59,30 @@ const RUTHLESS_CREATIVE_PROMPT = `You are a ruthless YouTube title strategist. Y
 **EVERY SINGLE TITLE MUST CONTAIN THE CORE WORDS FROM THE PHRASE.**
 
 For the phrase "{{phrase}}":
-1. Identify the 3-4 most important words (ignore: how, to, for, the, a, an)
-2. EVERY title you generate MUST include AT LEAST 3 of those words
-3. Titles missing the core words will be REJECTED
+1. Identify the MEANINGFUL words only (the nouns, verbs, and platform names)
+2. IGNORE all function words: how, to, for, the, a, an, in, on, at, by, with, from, of, about, and, or, is, are, your, you, my, i, we, that, this, what, why, when, where
+3. EVERY title you generate MUST include AT LEAST 3 of the meaningful words
+4. Titles missing core words will be REJECTED
 
-Example: If phrase is "how to start content creation"
-→ Core words are: START, CONTENT, CREATION
-→ Every title MUST contain: "start" AND "content" AND "creation" (or "creating")
+Example 1: If phrase is "AI thumbnail maker for YouTube"
+→ IGNORE: "for" (preposition)
+→ Core words are: AI, THUMBNAIL, MAKER, YOUTUBE (4 words)
+→ Include at least 3 of these in every title
+
+Example 2: If phrase is "how to start content creation"
+→ IGNORE: "how", "to" (function words)
+→ Core words are: START, CONTENT, CREATION (3 words)
+→ Every title MUST contain all 3 (or word variants like "creating")
 
 ACCEPTABLE:
-✅ "Start Content Creation WITHOUT Making These Mistakes"
-✅ "Content Creation: Why You Need To Start TODAY"
-✅ "The WRONG Way To Start Content Creation"
-✅ "Start Creating Content That ACTUALLY Works"
+✅ "AI Thumbnail Maker YouTube Creators Love" (all 4)
+✅ "YouTube's Best AI Thumbnail Maker" (3 of 4)
+✅ "Start Content Creation The Right Way"
 
 NOT ACCEPTABLE (will be rejected):
-❌ "Begin Your Creator Journey" (missing: start, content, creation)
-❌ "Unlock Your Media Potential" (missing everything)
-❌ "Content Tips for Beginners" (missing: start, creation)
+❌ "AI Tools for Creators" (only 1 core word)
+❌ "Best Thumbnail Software" (only 1 core word)
+❌ "Begin Your Creator Journey" (0 core words)
 
 ## PRIMARY EMOTION: {{primaryEmotion}}
 Lead with this emotion. It's what the viewer feels.
@@ -84,8 +90,11 @@ Lead with this emotion. It's what the viewer feels.
 ## BANNED PHRASES (too generic)
 ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
 
-## LENGTH
-Target 45-52 characters. A little over or under is OK.
+## LENGTH (CRITICAL)
+- Target: 45-52 characters
+- MAXIMUM: 55 characters - anything longer will be REJECTED
+- Shorter is ALWAYS better than longer
+- If you must choose between including all keywords OR staying under 55 chars, STAY SHORT
 
 ## DISTRIBUTION (Generate exactly 30 titles)
 - **9 titles (30%)**: Lead with the PRIMARY EMOTION ({{primaryEmotion}})
@@ -115,9 +124,12 @@ SECONDARY EMOTION: "{{secondaryEmotion}}"
 ## EVALUATION CRITERIA
 1. Does it create an irresistible urge to click?
 2. Does it preserve the keyword phrase meaning?
-3. Is it 45-52 characters (close enough)?
+3. Is it 45-52 characters? (CRITICAL: REJECT any title over 55 characters)
 4. Would you STOP scrolling if you saw this?
 5. Is it differentiated from typical YouTube titles?
+
+## LENGTH FILTER (STRICT)
+**REJECT any title over 55 characters.** Do not include it in your picks, even if otherwise good. Shorter = better.
 
 ## DIVERSITY REQUIREMENT
 Ensure the 15 titles you pick have a MIX of hook types:
