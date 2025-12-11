@@ -14,10 +14,10 @@ const openai = new OpenAI({
 // Pass 2: Ruthless judge (GPT-5-mini minimal reasoning) — pick top 4-6
 // =============================================================================
 
-// Pass 1: Creative generation - GPT-4o for better cultural knowledge, temp 1.2 for wild ideas
+// Pass 1: Creative generation - GPT-4o for better cultural knowledge, temp 1.15 for creative but coherent
 const CREATIVE_CONFIG = {
     model: "gpt-4o", // Full model has more slang/culture knowledge
-    temperature: 1.2, // Pushed higher for more creative output
+    temperature: 1.15, // Slightly lower for more coherent output
     top_p: 1,
     max_completion_tokens: 1200,
 } as const;
@@ -36,10 +36,11 @@ const JUDGE_CONFIG = {
 const RUTHLESS_CREATIVE_PROMPT = `You are a ruthless YouTube packaging strategist. You HATE generic marketing. You believe safe = no views.
 
 Your goal: Generate SHORT, VISCERAL text overlays that go ON a YouTube thumbnail.
-These phrases should trigger FEAR, URGENCY, CURIOSITY, even MORBID CURIOSITY.
+These phrases should trigger emotion and stop the scroll.
 
 VIDEO TITLE: "{{title}}"
 PRIMARY EMOTION TO TRIGGER: {{emotion}}
+SECONDARY EMOTION: {{secondaryEmotion}}
 VIEWER GOAL: {{goal}}
 
 ## BANNED WORDS (never use these):
@@ -52,24 +53,25 @@ unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, a
 - ALL CAPS
 
 ## TONE:
-- Aggressive
+- Visceral and attention-grabbing
 - Vague (creates curiosity gaps)
-- Controversial (makes people react)
+- Emotional (makes people feel something)
 
-## MIX:
-- 50% should be NEGATIVE/WARNING (danger, mistakes, problems)
-- 50% should be SPECIFIC GAIN with NUMBERS when possible
+## PHRASE MIX (this is critical):
+- 45% should match the PRIMARY EMOTION: {{emotion}}
+- 25% should match the SECONDARY EMOTION: {{secondaryEmotion}}
+- 30% should be WILD CARDS - your absolute best click-getting phrases regardless of emotion
 
-## TRIGGERS TO LEVERAGE:
-- Curiosity ("What is...?")
-- FOMO ("Everyone knows...")  
-- Fear ("Don't...")
-- Urgency ("Before...")
-- Validation ("You're right...")
-- Controversy ("The truth...")
+## EMOTION EXAMPLES:
+- Curiosity: "WHAT'S REALLY HAPPENING?", "THEY WON'T SAY THIS"
+- Fear/FOMO: "DON'T MISS THIS", "BEFORE IT'S GONE"
+- Hope: "THIS CHANGES EVERYTHING", "FINALLY POSSIBLE"
+- Excitement: "IT'S HAPPENING", "GAME CHANGER"
+- Validation: "YOU WERE RIGHT", "CALLED IT"
+- Anger: "THEY LIED", "EXPOSED"
 
 Generate exactly 30 phrases. One per line. No numbering, no explanations.
-Be WEIRD. Be AGGRESSIVE. Generic = failure.`;
+Be VISCERAL. Be EMOTIONAL. Generic = failure.`;
 
 // =============================================================================
 // RUTHLESS JUDGE PROMPT
@@ -119,9 +121,10 @@ export async function POST(request: NextRequest) {
         }
 
         const emotion = topic.primary_emotion || "Curiosity";
+        const secondaryEmotion = topic.secondary_emotion || "Hope";
         const goal = topic.viewer_goal || "Learn";
 
-        console.log(`[Ruthless Phrases] Generating for: "${title}"`);
+        console.log(`[Ruthless Phrases] Generating for: "${title}" (${emotion} + ${secondaryEmotion})`);
         const startTime = Date.now();
 
         // =================================================================
@@ -129,7 +132,8 @@ export async function POST(request: NextRequest) {
         // =================================================================
         const creativePrompt = RUTHLESS_CREATIVE_PROMPT
             .replace("{{title}}", title)
-            .replace("{{emotion}}", emotion)
+            .replace(/\{\{emotion\}\}/g, emotion)
+            .replace(/\{\{secondaryEmotion\}\}/g, secondaryEmotion)
             .replace("{{goal}}", goal);
 
         console.log(`[Ruthless Phrases] Pass 1: Calling GPT-4o-mini @ temp ${CREATIVE_CONFIG.temperature}...`);
