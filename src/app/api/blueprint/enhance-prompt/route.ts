@@ -119,7 +119,7 @@ Generate the complete prompt following the style recipe above.`;
             temperature: 1,
             top_p: 1,
             max_completion_tokens: 2500,
-            // @ts-ignore - reasoning_effort is valid for gpt-5-mini
+
             reasoning_effort: 'minimal',
             messages: [
                 { role: 'system', content: systemPrompt },

@@ -275,6 +275,7 @@ Use subtle gradient dividers between major sections:
 6. **Hero Module:** Always include on member pages
 7. **Ambient Glow:** Always include the background glow div
 8. **Footer:** Always include the standard footer
+9. **No AI Stock Images:** NEVER use generic AI-generated stock images, placeholder images, or "AI ask" style generated visuals. All imagery should be authentic, branded, and intentional. If an image is needed, use real screenshots, custom icons, or actual product visuals only.
 
 ---
 

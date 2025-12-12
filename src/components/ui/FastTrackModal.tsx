@@ -174,7 +174,7 @@ export function FastTrackModal({
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold text-white">Fast-Track to Titles</h2>
-                                <p className="text-white/50 text-base mt-1">One more step before we generate titles</p>
+                                <p className="text-white/50 text-lg mt-1">One more step before we generate titles.</p>
                             </div>
                         </div>
 
@@ -202,7 +202,7 @@ export function FastTrackModal({
                             <h3 className="text-lg font-semibold text-white mb-2">
                                 This looks like a <span className="text-white font-bold">{primaryBucket}</span> video
                             </h3>
-                            <p className="text-white/50 text-base mb-5">
+                            <p className="text-white/50 text-lg mb-5">
                                 {bucketData.description}. Select the formats you&apos;d consider:
                             </p>
 
@@ -280,8 +280,8 @@ export function FastTrackModal({
                         {/* Helper text */}
                         {selectedFormats.length > 0 && (
                             <p className={`text-center text-sm mt-5 ${selectedFormats.length < 2
-                                    ? "text-[#F59E0B]"
-                                    : "text-white/40"
+                                ? "text-[#F59E0B]"
+                                : "text-white/40"
                                 }`}>
                                 {selectedFormats.length < 2
                                     ? `Select at least 2 formats (${selectedFormats.length}/2)`

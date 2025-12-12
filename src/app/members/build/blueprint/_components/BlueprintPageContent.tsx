@@ -7,9 +7,8 @@ import { MemberHeader } from "@/components/layout/MemberHeader";
 import { HeroModule } from "@/components/layout/HeroModule";
 import { BuilderStepper } from "@/components/stepper/BuilderStepper";
 import {
-    IconWand,
+    IconMicroscope,
     IconLoader2,
-    IconSparkles,
     IconCheck,
     IconX,
     IconCopy,
@@ -85,15 +84,15 @@ export function BlueprintPageContent() {
     const [recommendedModel, setRecommendedModel] = useState("");
 
     // Data from super_topic
-    const [phrase, setPhrase] = useState("");
-    const [title, setTitle] = useState("");
+    const [phrase, setPhrase] = useState(""); // The super topic phrase (e.g. "ai thumbnail maker for youtube")
+    const [title, setTitle] = useState(""); // The locked title
+    const [thumbnailPhrase, setThumbnailPhrase] = useState(""); // The 4-word thumbnail phrase (e.g. "THE GAME HAS CHANGED")
     const [primaryEmotion, setPrimaryEmotion] = useState("");
 
     // Step 0: Title/Phrase variations
     const [variations, setVariations] = useState<TitleVariation[]>([]);
     const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
     const [isLoadingVariations, setIsLoadingVariations] = useState(false);
-    const [showVariationsModal, setShowVariationsModal] = useState(true);
 
     // Error state
     const [error, setError] = useState<string | null>(null);
@@ -115,8 +114,12 @@ export function BlueprintPageContent() {
                 if (!response.ok) throw new Error("Failed to load topic");
 
                 const { topic } = await response.json();
-                setPhrase(topic.thumbnail_phrase || topic.phrase || "");
+                // phrase = the super topic (e.g. "ai thumbnail maker for youtube")
+                setPhrase(topic.phrase || "");
+                // title = the locked title from Title page
                 setTitle(topic.locked_title || "");
+                // thumbnailPhrase = the 4-word phrase for the thumbnail (e.g. "THE GAME HAS CHANGED")
+                setThumbnailPhrase(topic.thumbnail_phrase || "");
                 setPrimaryEmotion(topic.primary_emotion || "Curiosity");
             } catch (err) {
                 console.error("[Blueprint] Error loading topic:", err);
@@ -130,7 +133,8 @@ export function BlueprintPageContent() {
     // Load variations on mount
     useEffect(() => {
         const loadVariations = async () => {
-            if (!topicId || !title || !phrase) return;
+            // Must have topicId, title, AND thumbnailPhrase before loading
+            if (!topicId || !title || !thumbnailPhrase) return;
 
             setIsLoadingVariations(true);
             try {
@@ -140,7 +144,7 @@ export function BlueprintPageContent() {
                     body: JSON.stringify({
                         topicId,
                         lockedTitle: title,
-                        lockedPhrase: phrase,
+                        lockedPhrase: thumbnailPhrase, // Use thumbnailPhrase, NOT phrase (super topic)
                     }),
                 });
 
@@ -159,10 +163,10 @@ export function BlueprintPageContent() {
             }
         };
 
-        if (currentStep === 0 && title && phrase) {
+        if (currentStep === 0 && title && thumbnailPhrase) {
             loadVariations();
         }
-    }, [topicId, title, phrase, currentStep]);
+    }, [topicId, title, thumbnailPhrase, currentStep]);
 
     // Check for brand style (first-time user detection)
     useEffect(() => {
@@ -301,16 +305,16 @@ export function BlueprintPageContent() {
 
     const handleContinueWithVariation = () => {
         if (selectedVariation === null) return;
-
         const selected = variations[selectedVariation];
-        setTitle(selected.title);
-        setPhrase(selected.phrase);
-        setShowVariationsModal(false);
-        setCurrentStep(1); // Move to concept count selection
+        // TODO: Save the selected variation (title + phrase) to database
+        // For now, just log - next step (concept count) isn't fully wired
+        console.log('[Blueprint] Selected variation:', selected);
+        setCurrentStep(1);
     };
 
     const handleSkipVariations = () => {
-        setShowVariationsModal(false);
+        // TODO: Keep original title/phrase and proceed
+        console.log('[Blueprint] Skipping variations, keeping original');
         setCurrentStep(1);
     };
 
@@ -319,44 +323,7 @@ export function BlueprintPageContent() {
     // ==========================================================================
 
     const renderStep0 = () => {
-        // Show loading skeleton while variations are being fetched
-        if (isLoadingVariations || variations.length === 0) {
-            return (
-                <div className="space-y-10 max-w-6xl mx-auto animate-pulse">
-                    {/* Badge skeleton */}
-                    <div className="flex justify-center">
-                        <div className="h-10 w-48 rounded-full bg-white/10"></div>
-                    </div>
-
-                    {/* Thumbnail skeleton */}
-                    <div className="flex flex-col items-center">
-                        <div className="w-full max-w-2xl aspect-video rounded-2xl bg-white/5 border border-white/10"></div>
-                        <div className="mt-10 space-y-3 w-full max-w-3xl">
-                            <div className="h-7 w-64 mx-auto rounded bg-white/10"></div>
-                            <div className="h-8 w-96 mx-auto rounded bg-white/10"></div>
-                        </div>
-                    </div>
-
-                    {/* Carousel skeleton */}
-                    <div className="space-y-4">
-                        <div className="h-5 w-48 mx-auto rounded bg-white/10"></div>
-                        <div className="flex items-center gap-4 justify-center">
-                            <div className="w-12 h-12 rounded-full bg-white/5"></div>
-                            <div className="w-full max-w-2xl h-64 rounded-2xl bg-white/5 border border-white/10"></div>
-                            <div className="w-12 h-12 rounded-full bg-white/5"></div>
-                        </div>
-                    </div>
-
-                    {/* Loading indicator */}
-                    <div className="text-center text-white/50">
-                        <IconLoader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                        <p>Generating AI variations...</p>
-                    </div>
-                </div>
-            );
-        }
-
-        const selected = selectedVariation !== null ? variations[selectedVariation] : variations[0];
+        const selected = selectedVariation !== null && variations.length > 0 ? variations[selectedVariation] : null;
         const currentIndex = selectedVariation !== null ? selectedVariation : 0;
         const totalVariations = variations.length;
 
@@ -381,12 +348,12 @@ export function BlueprintPageContent() {
 
         return (
             <div className="space-y-10 max-w-6xl mx-auto">
-                {/* Top Badge - Beaker + Current Selection */}
-                <div className="flex justify-center">
-                    <div className="flex items-center gap-2 px-5 py-2 rounded-full shadow-lg bg-[#7A5CFA]">
-                        <IconFlask className="w-5 h-5 text-white" />
-                        <span className="text-base font-bold text-white">Current Selection</span>
-                    </div>
+
+                {/* Section Header - Lock this in */}
+                <div className="text-center mt-4">
+                    <h3 className="text-lg font-semibold text-white/60 uppercase tracking-wider">
+                        Your Current Package
+                    </h3>
                 </div>
 
                 {/* THUMBNAIL PREVIEW - Exact copy from Title page */}
@@ -430,33 +397,36 @@ export function BlueprintPageContent() {
                                     textShadow: "2px 2px 6px rgba(0,0,0,0.6)",
                                 }}
                             >
-                                {selected?.phrase || phrase || "YOUR PHRASE HERE"}
+                                {thumbnailPhrase || "YOUR PHRASE HERE"}
                             </div>
                         </div>
                     </div>
 
-                    {/* Title Below Thumbnail - Exact copy from Title page */}
-                    <div className="mt-10 text-center max-w-3xl space-y-3">
-                        {/* Super Topic */}
-                        <p className="text-[23px] font-semibold text-white/75">
-                            <span className="text-white/60">Super Topic:</span>{" "}
-                            Ai Thumbnail Maker For Youtube
-                        </p>
-                        <div className="flex items-center justify-center gap-3">
-                            <p className="text-2xl font-bold text-white/75 leading-tight">
-                                <span className="text-white/60">Title:</span>{" "}
-                                {selected?.title || title}
+                    {/* Title Below Thumbnail - Matching Title page exactly (3 centered lines) */}
+                    <div className="mt-10 flex flex-col items-center gap-2">
+                        {/* Line 1: Super Topic (no label) */}
+                        {phrase && (
+                            <p className="text-[21px] font-semibold text-white/60">
+                                {phrase.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
                             </p>
-                            <span className="px-3 py-1 text-sm font-medium rounded border border-[#2BD899]/40 text-[#2BD899]">
-                                43 chars
-                            </span>
-                        </div>
+                        )}
+                        {/* Line 2: Title (no label) - ALWAYS show original locked title */}
+                        <p className="text-2xl font-bold text-white/80">
+                            {title}
+                        </p>
+                        {/* Line 3: Character count pill */}
+                        <span className="mt-2 px-3 py-1 text-sm font-medium rounded-full bg-white/10 text-white/40 border border-white/15">
+                            {title.length} chars
+                        </span>
                     </div>
                 </div>
 
-                {/* Carousel Section - Matching Title page exactly */}
+                {/* Separator - extra spacing before Browse section */}
+                <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
+
+                {/* Carousel Section - Polished Variations */}
                 <div className="space-y-4">
-                    <h3 className="text-base font-semibold text-white/50 uppercase tracking-wider text-center">
+                    <h3 className="text-base font-semibold text-white/35 uppercase tracking-wider text-center">
                         Browse Polished Variations
                     </h3>
 
@@ -465,16 +435,24 @@ export function BlueprintPageContent() {
                         {/* Left arrow */}
                         <button
                             onClick={handlePrevVariation}
-                            disabled={currentIndex === 0}
-                            className={`p-3 rounded-full transition-all ${currentIndex === 0
+                            disabled={isLoadingVariations || totalVariations === 0 || currentIndex === 0}
+                            className={`p-3 rounded-full transition-all ${(isLoadingVariations || totalVariations === 0 || currentIndex === 0)
                                 ? "text-white/20 cursor-not-allowed"
                                 : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
                         >
                             <IconChevronLeft className="w-7 h-7" />
                         </button>
 
-                        {/* Single Card - MATCHING Title page exactly */}
-                        {selected && (
+                        {/* Single Card - Show loading state or actual card */}
+                        {isLoadingVariations || !selected ? (
+                            <div className="w-full max-w-2xl p-8 rounded-2xl bg-white/[0.03] border border-white/10">
+                                <div className="flex flex-col items-center justify-center gap-4 py-8">
+                                    <IconLoader2 className="w-8 h-8 text-white/40 animate-spin" />
+                                    <p className="text-base text-white/50">Generating polished variations...</p>
+                                    <p className="text-sm text-white/30">This usually takes a few seconds</p>
+                                </div>
+                            </div>
+                        ) : (
                             <div className="group w-full max-w-2xl p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/25 hover:bg-white/[0.06] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all">
                                 {/* Title */}
                                 <p className="text-2xl font-semibold text-white/75 mb-4 leading-snug text-center">
@@ -488,10 +466,39 @@ export function BlueprintPageContent() {
                                             Original
                                         </span>
                                     ) : (
-                                        <span className="px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#C3B6EB]/15 text-[#C3B6EB] border-[#C3B6EB]/30 flex items-center gap-1">
-                                            <IconFlask className="w-3 h-3" />
-                                            AI Refined
-                                        </span>
+                                        <>
+                                            {/* Badge based on Type */}
+                                            {/* @ts-ignore - dynamic type check */}
+                                            {selected.type === 'rank' && (
+                                                <span
+                                                    title="Optimized for Search Traffic & Keywords"
+                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#5AACFF]/15 text-[#5AACFF] border-[#5AACFF]/30 flex items-center gap-1"
+                                                >
+                                                    <IconFlask className="w-3 h-3" />
+                                                    SEO Rank
+                                                </span>
+                                            )}
+                                            {/* @ts-ignore */}
+                                            {selected.type === 'wild' && (
+                                                <span
+                                                    title="Creative Pattern Interrupt"
+                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#FFC107]/15 text-[#FFC107] border-[#FFC107]/30 flex items-center gap-1"
+                                                >
+                                                    <IconFlask className="w-3 h-3" />
+                                                    Wild Card
+                                                </span>
+                                            )}
+                                            {/* @ts-ignore - Default to balanced if not rank/wild */}
+                                            {(!selected.type || selected.type === 'balanced') && (
+                                                <span
+                                                    title="Balanced approach to trigger recommendations and search"
+                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#C3B6EB]/15 text-[#C3B6EB] border-[#C3B6EB]/30 flex items-center gap-1"
+                                                >
+                                                    <IconFlask className="w-3 h-3" />
+                                                    Balanced
+                                                </span>
+                                            )}
+                                        </>
                                     )}
                                     <span className="px-2.5 py-1 text-sm font-medium rounded-full border bg-[#2BD899]/15 text-[#2BD899] border-[#2BD899]/30">
                                         {(selected.title?.length || 0)} chars
@@ -506,29 +513,23 @@ export function BlueprintPageContent() {
                                     </p>
                                 </div>
 
-                                {/* Improvement Note */}
+                                {/* Improvement Note - increased text size for readability */}
                                 {!selected.isOriginal && selected.improvement && (
                                     <div className="text-center mb-6 px-4">
                                         <p className="text-sm text-white/50 mb-1">Why This Works</p>
-                                        <p className="text-base text-white/60 italic">{selected.improvement}</p>
+                                        <p className="text-lg text-white/70 italic">{selected.improvement}</p>
                                     </div>
                                 )}
 
-                                {/* Select button - MATCHING Title page */}
-                                <button
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/50 text-base font-semibold"
-                                >
-                                    <IconCheck className="w-5 h-5" />
-                                    Current Selection
-                                </button>
+                                {/* Select button removed - cleaner UX */}
                             </div>
                         )}
 
                         {/* Right arrow */}
                         <button
                             onClick={handleNextVariation}
-                            disabled={currentIndex === totalVariations - 1}
-                            className={`p-3 rounded-full transition-all ${currentIndex === totalVariations - 1
+                            disabled={isLoadingVariations || totalVariations === 0 || currentIndex === totalVariations - 1}
+                            className={`p-3 rounded-full transition-all ${(isLoadingVariations || totalVariations === 0 || currentIndex === totalVariations - 1)
                                 ? "text-white/20 cursor-not-allowed"
                                 : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
                         >
@@ -536,10 +537,12 @@ export function BlueprintPageContent() {
                         </button>
                     </div>
 
-                    {/* Page Indicator */}
-                    <div className="text-center text-sm text-white/50 font-medium">
-                        {currentIndex + 1} of {totalVariations}
-                    </div>
+                    {/* Page Indicator - only show when variations exist */}
+                    {totalVariations > 0 && (
+                        <div className="text-center text-sm text-white/50 font-medium">
+                            {currentIndex + 1} of {totalVariations}
+                        </div>
+                    )}
                 </div>
 
                 {/* Action Buttons */}
@@ -578,7 +581,7 @@ export function BlueprintPageContent() {
             <div className="text-center space-y-4">
                 <h2 className="text-xl font-bold text-white/90">How many thumbnail concepts?</h2>
                 <p className="text-base text-white/75 max-w-2xl mx-auto">
-                    Choose how many AI-generated visual concepts you'd like to explore. More concepts give you more variety.
+                    Choose how many AI-generated visual concepts you&apos;d like to explore. More concepts give you more variety.
                 </p>
             </div>
 
@@ -630,10 +633,10 @@ export function BlueprintPageContent() {
             <div className="text-center space-y-4">
                 <h2 className="text-xl font-bold text-white/90">Choose 1-3 Concepts</h2>
                 <p className="text-base text-white/75 max-w-2xl mx-auto">
-                    Select the visual concepts that resonate most with your video's message.
+                    Select the visual concepts that resonate most with your video&apos;s message.
                 </p>
                 <div className="flex items-center justify-center gap-3 text-sm text-white/60">
-                    <span>Phrase: <strong className="text-white/80">{phrase}</strong></span>
+                    <span>Phrase: <strong className="text-white/80">{thumbnailPhrase}</strong></span>
                     <span>•</span>
                     <span>Emotion: <strong className="text-white/80">{primaryEmotion}</strong></span>
                 </div>
@@ -713,6 +716,18 @@ export function BlueprintPageContent() {
                         </button>
                     );
                 })}
+            </div>
+
+            <div className="max-w-xl mx-auto w-full">
+                <label className="block text-sm font-medium text-white/70 mb-2">
+                    Visual Hint (Optional)
+                </label>
+                <textarea
+                    value={userHint}
+                    onChange={(e) => setUserHint(e.target.value)}
+                    placeholder="e.g. Make it dark and moody, add a robot, use neon colors..."
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-[#7A5CFA]/50 focus:ring-1 focus:ring-[#7A5CFA]/50 resize-none h-24"
+                />
             </div>
 
             <div className="flex justify-center gap-4">
@@ -840,28 +855,15 @@ export function BlueprintPageContent() {
                 <MemberHeader />
 
                 <HeroModule
-                    icon={IconWand}
-                    line1="Create Your Perfect"
-                    line2="Thumbnail Blueprint"
-                    description="Generate AI-powered thumbnail concepts and prompts that stop the scroll."
+                    icon={IconMicroscope}
+                    line1="Your Thumbnail Lab"
+                    line2="Dialed In"
+                    description="One last chance to lock in the perfect title. These variations are on us."
                 />
 
-                <BuilderStepper activeStep={currentStep} />
+                <BuilderStepper activeStep={6} />
 
-                {/* Progress Indicator */}
-                <div className="flex items-center justify-center gap-2">
-                    {[0, 1, 2, 3, 4, 5, 6].map((step) => (
-                        <div
-                            key={step}
-                            className={`h-2 rounded-full transition-all ${step < currentStep
-                                ? "w-8 bg-[#2BD899]"
-                                : step === currentStep
-                                    ? "w-12 bg-[#7A5CFA]"
-                                    : "w-8 bg-white/10"
-                                }`}
-                        />
-                    ))}
-                </div>
+
 
                 {/* Separator */}
                 <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />

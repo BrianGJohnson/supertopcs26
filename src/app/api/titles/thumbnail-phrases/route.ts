@@ -17,7 +17,7 @@ const openai = new OpenAI({
 // Pass 1: Creative generation - GPT-4o for better cultural knowledge, temp 1.15 for creative but coherent
 const CREATIVE_CONFIG = {
     model: "gpt-4o", // Full model has more slang/culture knowledge
-    temperature: 1.15, // Slightly lower for more coherent output
+    temperature: 1.10, // Slightly lower for more coherent output
     top_p: 1,
     max_completion_tokens: 1200,
 } as const;
@@ -31,10 +31,40 @@ const JUDGE_CONFIG = {
 } as const;
 
 // =============================================================================
-// RUTHLESS CREATIVE PROMPT
+// PERSONA DEFINITIONS (For Refresh Cycling)
 // =============================================================================
-const RUTHLESS_CREATIVE_PROMPT = `You are a ruthless YouTube packaging strategist. You HATE generic marketing. You believe safe = no views.
 
+// 0. VISCERAL EMPATH (Default / First Run) - Focus on FEELING
+const PERSONA_EMPATH = `You are a VISCERAL EMPATH. You do not care about "marketing." You care about raw human connection.
+Your goal is NOT to describe the video. It is to PROVOKE A PHYSICAL EMOTIONAL REACTION.
+If the title is dry, find the emotional bleeding edge.
+Use words that trigger deep feelings (Fear, Hope, Anger, Belonging).
+Avoid corporate buzzwords. Speak to the soul.`;
+
+// 1. RUTHLESS STRATEGIST (Refresh 1) - Focus on CLICK TACTICS (Old "Base" logic)
+const PERSONA_STRATEGIST = `You are a RUTHLESS STRATEGIST. You hate generic marketing. You believe safe = no views.
+Your goal is to win the click by any means necessary.
+Analyze the emotional vector (Positive vs Negative) and double down on it.
+If it's fear, make it terrifying. If it's hope, make it irresistible.`;
+
+// 2. SKEPTICAL INSIDER (Refresh 2) - Focus on CURIOSITY/TRUTH
+const PERSONA_SKEPTIC = `You are a CYNICAL INDUSTRY INSIDER. You hate hype. You prefer to drop "Truth Bombs."
+Your goal is to challenge the viewer's worldview.
+Use dry, cutting wit. Make them feel like they've been lied to.
+Create "Curiosity Gaps" by implying you know a secret they don't.`;
+
+// 3. MINIMALIST POET (Refresh 3) - Focus on IMPACT (Short, Abstract)
+const PERSONA_MINIMALIST = `You are a MINIMALIST POET. You believe ONE word is stronger than three.
+Your goal is to punch the viewer in the gut with brevity.
+Fragments. Abstract concepts. Stark contrast.
+Do not explain the video. Just hint at the emotional core.`;
+
+const PERSONAS = [PERSONA_EMPATH, PERSONA_STRATEGIST, PERSONA_SKEPTIC, PERSONA_MINIMALIST];
+
+// =============================================================================
+// RUTHLESS CREATIVE PROMPT (Base Rules - Personas get prepended to this)
+// =============================================================================
+const RUTHLESS_CREATIVE_PROMPT = `
 Your goal: Generate SHORT, VISCERAL text overlays that go ON a YouTube thumbnail.
 These phrases should trigger emotion and stop the scroll.
 
@@ -109,7 +139,7 @@ VIDEO TITLE: "{{title}}"
 ## BANNED WORDS (remove these):
 unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, amazing, incredible, hidden, transformative
 
-## INPUT PHRASES:
+## INPUT PHrases:
 {{phrases}}
 
 ## OUTPUT:
@@ -146,7 +176,7 @@ Return as JSON with "topPicks" array.
 // =============================================================================
 export async function POST(request: NextRequest) {
     try {
-        const { superTopicId, title } = await request.json();
+        const { superTopicId, title, refreshCount = 0 } = await request.json(); // Default refreshCount to 0
 
         if (!superTopicId || !title) {
             return NextResponse.json(
@@ -170,17 +200,26 @@ export async function POST(request: NextRequest) {
         const secondaryEmotion = topic.secondary_emotion || "Hope";
         const goal = topic.viewer_goal || "Learn";
 
-        console.log(`[Ruthless Phrases] Generating for: "${title}" (${emotion} + ${secondaryEmotion})`);
+        // SELECT PERSONA BASED ON REFRESH COUNT
+        const personaIndex = refreshCount % PERSONAS.length;
+        const selectedPersona = PERSONAS[personaIndex];
+        const personaName = ["Visceral Empath", "Ruthless Strategist", "Skeptical Insider", "Minimalist Poet"][personaIndex];
+
+        console.log(`[Ruthless Phrases] Generating for: "${title}" (Refresh #${refreshCount} -> Persona: ${personaName})`);
         const startTime = Date.now();
 
         // =================================================================
-        // PASS 1: Creative wild generation (high temperature)
+        // PASS 1: Creative generation (Persona + Base Rules)
         // =================================================================
-        const creativePrompt = RUTHLESS_CREATIVE_PROMPT
+        // We stick the Persona at the VERY TOP so it frames the entire task
+        const fullPrompt = `${selectedPersona}\n\n${RUTHLESS_CREATIVE_PROMPT}`
             .replace("{{title}}", title)
             .replace(/\{\{emotion\}\}/g, emotion)
             .replace(/\{\{secondaryEmotion\}\}/g, secondaryEmotion)
             .replace("{{goal}}", goal);
+
+        // Rename strict variable to generic 'creativePrompt' for clarity in use
+        const creativePrompt = fullPrompt;
 
         console.log(`[Ruthless Phrases] Pass 1: Calling GPT-4o-mini @ temp ${CREATIVE_CONFIG.temperature}...`);
 

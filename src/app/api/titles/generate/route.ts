@@ -12,10 +12,10 @@ const openai = new OpenAI({
 // MODEL CONFIG
 // =============================================================================
 
-// Pass 1: Creative generation - GPT-4o at higher temperature for wild ideas
+// Pass 1: Creative generation - GPT-4o at moderated temperature for coherent hooks
 const CREATIVE_CONFIG = {
     model: "gpt-4o",
-    temperature: 1.15, // Match phrase generation temperature for creativity
+    temperature: 0.85, // Lowered from 1.15 to prevent nonsensical titles
     top_p: 1,
     max_completion_tokens: 2500,
 } as const;
@@ -51,38 +51,40 @@ const BANNED_PHRASES = [
 // =============================================================================
 const RUTHLESS_CREATIVE_PROMPT = `You are a ruthless YouTube title strategist. Your job is to create titles that DEMAND clicks.
 
-## KEYWORD PHRASE (CRITICAL - READ THIS FIRST)
+## KEYWORD PHRASE (CRITICAL - THIS IS YOUR ANCHOR)
 "{{phrase}}"
 
-## ⚠️ MANDATORY KEYWORD RULE ⚠️
+## ⚠️ MANDATORY KEYWORD PHRASE RULES ⚠️
 
-**EVERY SINGLE TITLE MUST CONTAIN THE CORE WORDS FROM THE PHRASE.**
+**THE KEYWORD PHRASE MUST REMAIN INTACT AND UNBROKEN.**
 
-For the phrase "{{phrase}}":
-1. Identify the MEANINGFUL words only (the nouns, verbs, and platform names)
-2. IGNORE all function words: how, to, for, the, a, an, in, on, at, by, with, from, of, about, and, or, is, are, your, you, my, i, we, that, this, what, why, when, where
-3. EVERY title you generate MUST include AT LEAST 3 of the meaningful words
-4. Titles missing core words will be REJECTED
+1. The keyword phrase "{{phrase}}" must appear as ONE CONTINUOUS CHUNK
+2. Keep the EXACT word order — do not rearrange
+3. Do NOT split the phrase apart with other words
+4. Do NOT insert words inside the phrase
+5. Do NOT rephrase or substitute with synonyms
 
-Example 1: If phrase is "AI thumbnail maker for YouTube"
-→ IGNORE: "for" (preposition)
-→ Core words are: AI, THUMBNAIL, MAKER, YOUTUBE (4 words)
-→ Include at least 3 of these in every title
+**HOW TO BUILD YOUR TITLE:**
+- Add 1-3 LEAD-IN WORDS before the keyword phrase to make it punchier
+- You may add words AFTER the keyword phrase
+- Keep everything as ONE CLEAN STATEMENT
 
-Example 2: If phrase is "how to start content creation"
-→ IGNORE: "how", "to" (function words)
-→ Core words are: START, CONTENT, CREATION (3 words)
-→ Every title MUST contain all 3 (or word variants like "creating")
+✅ GOOD (keyword intact): "Why AI Thumbnail Maker Could Destroy Your Channel"
+✅ GOOD (keyword intact): "The AI Thumbnail Maker Nobody Warned You About"  
+❌ BAD (keyword broken): "AI Tools: The Thumbnail Maker Revolution"
+❌ BAD (keyword rephrased): "Automatic Thumbnail Generator Is Changing Everything"
 
-ACCEPTABLE:
-✅ "AI Thumbnail Maker YouTube Creators Love" (all 4)
-✅ "YouTube's Best AI Thumbnail Maker" (3 of 4)
-✅ "Start Content Creation The Right Way"
+## STRUCTURE RULE (CRITICAL)
+- Write ONE clean headline-style statement
+- NO separators: colons (:), dashes (– — -), slashes (/), pipes (|), parentheses ()
+- NO two-part headlines like "Thing: Other Thing"
+- ONE IDEA per title
 
-NOT ACCEPTABLE (will be rejected):
-❌ "AI Tools for Creators" (only 1 core word)
-❌ "Best Thumbnail Software" (only 1 core word)
-❌ "Begin Your Creator Journey" (0 core words)
+## PUNCTUATION (USE SPARINGLY)
+- Exclamation points (!) and question marks (?) ARE allowed
+- Use as pattern interrupts: "Stop! AI Thumbnail Maker Might..." or "Warning! The Truth About..."
+- Aim for only 2-3 punctuated titles out of 30 — do NOT overuse
+- Questions can be powerful: "Is AI Thumbnail Maker Actually Worth It?"
 
 ## PRIMARY EMOTION: {{primaryEmotion}}
 Lead with this emotion. It's what the viewer feels.
@@ -91,10 +93,10 @@ Lead with this emotion. It's what the viewer feels.
 ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
 
 ## LENGTH (CRITICAL)
-- Target: 45-52 characters
-- MAXIMUM: 55 characters - anything longer will be REJECTED
-- Shorter is ALWAYS better than longer
-- If you must choose between including all keywords OR staying under 55 chars, STAY SHORT
+- Target: 45-58 characters (The "Golden Zone" for YouTube)
+- HARD CAP: 62 characters (reject anything longer)
+- Aim for 5-7 words total
+- Do NOT go under 40 characters
 
 ## DISTRIBUTION (Generate exactly 30 titles)
 - **9 titles (30%)**: Lead with the PRIMARY EMOTION ({{primaryEmotion}})
@@ -105,10 +107,9 @@ ${BANNED_PHRASES.map(p => `- "${p}"`).join("\n")}
 ## STYLE GUIDELINES
 - Create genuine curiosity gaps
 - Use specific numbers when impactful
-- Parenthetical hooks work great: "The Real Reason (Nobody Talks About)"
 - Questions can be powerful
 - Urgency without being clickbait
-- No years unless absolutely essential
+- One clean statement, no separators
 
 Generate exactly 30 titles, one per line. No numbering, no explanations.`;
 
@@ -121,15 +122,22 @@ KEYWORD PHRASE: "{{phrase}}"
 PRIMARY EMOTION: "{{primaryEmotion}}"
 SECONDARY EMOTION: "{{secondaryEmotion}}"
 
+## HARD REJECTION RULES (Filter these OUT first)
+**REJECT any title that:**
+1. Contains separators: colons (:), em-dashes (—), en-dashes (–), slashes (/), pipes (|), or parentheses ()
+2. Is over 62 characters
+3. Is under 35 characters
+4. Breaks the keyword phrase apart or rephrases it
+5. Has the keyword phrase words in wrong order
+
+Note: Exclamation points (!) and question marks (?) are ALLOWED.
+
 ## EVALUATION CRITERIA
 1. Does it create an irresistible urge to click?
-2. Does it preserve the keyword phrase meaning?
-3. Is it 45-52 characters? (CRITICAL: REJECT any title over 55 characters)
+2. Is the keyword phrase "{{phrase}}" intact and in correct order?
+3. Is it 45-58 characters? (hard cap: 62)
 4. Would you STOP scrolling if you saw this?
-5. Is it differentiated from typical YouTube titles?
-
-## LENGTH FILTER (STRICT)
-**REJECT any title over 55 characters.** Do not include it in your picks, even if otherwise good. Shorter = better.
+5. Is it ONE clean headline statement (no separators)?
 
 ## DIVERSITY REQUIREMENT
 Ensure the 15 titles you pick have a MIX of hook types:
@@ -151,14 +159,16 @@ Pick exactly 15 titles. Categorize them:
 For each title, include:
 - title: The title text
 - characters: Character count
+- leadInWords: Number of words BEFORE the keyword phrase starts
 - angle: Brief note on why it works (1 sentence)
 - hookType: One of "curiosity" | "fomo" | "fear" | "excitement" | "hope" | "validation" | "wild"
 
 Return as JSON:
 {
-  "winner": { "title": "...", "characters": 52, "angle": "...", "hookType": "curiosity" },
-  "runnerUps": [{ "title": "...", "characters": 48, "angle": "...", "hookType": "fear" }, ...],
-  "alternatives": [{ "title": "...", "characters": 50, "angle": "...", "hookType": "fomo" }, ...]
+  "winner": { "title": "...", "characters": 52, "leadInWords": 2, "angle": "...", "hookType": "curiosity" },
+  "runnerUps": [{ "title": "...", "characters": 48, "leadInWords": 1, "angle": "...", "hookType": "fear" }, ...],
+  "alternatives": [{ "title": "...", "characters": 50, "leadInWords": 3, "angle": "...", "hookType": "fomo" }, ...],
+  "keywordIntact": true
 }`;
 
 // =============================================================================

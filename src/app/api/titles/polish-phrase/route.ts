@@ -41,48 +41,83 @@ export async function POST(request: NextRequest) {
         }
 
         // Build the polish prompt
-        const systemPrompt = `You are a master YouTube copywriter. Your job: create 3-5 REFINED variations of a locked title and thumbnail phrase to find the absolute best version.
+        const systemPrompt = `You are the world's best YouTube Title Optimizer. Your goal is to refine a "Draft Title" into 3 specific categories of perfection.
 
-CRITICAL RULES:
-1. Keep the CORE MEANING and EMOTION intact
-2. Try subtle word swaps that increase impact
-3. Fix any grammar or clarity issues
-4. Ensure thumbnail phrase is 4 words or less
-5. Make variations DISTINCT from each other
-6. Each variation should be slightly BETTER than the original
+## INPUT CONTEXT
+- Locked Title: "${lockedTitle}"
+- Phrase: "${lockedPhrase}"
+- Super Topic (SEO Keyword): "${topic.phrase || ''}"
+- Emotion: ${topic.primary_emotion || 'Curiosity'}
 
-EMOTION TO MAINTAIN: ${topic.primary_emotion || 'Curiosity'}
+## ⚠️ CRITICAL RULES FOR ALL BUCKETS ⚠️
 
-OUTPUT FORMAT:
-Return exactly 5 variations as JSON:
+**KEYWORD PHRASE MUST STAY INTACT:**
+- The keyword phrase "${topic.phrase}" must appear as ONE CONTINUOUS CHUNK
+- Do NOT split it apart, insert words inside, or rephrase with synonyms
+- Keep the EXACT word order
+
+**NO SEPARATORS:**
+- NO colons (:), dashes (– — -), slashes (/), pipes (|), or parentheses ()
+- Write ONE clean headline-style statement
+- NO two-part headlines like "Thing: Other Thing"
+
+**PUNCTUATION (USE SPARINGLY):**
+- Exclamation points (!) and question marks (?) ARE allowed
+- Use sparingly for impact, not on every title
+
+**LENGTH:**
+- 45-55 characters ideal
+- 60 characters MAX. NEVER exceed 60.
+- Aim for 5-7 words
+
+**THUMBNAIL PHRASE:**
+- 3-6 words. ALL CAPS.
+
+## YOUR TASK:
+1. Generate 6-9 Variations in 3 Buckets (Balanced, Rank, Wild).
+2. **PICK A WINNER:** Choose the single best option for this specific creator/topic.
+3. **WRITE A STRATEGY NOTE:** A 2-3 sentence "Porch Talk" explanation of WHY this is the winner.
+
+### BUCKET 1: BALANCED (The "Perfect" Cut)
+- **Goal:** The best blend of CTR and Grammar.
+- **Keyword Rule:** May add 1-3 lead-in words BEFORE the keyword phrase
+- **Tag:** "balanced"
+
+### BUCKET 2: RANK (SEO Optimization) ⚠️ SPECIAL RULE
+- **Goal:** Maximum Search Ranking.
+- **Keyword Rule:** Keyword phrase MUST START the title (NO lead-in words!)
+- **Why:** YouTube weights early keywords for search ranking
+- **Tag:** "rank"
+
+### BUCKET 3: WILD (Pattern Interrupt)
+- **Goal:** Stop the scroll.
+- **Keyword Rule:** May add 1-3 lead-in words BEFORE the keyword phrase
+- **Rules:** Extreme curiosity, unexpected angles
+- **Tag:** "wild"
+
+## OUTPUT FORMAT (respond with valid JSON)
 {
   "variations": [
-    {
-      "title": "Refined title version",
-      "phrase": "REFINED PHRASE",
-      "improvement": "What makes this better than original"
-    }
-  ]
+    { "title": "...", "phrase": "...", "type": "balanced", "improvement": "...", "characters": 52, "leadInWords": 2 },
+    ...
+  ],
+  "winningIndex": 0,
+  "strategyNote": "Hey, I picked the Balanced option because..."
 }`;
 
-        const userPrompt = `Create 5 refined variations of this title and thumbnail phrase:
+        const userPrompt = `Generate the 3 Buckets and Pick a Winner for:
+"${lockedTitle}"
 
-ORIGINAL TITLE: "${lockedTitle}"
-ORIGINAL PHRASE: "${lockedPhrase}"
+Use GPT-5 Mini Low Reasoning. Keep the Strategy Note friendly and strategic (Porch Talk).`;
 
-CONTEXT:
-- Primary Emotion: ${topic.primary_emotion || 'Curiosity'}
-- Secondary Emotion: ${topic.secondary_emotion || 'N/A'}
-- Mindset: ${topic.mindset || 'N/A'}
-
-Generate 5 variations that are subtly better than the original.`;
-
-        console.log(`[Polish Phrase] Generating 5 variations for: "${lockedTitle}" + "${lockedPhrase}"`);
+        console.log(`[Polish Phrase] Generating Variations + Winner Strategy using GPT-5 Mini`);
 
         const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            temperature: 0.7, // Medium-high for creative variations
-            max_completion_tokens: 1000,
+            model: 'gpt-5-mini',
+            temperature: 1,
+            top_p: 1,
+            reasoning_effort: 'low', // Matches working Refine page enrichment config
+            max_completion_tokens: 2500,
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -93,23 +128,41 @@ Generate 5 variations that are subtly better than the original.`;
         const responseText = completion.choices[0]?.message?.content || '{}';
         const parsed = JSON.parse(responseText);
         const variations = parsed.variations || [];
+        const winningIndex = parsed.winningIndex || 0;
+        const strategyNote = parsed.strategyNote || "This is the strongest overall option.";
 
         if (!Array.isArray(variations) || variations.length === 0) {
-            throw new Error('Invalid response format from GPT-4o-mini');
+            throw new Error('Invalid response format from GPT-5 Mini');
         }
 
-        // Always include the original as the first option
+        // Identify the winner and separate it
+        const winningVariation = variations[winningIndex];
+        const otherVariations = variations.filter((_, i) => i !== winningIndex);
+
+        // Construct final list: [Original, WINNER, ...Others]
         const allVariations = [
             {
                 title: lockedTitle,
                 phrase: lockedPhrase,
-                improvement: 'Original version (already great!)',
+                improvement: 'Original Draft',
+                type: 'original',
                 isOriginal: true,
             },
-            ...variations.slice(0, 5).map((v: any) => ({
+            // The WINNER (Second slot, first AI option shown)
+            {
+                title: winningVariation.title,
+                phrase: winningVariation.phrase?.toUpperCase() || winningVariation.phrase,
+                improvement: `🏆 STRATEGY: ${strategyNote}`, // Inject Strategy Note here
+                type: winningVariation.type || 'balanced',
+                isOriginal: false,
+                isWinner: true,
+            },
+            // The Rest
+            ...otherVariations.map((v: any) => ({
                 title: v.title,
                 phrase: v.phrase?.toUpperCase() || v.phrase,
                 improvement: v.improvement,
+                type: v.type || 'balanced',
                 isOriginal: false,
             })),
         ];
@@ -118,7 +171,7 @@ Generate 5 variations that are subtly better than the original.`;
         const totalTokens = completion.usage?.total_tokens || 0;
         const costCents = Math.ceil((totalTokens / 1_000_000) * 0.375 * 100);
 
-        console.log(`[Polish Phrase] Generated ${allVariations.length} variations in ${durationMs}ms`);
+        console.log(`[Polish Phrase] Generated ${allVariations.length} variations. Winner Type: ${winningVariation.type}`);
         console.log(`[Polish Phrase] Cost: ~${costCents}¢`);
 
         return NextResponse.json({
