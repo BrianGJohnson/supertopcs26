@@ -93,27 +93,12 @@ export function FastTrackModal({
         };
     }, [isOpen, handleEscape]);
 
-    // Pre-select recommended formats when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            const preSelected: string[] = [];
-            // Pre-select recommended format
-            if (recommendedFormat && availableFormats.includes(recommendedFormat)) {
-                preSelected.push(recommendedFormat);
-            }
-            // Pre-select alternate formats
-            alternateFormats.forEach(format => {
-                if (availableFormats.includes(format) && !preSelected.includes(format)) {
-                    preSelected.push(format);
-                }
-            });
-            // If no pre-selections, default to first format
-            if (preSelected.length === 0 && availableFormats.length > 0) {
-                preSelected.push(availableFormats[0]);
-            }
-            setSelectedFormats(preSelected);
-        }
-    }, [isOpen, recommendedFormat, alternateFormats, availableFormats]);
+    // Clear pre-selections - start with nothing selected
+    // useEffect(() => {
+    //     if (isOpen) {
+    //        // Logic removed to start clean
+    //     }
+    // }, [isOpen, recommendedFormat, alternateFormats, availableFormats]);
 
     const toggleFormat = (format: string) => {
         if (isSaving) return;
@@ -126,7 +111,11 @@ export function FastTrackModal({
 
     const selectAll = () => {
         if (isSaving) return;
-        setSelectedFormats([...availableFormats]);
+        if (selectedFormats.length === availableFormats.length) {
+            setSelectedFormats([]);
+        } else {
+            setSelectedFormats([...availableFormats]);
+        }
     };
 
     const handleConfirm = () => {
@@ -200,7 +189,7 @@ export function FastTrackModal({
                         {/* Format Selection - ONLY bucket formats */}
                         <div>
                             <h3 className="text-lg font-semibold text-white mb-2">
-                                This looks like a <span className="text-white font-bold">{primaryBucket}</span> video
+                                This looks like {["Info", "Opinion", "Analysis", "Entertainment"].includes(primaryBucket) ? "an" : "a"} <span className="text-white font-bold">{primaryBucket}</span> video
                             </h3>
                             <p className="text-white/50 text-lg mb-5">
                                 {bucketData.description}. Select the formats you&apos;d consider:
@@ -208,13 +197,13 @@ export function FastTrackModal({
 
                             {/* Format pills - All button first, GREEN style for prominence */}
                             <div className="flex flex-wrap gap-3">
-                                {/* All Button - BRIGHT GREEN style */}
+                                {/* All Button */}
                                 <button
                                     onClick={selectAll}
                                     disabled={isSaving}
-                                    className={`px-5 py-3 rounded-xl text-base font-semibold transition-all border-2 ${selectedFormats.length === availableFormats.length
+                                    className={`px-8 py-3 rounded-xl text-lg font-bold transition-all border-2 ${selectedFormats.length === availableFormats.length
                                         ? "bg-[#2BD899]/30 text-[#2BD899] border-[#2BD899]/60 shadow-[0_0_15px_rgba(43,216,153,0.25)]"
-                                        : "bg-[#2BD899]/15 text-[#2BD899] border-[#2BD899]/40 hover:bg-[#2BD899]/25 hover:border-[#2BD899]/60"
+                                        : "bg-[#2BD899]/10 text-[#2BD899]/60 border-[#2BD899]/20 hover:bg-[#2BD899]/20 hover:text-[#2BD899] hover:border-[#2BD899]/40"
                                         }`}
                                 >
                                     All
@@ -231,7 +220,7 @@ export function FastTrackModal({
                                             onClick={() => toggleFormat(format)}
                                             className={`px-5 py-3 rounded-xl text-base font-semibold transition-all border-2 ${isSelected
                                                 ? "bg-[#5AACFF]/30 text-[#A0DCFF] border-[#5AACFF]/60 shadow-[0_0_12px_rgba(90,172,255,0.2)]"
-                                                : "bg-[#5AACFF]/15 text-[#A0DCFF] border-[#5AACFF]/40 hover:bg-[#5AACFF]/25 hover:border-[#5AACFF]/60"
+                                                : "bg-white/5 text-white/30 border-white/5 hover:bg-white/10 hover:text-white/50 hover:border-white/10"
                                                 }`}
                                         >
                                             {format}
@@ -251,7 +240,7 @@ export function FastTrackModal({
                                 onClick={handleConfirm}
                                 disabled={selectedFormats.length < 2 || isSaving}
                                 className={`flex-1 px-8 py-5 font-bold text-xl rounded-xl transition-all flex items-center justify-center gap-3 border-2 ${selectedFormats.length < 2 || isSaving
-                                    ? "bg-[#2BD899]/10 border-[#2BD899]/20 text-[#4AE8B0]/50 cursor-not-allowed"
+                                    ? "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                                     : "bg-gradient-to-b from-[#2BD899]/20 to-[#25C78A]/20 hover:from-[#2BD899]/30 hover:to-[#25C78A]/30 text-[#2BD899] border-[#2BD899]/50 shadow-[0_0_15px_rgba(43,216,153,0.15)] hover:shadow-[0_0_20px_rgba(43,216,153,0.25)]"
                                     }`}
                             >

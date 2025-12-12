@@ -41,13 +41,36 @@ export async function POST(request: NextRequest) {
         }
 
         // Build the polish prompt
-        const systemPrompt = `You are the world's best YouTube Title Optimizer. Your goal is to refine a "Draft Title" into 3 specific categories of perfection.
+        const systemPrompt = `You are a PROFESSIONAL COPYWRITER and the world's best YouTube Title Optimizer. Your goal is to refine a "Draft Title" into polished, grammatically perfect variations.
 
 ## INPUT CONTEXT
 - Locked Title: "${lockedTitle}"
 - Phrase: "${lockedPhrase}"
 - Super Topic (SEO Keyword): "${topic.phrase || ''}"
 - Emotion: ${topic.primary_emotion || 'Curiosity'}
+
+## ⚠️ COPYWRITING RULES (MANDATORY) ⚠️
+
+**GRAMMAR ENFORCEMENT:**
+- Fix ALL grammar issues in the input title
+- Ensure subject-verb agreement
+- Consider singular vs plural for maximum impact ("AI Thumbnail Makers" often beats "AI Thumbnail Maker")
+
+**TITLE CASE (MANDATORY):**
+- EVERY word must start with a capital letter
+- Small words (a, an, the, of, in, to, for) can be lowercase UNLESS they start the title
+- Example: "How AI Thumbnail Maker Can Kill Your Views" ✅
+- Example: "How ai thumbnail maker can kill views" ❌ NEVER OUTPUT THIS
+
+**PERSONALIZATION:**
+- Use "your" or "you" to make it personal and emotional
+- Example: "Could Ruin Your Channel" beats "Could Ruin Channels"
+- Example: "What You Need To Know" beats "What People Need To Know"
+
+**INTENSIFIERS (USE STRATEGICALLY):**
+- Add power words when they improve impact: "absolutely", "completely", "exactly", "really", "actually"
+- Example: "How AI Thumbnail Maker Can Absolutely Kill Your Views"
+- Don't overuse — 1-2 intensifiers per title max
 
 ## ⚠️ CRITICAL RULES FOR ALL BUCKETS ⚠️
 
@@ -65,10 +88,12 @@ export async function POST(request: NextRequest) {
 - Exclamation points (!) and question marks (?) ARE allowed
 - Use sparingly for impact, not on every title
 
-**LENGTH:**
-- 45-55 characters ideal
-- 60 characters MAX. NEVER exceed 60.
-- Aim for 5-7 words
+**LENGTH (CRITICAL):**
+- MINIMUM: 45 characters — reject anything shorter
+- IDEAL: 50-55 characters
+- MAXIMUM: 60 characters — NEVER exceed
+- If a draft is too short, expand it with personalization ("your") or power words
+- Aim for 6-8 words total
 
 **THUMBNAIL PHRASE:**
 - 3-6 words. ALL CAPS.
@@ -116,8 +141,8 @@ Use GPT-5 Mini Low Reasoning. Keep the Strategy Note friendly and strategic (Por
             model: 'gpt-5-mini',
             temperature: 1,
             top_p: 1,
-            reasoning_effort: 'low', // Matches working Refine page enrichment config
             max_completion_tokens: 2500,
+            reasoning_effort: 'low',
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -139,20 +164,13 @@ Use GPT-5 Mini Low Reasoning. Keep the Strategy Note friendly and strategic (Por
         const winningVariation = variations[winningIndex];
         const otherVariations = variations.filter((_, i) => i !== winningIndex);
 
-        // Construct final list: [Original, WINNER, ...Others]
+        // Construct final list: [WINNER (first!), ...Others, Original (last)]
         const allVariations = [
-            {
-                title: lockedTitle,
-                phrase: lockedPhrase,
-                improvement: 'Original Draft',
-                type: 'original',
-                isOriginal: true,
-            },
-            // The WINNER (Second slot, first AI option shown)
+            // The WINNER (First slot - most prominent)
             {
                 title: winningVariation.title,
                 phrase: winningVariation.phrase?.toUpperCase() || winningVariation.phrase,
-                improvement: `🏆 STRATEGY: ${strategyNote}`, // Inject Strategy Note here
+                improvement: `🏆 STRATEGY: ${strategyNote}`,
                 type: winningVariation.type || 'balanced',
                 isOriginal: false,
                 isWinner: true,
@@ -165,6 +183,14 @@ Use GPT-5 Mini Low Reasoning. Keep the Strategy Note friendly and strategic (Por
                 type: v.type || 'balanced',
                 isOriginal: false,
             })),
+            // Original at the END (for reference)
+            {
+                title: lockedTitle,
+                phrase: lockedPhrase,
+                improvement: 'Your original draft — for comparison',
+                type: 'original',
+                isOriginal: true,
+            },
         ];
 
         const durationMs = Date.now() - startTime;

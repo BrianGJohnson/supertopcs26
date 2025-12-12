@@ -18,6 +18,7 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconMoodSmile,
+    IconTrophy,
 } from "@tabler/icons-react";
 
 // =============================================================================
@@ -47,7 +48,9 @@ interface TitleVariation {
     title: string;
     phrase: string;
     improvement: string;
+    type?: string;
     isOriginal?: boolean;
+    isWinner?: boolean;
 }
 
 // =============================================================================
@@ -93,6 +96,8 @@ export function BlueprintPageContent() {
     const [variations, setVariations] = useState<TitleVariation[]>([]);
     const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
     const [isLoadingVariations, setIsLoadingVariations] = useState(false);
+    const [isSavingVariation, setIsSavingVariation] = useState(false);
+    const [variationsError, setVariationsError] = useState<string | null>(null);
 
     // Error state
     const [error, setError] = useState<string | null>(null);
@@ -104,6 +109,31 @@ export function BlueprintPageContent() {
     // ==========================================================================
     // LOAD DATA
     // ==========================================================================
+
+    // Hydrate from Title page sessionStorage as a fallback.
+    // This prevents Blueprint from hanging if DB hasn't persisted yet (or if user navigates quickly).
+    useEffect(() => {
+        if (!topicId) return;
+
+        try {
+            const storedTitle = sessionStorage.getItem(`blueprint_title_${topicId}`);
+            const storedEmotion = sessionStorage.getItem(`blueprint_emotion_${topicId}`);
+            const storedPhrasesRaw = sessionStorage.getItem(`blueprint_phrases_${topicId}`);
+
+            if (storedTitle && !title) setTitle(storedTitle);
+            if (storedEmotion && !primaryEmotion) setPrimaryEmotion(storedEmotion);
+
+            if (storedPhrasesRaw && !thumbnailPhrase) {
+                const parsed = JSON.parse(storedPhrasesRaw);
+                const first = Array.isArray(parsed) ? parsed[0] : null;
+                if (typeof first === "string" && first.trim().length > 0) {
+                    setThumbnailPhrase(first);
+                }
+            }
+        } catch {
+            // Ignore sessionStorage/JSON parse issues; DB fetch below is primary.
+        }
+    }, [topicId, title, thumbnailPhrase, primaryEmotion]);
 
     useEffect(() => {
         const loadTopicData = async () => {
@@ -117,10 +147,10 @@ export function BlueprintPageContent() {
                 // phrase = the super topic (e.g. "ai thumbnail maker for youtube")
                 setPhrase(topic.phrase || "");
                 // title = the locked title from Title page
-                setTitle(topic.locked_title || "");
+                setTitle(prev => prev || topic.locked_title || "");
                 // thumbnailPhrase = the 4-word phrase for the thumbnail (e.g. "THE GAME HAS CHANGED")
-                setThumbnailPhrase(topic.thumbnail_phrase || "");
-                setPrimaryEmotion(topic.primary_emotion || "Curiosity");
+                setThumbnailPhrase(prev => prev || topic.thumbnail_phrase || "");
+                setPrimaryEmotion(prev => prev || topic.primary_emotion || "Curiosity");
             } catch (err) {
                 console.error("[Blueprint] Error loading topic:", err);
                 setError("Failed to load topic data");
@@ -134,9 +164,12 @@ export function BlueprintPageContent() {
     useEffect(() => {
         const loadVariations = async () => {
             // Must have topicId, title, AND thumbnailPhrase before loading
-            if (!topicId || !title || !thumbnailPhrase) return;
+            if (!topicId || !title || !thumbnailPhrase) {
+                return;
+            }
 
             setIsLoadingVariations(true);
+            setVariationsError(null);
             try {
                 const response = await fetch('/api/titles/polish-phrase', {
                     method: 'POST',
@@ -144,20 +177,41 @@ export function BlueprintPageContent() {
                     body: JSON.stringify({
                         topicId,
                         lockedTitle: title,
-                        lockedPhrase: thumbnailPhrase, // Use thumbnailPhrase, NOT phrase (super topic)
+                        lockedPhrase: thumbnailPhrase,
                     }),
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    setVariations(data.variations || []);
-                    // Pre-select first variation (original)
-                    if (data.variations && data.variations.length > 0) {
-                        setSelectedVariation(0);
-                    }
+                if (!response.ok) {
+                    throw new Error('Failed to generate variations');
+                }
+
+                const data = await response.json();
+                if (!data.variations || data.variations.length === 0) {
+                    // No variations returned - use original as fallback
+                    setVariations([{
+                        title: title,
+                        phrase: thumbnailPhrase,
+                        improvement: 'Your original selection',
+                        type: 'original',
+                        isOriginal: true,
+                    }]);
+                    setSelectedVariation(0);
+                } else {
+                    setVariations(data.variations);
+                    setSelectedVariation(0);
                 }
             } catch (err) {
                 console.error('[Blueprint] Error loading variations:', err);
+                setVariationsError('Failed to generate title variations. You can continue with your original selection.');
+                // Fallback to original
+                setVariations([{
+                    title: title,
+                    phrase: thumbnailPhrase,
+                    improvement: 'Your original selection',
+                    type: 'original',
+                    isOriginal: true,
+                }]);
+                setSelectedVariation(0);
             } finally {
                 setIsLoadingVariations(false);
             }
@@ -167,6 +221,22 @@ export function BlueprintPageContent() {
             loadVariations();
         }
     }, [topicId, title, thumbnailPhrase, currentStep]);
+
+    // If we can't hydrate the required data for step 0, don't leave the user in limbo.
+    useEffect(() => {
+        if (currentStep !== 0) return;
+        if (!topicId) return;
+
+        const timeout = setTimeout(() => {
+            if (!title || !thumbnailPhrase) {
+                setError(
+                    "Missing locked title or thumbnail phrase. Go back to Title and click Proceed again."
+                );
+            }
+        }, 2500);
+
+        return () => clearTimeout(timeout);
+    }, [currentStep, topicId, title, thumbnailPhrase]);
 
     // Check for brand style (first-time user detection)
     useEffect(() => {
@@ -296,6 +366,7 @@ export function BlueprintPageContent() {
     };
 
     const handleBackToTitle = () => {
+        if (!sessionId || !topicId) return;
         router.push(`/members/build/title?session_id=${sessionId}&topic_id=${topicId}`);
     };
 
@@ -303,18 +374,48 @@ export function BlueprintPageContent() {
         setSelectedVariation(index);
     };
 
-    const handleContinueWithVariation = () => {
+    const handleContinueWithVariation = async () => {
         if (selectedVariation === null) return;
         const selected = variations[selectedVariation];
-        // TODO: Save the selected variation (title + phrase) to database
-        // For now, just log - next step (concept count) isn't fully wired
-        console.log('[Blueprint] Selected variation:', selected);
-        setCurrentStep(1);
+        
+        setIsSavingVariation(true);
+        try {
+            // Save the selected variation to DB
+            const response = await fetch('/api/titles/lock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    superTopicId: topicId,
+                    lockedTitle: selected.title,
+                    thumbnailPhrases: [selected.phrase],
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save selection');
+            }
+
+            // Update local state
+            setTitle(selected.title);
+            setThumbnailPhrase(selected.phrase);
+            
+            // Also update sessionStorage for consistency
+            if (topicId) {
+                sessionStorage.setItem(`blueprint_title_${topicId}`, selected.title);
+                sessionStorage.setItem(`blueprint_phrases_${topicId}`, JSON.stringify([selected.phrase]));
+            }
+
+            setCurrentStep(1);
+        } catch (err) {
+            console.error('[Blueprint] Error saving variation:', err);
+            setError('Failed to save your selection. Please try again.');
+        } finally {
+            setIsSavingVariation(false);
+        }
     };
 
     const handleSkipVariations = () => {
-        // TODO: Keep original title/phrase and proceed
-        console.log('[Blueprint] Skipping variations, keeping original');
+        // Keep original and proceed - data is already saved from Title page
         setCurrentStep(1);
     };
 
@@ -327,7 +428,7 @@ export function BlueprintPageContent() {
         const currentIndex = selectedVariation !== null ? selectedVariation : 0;
         const totalVariations = variations.length;
 
-        // Emotion colors (matching Title page)
+        // Emotion colors (default to Red/Curiosity if missing)
         const emotionColors = {
             from: '#E63946',
             to: '#D62828',
@@ -346,234 +447,194 @@ export function BlueprintPageContent() {
             }
         };
 
-        return (
-            <div className="space-y-10 max-w-6xl mx-auto">
+        // If no selection yet (loading or initializing), show loader
+        if (!selected) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+                    <IconLoader2 className="w-12 h-12 text-[#5AACFF] animate-spin" />
+                    <div className="text-center">
+                        <h3 className="text-2xl font-bold text-white mb-2">Polishing Your Package...</h3>
+                        <p className="text-white/50">Generating high-impact variations and strategy notes</p>
+                    </div>
+                </div>
+            );
+        }
 
-                {/* Section Header - Lock this in */}
-                <div className="text-center mt-4">
-                    <h3 className="text-lg font-semibold text-white/60 uppercase tracking-wider">
+        // Show variations error banner if there was an issue (but we have fallback data)
+        const showVariationsError = variationsError && variations.length > 0;
+
+        return (
+            <div className="space-y-12 max-w-7xl mx-auto px-4">
+
+                {/* Variations Error Banner */}
+                {showVariationsError && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+                        <p className="text-amber-400 text-sm">{variationsError}</p>
+                    </div>
+                )}
+
+                {/* Section Header */}
+                <div className="text-center mt-4 space-y-4">
+                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-[0.2em]">
                         Your Current Package
                     </h3>
-                </div>
 
-                {/* THUMBNAIL PREVIEW - Exact copy from Title page */}
-                <div className="flex flex-col items-center">
-                    <div
-                        className="relative w-full max-w-2xl aspect-video rounded-2xl overflow-hidden shadow-2xl"
-                        style={{
-                            opacity: 0.65,
-                            background: `radial-gradient(ellipse at center, #0a0a0f 0%, ${emotionColors.from}80 80%, ${emotionColors.from} 100%)`,
-                            border: `2px solid ${emotionColors.accent}`,
-                            boxShadow: `0 0 40px ${emotionColors.accent}40, 0 0 80px ${emotionColors.accent}20, inset 0 0 80px ${emotionColors.accent}25`,
-                        }}
-                    >
-                        {/* Brighter corner glows */}
-                        <div
-                            className="absolute inset-0 pointer-events-none"
-                            style={{
-                                background: `
-                                    radial-gradient(ellipse at top left, ${emotionColors.accent}35 0%, transparent 50%),
-                                    radial-gradient(ellipse at bottom right, ${emotionColors.accent}25 0%, transparent 50%)
-                                `,
-                            }}
-                        ></div>
-
-                        {/* Upper Left: Emotions + Phrase Stack */}
-                        <div className="absolute top-5 left-5 z-10 flex flex-col gap-3">
-                            {/* Emotion Display */}
-                            <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/20">
-                                <IconMoodSmile className="w-6 h-6 text-[#FF6B6B]" />
-                                <span className="text-lg font-semibold text-white">{primaryEmotion || "Fear"}</span>
-                                <span className="text-white/50">•</span>
-                                <span className="text-lg font-semibold text-white">Hope</span>
-                            </div>
-
-                            {/* Phrase - WHITE and SEMI-BOLD - UPPERCASE */}
-                            <div
-                                className="px-6 py-3.5 rounded-lg text-3xl font-semibold tracking-tight uppercase"
-                                style={{
-                                    backgroundColor: "rgba(0,0,0,0.7)",
-                                    color: "white",
-                                    textShadow: "2px 2px 6px rgba(0,0,0,0.6)",
-                                }}
-                            >
-                                {thumbnailPhrase || "YOUR PHRASE HERE"}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Title Below Thumbnail - Matching Title page exactly (3 centered lines) */}
-                    <div className="mt-10 flex flex-col items-center gap-2">
-                        {/* Line 1: Super Topic (no label) */}
-                        {phrase && (
-                            <p className="text-[21px] font-semibold text-white/60">
-                                {phrase.split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
-                            </p>
-                        )}
-                        {/* Line 2: Title (no label) - ALWAYS show original locked title */}
-                        <p className="text-2xl font-bold text-white/80">
-                            {title}
-                        </p>
-                        {/* Line 3: Character count pill */}
-                        <span className="mt-2 px-3 py-1 text-sm font-medium rounded-full bg-white/10 text-white/40 border border-white/15">
-                            {title.length} chars
-                        </span>
-                    </div>
-                </div>
-
-                {/* Separator - extra spacing before Browse section */}
-                <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-12" />
-
-                {/* Carousel Section - Polished Variations */}
-                <div className="space-y-4">
-                    <h3 className="text-base font-semibold text-white/35 uppercase tracking-wider text-center">
-                        Browse Polished Variations
-                    </h3>
-
-                    {/* Carousel with arrows - MATCHING Title page */}
-                    <div className="flex items-center gap-4 justify-center">
-                        {/* Left arrow */}
-                        <button
-                            onClick={handlePrevVariation}
-                            disabled={isLoadingVariations || totalVariations === 0 || currentIndex === 0}
-                            className={`p-3 rounded-full transition-all ${(isLoadingVariations || totalVariations === 0 || currentIndex === 0)
-                                ? "text-white/20 cursor-not-allowed"
-                                : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
-                        >
-                            <IconChevronLeft className="w-7 h-7" />
-                        </button>
-
-                        {/* Single Card - Show loading state or actual card */}
-                        {isLoadingVariations || !selected ? (
-                            <div className="w-full max-w-2xl p-8 rounded-2xl bg-white/[0.03] border border-white/10">
-                                <div className="flex flex-col items-center justify-center gap-4 py-8">
-                                    <IconLoader2 className="w-8 h-8 text-white/40 animate-spin" />
-                                    <p className="text-base text-white/50">Generating polished variations...</p>
-                                    <p className="text-sm text-white/30">This usually takes a few seconds</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="group w-full max-w-2xl p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/25 hover:bg-white/[0.06] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] transition-all">
-                                {/* Title */}
-                                <p className="text-2xl font-semibold text-white/75 mb-4 leading-snug text-center">
-                                    {selected.title}
-                                </p>
-
-                                {/* Tags row - centered */}
-                                <div className="flex items-center justify-center gap-2 flex-wrap mb-6">
-                                    {selected.isOriginal ? (
-                                        <span className="px-2.5 py-1 text-sm font-semibold rounded-full border bg-white/10 text-white/60 border-white/20">
-                                            Original
-                                        </span>
-                                    ) : (
-                                        <>
-                                            {/* Badge based on Type */}
-                                            {/* @ts-ignore - dynamic type check */}
-                                            {selected.type === 'rank' && (
-                                                <span
-                                                    title="Optimized for Search Traffic & Keywords"
-                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#5AACFF]/15 text-[#5AACFF] border-[#5AACFF]/30 flex items-center gap-1"
-                                                >
-                                                    <IconFlask className="w-3 h-3" />
-                                                    SEO Rank
-                                                </span>
-                                            )}
-                                            {/* @ts-ignore */}
-                                            {selected.type === 'wild' && (
-                                                <span
-                                                    title="Creative Pattern Interrupt"
-                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#FFC107]/15 text-[#FFC107] border-[#FFC107]/30 flex items-center gap-1"
-                                                >
-                                                    <IconFlask className="w-3 h-3" />
-                                                    Wild Card
-                                                </span>
-                                            )}
-                                            {/* @ts-ignore - Default to balanced if not rank/wild */}
-                                            {(!selected.type || selected.type === 'balanced') && (
-                                                <span
-                                                    title="Balanced approach to trigger recommendations and search"
-                                                    className="cursor-help px-2.5 py-1 text-sm font-semibold rounded-full border bg-[#C3B6EB]/15 text-[#C3B6EB] border-[#C3B6EB]/30 flex items-center gap-1"
-                                                >
-                                                    <IconFlask className="w-3 h-3" />
-                                                    Balanced
-                                                </span>
-                                            )}
-                                        </>
-                                    )}
-                                    <span className="px-2.5 py-1 text-sm font-medium rounded-full border bg-[#2BD899]/15 text-[#2BD899] border-[#2BD899]/30">
-                                        {(selected.title?.length || 0)} chars
-                                    </span>
-                                </div>
-
-                                {/* Thumbnail Phrase - WHITE not purple */}
-                                <div className="text-center mb-6">
-                                    <p className="text-sm text-white/50 mb-2">Thumbnail Text</p>
-                                    <p className="text-xl font-bold text-white/90 uppercase">
-                                        {selected.phrase}
-                                    </p>
-                                </div>
-
-                                {/* Improvement Note - increased text size for readability */}
-                                {!selected.isOriginal && selected.improvement && (
-                                    <div className="text-center mb-6 px-4">
-                                        <p className="text-sm text-white/50 mb-1">Why This Works</p>
-                                        <p className="text-lg text-white/70 italic">{selected.improvement}</p>
-                                    </div>
-                                )}
-
-                                {/* Select button removed - cleaner UX */}
-                            </div>
-                        )}
-
-                        {/* Right arrow */}
-                        <button
-                            onClick={handleNextVariation}
-                            disabled={isLoadingVariations || totalVariations === 0 || currentIndex === totalVariations - 1}
-                            className={`p-3 rounded-full transition-all ${(isLoadingVariations || totalVariations === 0 || currentIndex === totalVariations - 1)
-                                ? "text-white/20 cursor-not-allowed"
-                                : "text-white/50 hover:text-white/80 hover:bg-white/10"}`}
-                        >
-                            <IconChevronRight className="w-7 h-7" />
-                        </button>
-                    </div>
-
-                    {/* Page Indicator - only show when variations exist */}
-                    {totalVariations > 0 && (
-                        <div className="text-center text-sm text-white/50 font-medium">
-                            {currentIndex + 1} of {totalVariations}
+                    {/* Winner Badge - Prominent at TOP */}
+                    {selected.isWinner && (
+                        <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.3)] animate-pulse-slow">
+                            <IconTrophy className="w-6 h-6 text-[#1a1a1a]" />
+                            <span className="text-lg font-extrabold text-[#1a1a1a] tracking-wide">TOP PICK</span>
                         </div>
                     )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex justify-center gap-4">
+                {/* MAIN STAGE: Arrows + Thumbnail */}
+                <div className="flex items-center justify-center gap-8 md:gap-12">
+
+                    {/* Left Navigation */}
                     <button
-                        onClick={handleSkipVariations}
-                        className="h-[52px] w-[180px] flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-white/5 border-2 border-white/10 text-white/75 hover:bg-white/10"
+                        onClick={handlePrevVariation}
+                        disabled={currentIndex === 0}
+                        className={`p-4 rounded-full transition-all border-2 ${currentIndex === 0
+                            ? "border-white/5 text-white/10 cursor-not-allowed"
+                            : "border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/30"}`}
                     >
-                        Skip
+                        <IconChevronLeft className="w-8 h-8" />
                     </button>
+
+                    {/* THE THUMBNAIL (The "Card") */}
+                    <div className="relative w-full max-w-5xl">
+                        <div
+                            className={`relative aspect-video rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 ${selected.isWinner
+                                ? "ring-4 ring-[#FFD700]/50 shadow-[0_0_60px_rgba(255,215,0,0.15)]"
+                                : "ring-1 ring-white/10"
+                                }`}
+                            style={{
+                                background: `radial-gradient(ellipse at center, #0a0a0f 0%, ${emotionColors.from}80 80%, ${emotionColors.from} 100%)`,
+                            }}
+                        >
+                            {/* Visual Effects */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+
+                            {/* Content Layer */}
+                            <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-between">
+                                {/* Top Left: Emotions + Phrase Stack */}
+                                <div className="absolute top-8 left-8 z-10 flex flex-col gap-4">
+                                    {/* Emotion Display */}
+                                    <div className="flex items-center gap-3 px-6 py-3 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 w-fit">
+                                        <IconMoodSmile className="w-6 h-6 text-[#FF6B6B]" />
+                                        <span className="text-xl font-bold text-white">{primaryEmotion || "Curiosity"}</span>
+                                        <span className="text-white/30 text-lg">•</span>
+                                        <span className="text-xl font-bold text-white/80">Hope</span>
+                                    </div>
+
+                                    {/* Phrase Pill - Matches Title Page Style */}
+                                    <div
+                                        className="px-6 py-3.5 rounded-lg text-3xl font-semibold tracking-tight uppercase w-fit"
+                                        style={{
+                                            backgroundColor: "rgba(0,0,0,0.7)",
+                                            color: "white",
+                                            textShadow: "2px 2px 6px rgba(0,0,0,0.6)",
+                                        }}
+                                    >
+                                        {selected.phrase || "THUMBNAIL TEXT HERE"}
+                                    </div>
+                                </div>
+
+                                {/* Top Right: Variation Counter */}
+                                <div className="absolute top-8 right-8 z-10 px-4 py-2 rounded-lg bg-black/40 backdrop-blur-sm border border-white/5 text-sm font-medium text-white/50">
+                                    {currentIndex + 1} / {totalVariations}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Navigation */}
                     <button
-                        onClick={handleContinueWithVariation}
-                        className="h-[52px] w-[200px] flex items-center justify-center gap-2 px-4 rounded-xl text-base font-semibold whitespace-nowrap transition-all bg-gradient-to-b from-[#2BD899]/15 to-[#25C78A]/15 hover:from-[#2BD899]/20 hover:to-[#25C78A]/20 text-[#4AE8B0] border-2 border-[#2BD899]/30 shadow-[0_0_8px_rgba(43,216,153,0.08)] hover:shadow-[0_0_10px_rgba(43,216,153,0.12)]"
+                        onClick={handleNextVariation}
+                        disabled={currentIndex === totalVariations - 1}
+                        className={`p-4 rounded-full transition-all border-2 ${currentIndex === totalVariations - 1
+                            ? "border-white/5 text-white/10 cursor-not-allowed"
+                            : "border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/30"}`}
                     >
-                        <IconCheck className="w-5 h-5" />
-                        Use This Version
+                        <IconChevronRight className="w-8 h-8" />
                     </button>
                 </div>
 
-                {/* Change Title Button - Always visible at bottom */}
-                <div className="flex justify-center mt-8">
+                {/* DETAILS SECTION (Below Thumbnail) */}
+                <div className="max-w-3xl mx-auto flex flex-col items-center text-center space-y-6">
+
+                    {/* Super Topic */}
+                    {phrase && (
+                        <p className="text-xl font-medium text-[#5AACFF] tracking-wide">
+                            {phrase.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                        </p>
+                    )}
+
+                    {/* Main Title */}
+                    <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+                        {selected.title}
+                    </h1>
+
+                    {/* Metadata Row */}
+                    <div className="flex items-center gap-3 justify-center">
+                        <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${selected.title?.length >= 45 && selected.title?.length <= 60
+                            ? "bg-[#2BD899]/10 text-[#2BD899] border-[#2BD899]/30"
+                            : "bg-white/10 text-white/50 border-white/10"
+                            }`}>
+                            {selected.title?.length || 0} chars
+                        </span>
+
+                        {selected.type === 'rank' && <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-[#5AACFF]/10 text-[#5AACFF] border border-[#5AACFF]/30">SEO Optimized</span>}
+                        {selected.type === 'wild' && <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-[#FFC107]/10 text-[#FFC107] border border-[#FFC107]/30">Wild Card</span>}
+                    </div>
+
+                    {/* Strategy Note */}
+                    {selected.improvement && (
+                        <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-6 px-8 max-w-2xl mt-4">
+                            <p className="text-xl text-white/70 italic leading-relaxed">
+                                &ldquo;{selected.improvement.replace('🏆 STRATEGY:', '').trim()}&rdquo;
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-6 pt-8 pb-12">
+                        {/* Generate More (Skip) */}
+                        <button
+                            onClick={handleSkipVariations}
+                            className="px-8 py-4 rounded-xl font-semibold text-white/40 hover:text-white hover:bg-white/5 transition-all flex items-center gap-2"
+                        >
+                            <IconLoader2 className="w-5 h-5" />
+                            Generate More
+                        </button>
+
+                        {/* USE THIS TITLE */}
+                        <button
+                            onClick={handleContinueWithVariation}
+                            disabled={isSavingVariation}
+                            className={`px-10 py-5 rounded-xl font-bold text-xl transition-all flex items-center gap-3 ${isSavingVariation 
+                                ? 'bg-[#2BD899]/50 text-[#0a0f1c]/50 cursor-not-allowed' 
+                                : 'bg-[#2BD899] text-[#0a0f1c] hover:bg-[#25C78A] hover:scale-105 shadow-[0_0_40px_rgba(43,216,153,0.3)]'}`}
+                        >
+                            {isSavingVariation ? (
+                                <><IconLoader2 className="w-6 h-6 animate-spin" /> Saving...</>
+                            ) : (
+                                <><IconCheck className="w-6 h-6" /> Use This Title</>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Back Link */}
                     <button
                         onClick={handleBackToTitle}
-                        className="flex items-center gap-2 text-base text-white/40 hover:text-white/60 transition-colors"
+                        className="text-white/30 hover:text-white/60 text-sm font-medium transition-colors flex items-center gap-2"
                     >
-                        <IconChevronLeft className="w-5 h-5" />
-                        Change Title
-                        <IconChevronRight className="w-5 h-5" />
+                        <IconChevronLeft className="w-4 h-4" />
+                        Back to Concept
                     </button>
                 </div>
-            </div >
+            </div>
         );
     };
     const renderStep1 = () => (
@@ -811,14 +872,19 @@ export function BlueprintPageContent() {
     // MAIN RENDER
     // ==========================================================================
 
-    if (!topicId) {
+    if (!topicId || !sessionId) {
         return (
             <PageShell>
                 <div className="flex flex-col gap-12 relative z-10 max-w-5xl mx-auto">
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
                     <MemberHeader />
                     <div className="bg-surface/40 border border-white/10 rounded-2xl p-12 text-center">
-                        <p className="text-white/60 text-lg">No topic selected.</p>
+                        <p className="text-white/60 text-lg">
+                            {!topicId ? "No topic selected." : "No session found."}
+                        </p>
+                        <p className="text-white/40 text-sm mt-2">
+                            Please go back and try again.
+                        </p>
                     </div>
                 </div>
             </PageShell>
@@ -834,12 +900,21 @@ export function BlueprintPageContent() {
                     <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-12 text-center">
                         <p className="text-red-400 text-lg">Something went wrong</p>
                         <p className="text-white/50 text-sm mt-2">{error}</p>
-                        <button
-                            onClick={() => setCurrentStep(1)}
-                            className="mt-6 px-6 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30"
-                        >
-                            Start Over
-                        </button>
+                        <div className="flex items-center justify-center gap-4 mt-6">
+                            <button
+                                onClick={handleBackToTitle}
+                                className="px-6 py-2 bg-white/10 text-white/70 rounded-lg hover:bg-white/20 flex items-center gap-2"
+                            >
+                                <IconChevronLeft className="w-4 h-4" />
+                                Back to Title
+                            </button>
+                            <button
+                                onClick={() => { setError(null); setCurrentStep(0); }}
+                                className="px-6 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30"
+                            >
+                                Try Again
+                            </button>
+                        </div>
                     </div>
                 </div>
             </PageShell>

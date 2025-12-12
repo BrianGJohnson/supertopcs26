@@ -526,7 +526,7 @@ export function TitlePageContent() {
         if (lockedPhrases.size === 0) return; // Must have at least 1 locked phrase
 
         try {
-            await fetch("/api/titles/lock", {
+            const response = await fetch("/api/titles/lock", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -539,6 +539,13 @@ export function TitlePageContent() {
                 }),
             });
 
+            // CRITICAL: Wait for successful response before navigating
+            if (!response.ok) {
+                throw new Error('Failed to lock title and phrases');
+            }
+
+            await response.json();
+
             // Save data for Blueprint page (sorted by selection order)
             sessionStorage.setItem(`blueprint_emotion_${topicId}`, primaryEmotion);
             sessionStorage.setItem(`blueprint_phrases_${topicId}`, JSON.stringify(
@@ -548,10 +555,11 @@ export function TitlePageContent() {
             ));
             sessionStorage.setItem(`blueprint_title_${topicId}`, selectedTitle.title);
 
-            // Navigate to Blueprint page
+            // Navigate to Blueprint page AFTER confirming data is saved
             router.push(`/members/build/blueprint?session_id=${sessionId}&topic_id=${topicId}`);
         } catch (err) {
             console.error("[Title Page] Lock error:", err);
+            alert('Failed to save your selections. Please try again.');
         }
     };
 
@@ -559,10 +567,15 @@ export function TitlePageContent() {
     // LOADING/ERROR STATES
     // ==========================================================================
 
-    if (!topicId) {
+    if (!topicId || !sessionId) {
         return (
             <div className="bg-surface/40 backdrop-blur-md border border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-white/60 text-lg">No topic selected.</p>
+                <p className="text-white/60 text-lg">
+                    {!topicId ? "No topic selected." : "No session found."}
+                </p>
+                <p className="text-white/40 text-sm mt-2">
+                    Please go back and try again.
+                </p>
             </div>
         );
     }
@@ -768,7 +781,7 @@ export function TitlePageContent() {
             {isGeneratingPhrases && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                     <div
-                        className="bg-surface/60 backdrop-blur-md rounded-2xl p-16 text-center max-w-2xl mx-4"
+                        className="bg-surface/60 backdrop-blur-md rounded-2xl text-center w-full max-w-[640px] h-[400px] flex flex-col items-center justify-center mx-4"
                         style={{
                             border: '2px solid rgba(107, 155, 209, 0.4)',
                             boxShadow: '0 0 40px rgba(107, 155, 209, 0.15)',
