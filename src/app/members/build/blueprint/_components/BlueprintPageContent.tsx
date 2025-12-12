@@ -57,6 +57,14 @@ interface TitleVariation {
 // COMPONENT
 // =============================================================================
 
+// Helper: Strict Title Case (Every Word Capitalized)
+function toTitleCase(str: string | undefined): string {
+    if (!str) return '';
+    return str.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Ensure rest is lower? Or preserve? Usually lower helps fix "ALL CAPS".
+        .join(' ');
+}
+
 export function BlueprintPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -165,9 +173,11 @@ export function BlueprintPageContent() {
         const loadVariations = async () => {
             // Must have topicId, title, AND thumbnailPhrase before loading
             if (!topicId || !title || !thumbnailPhrase) {
+                console.log('[Blueprint] Skipping loadVariations - missing data:', { topicId, title: !!title, thumbnailPhrase: !!thumbnailPhrase });
                 return;
             }
 
+            console.log('[Blueprint] Starting loadVariations with:', { topicId, title, thumbnailPhrase });
             setIsLoadingVariations(true);
             setVariationsError(null);
             try {
@@ -182,10 +192,21 @@ export function BlueprintPageContent() {
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to generate variations');
+                    // ENHANCED: Extract the actual error from the response
+                    let errorDetails = 'Unknown error';
+                    try {
+                        const errorBody = await response.json();
+                        errorDetails = errorBody.details || errorBody.error || JSON.stringify(errorBody);
+                        console.error('[Blueprint] API Error Response:', response.status, errorBody);
+                    } catch {
+                        errorDetails = `HTTP ${response.status}`;
+                        console.error('[Blueprint] API Error (non-JSON):', response.status, response.statusText);
+                    }
+                    throw new Error(`Failed to generate variations: ${errorDetails}`);
                 }
 
                 const data = await response.json();
+                console.log('[Blueprint] API Success - variations count:', data.variations?.length);
                 if (!data.variations || data.variations.length === 0) {
                     // No variations returned - use original as fallback
                     setVariations([{
@@ -377,7 +398,7 @@ export function BlueprintPageContent() {
     const handleContinueWithVariation = async () => {
         if (selectedVariation === null) return;
         const selected = variations[selectedVariation];
-        
+
         setIsSavingVariation(true);
         try {
             // Save the selected variation to DB
@@ -398,7 +419,7 @@ export function BlueprintPageContent() {
             // Update local state
             setTitle(selected.title);
             setThumbnailPhrase(selected.phrase);
-            
+
             // Also update sessionStorage for consistency
             if (topicId) {
                 sessionStorage.setItem(`blueprint_title_${topicId}`, selected.title);
@@ -475,9 +496,7 @@ export function BlueprintPageContent() {
 
                 {/* Section Header */}
                 <div className="text-center mt-4 space-y-4">
-                    <h3 className="text-sm font-bold text-white/40 uppercase tracking-[0.2em]">
-                        Your Current Package
-                    </h3>
+
 
                     {/* Winner Badge - Prominent at TOP */}
                     {selected.isWinner && (
@@ -566,19 +585,21 @@ export function BlueprintPageContent() {
 
                     {/* Super Topic */}
                     {phrase && (
-                        <p className="text-xl font-medium text-[#5AACFF] tracking-wide">
+                        <p className="text-sm font-medium text-[#5AACFF]/70 tracking-wide">
                             {phrase.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                         </p>
                     )}
 
                     {/* Main Title */}
-                    <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-                        {selected.title}
-                    </h1>
+                    <div className="min-h-[4rem] flex items-center justify-center px-4">
+                        <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight">
+                            {toTitleCase(selected.title)}
+                        </h1>
+                    </div>
 
                     {/* Metadata Row */}
-                    <div className="flex items-center gap-3 justify-center">
-                        <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${selected.title?.length >= 45 && selected.title?.length <= 60
+                    <div className="flex items-center gap-3 justify-center min-h-[32px]">
+                        <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${selected.title?.length >= 48 && selected.title?.length <= 56
                             ? "bg-[#2BD899]/10 text-[#2BD899] border-[#2BD899]/30"
                             : "bg-white/10 text-white/50 border-white/10"
                             }`}>
@@ -613,8 +634,8 @@ export function BlueprintPageContent() {
                         <button
                             onClick={handleContinueWithVariation}
                             disabled={isSavingVariation}
-                            className={`px-10 py-5 rounded-xl font-bold text-xl transition-all flex items-center gap-3 ${isSavingVariation 
-                                ? 'bg-[#2BD899]/50 text-[#0a0f1c]/50 cursor-not-allowed' 
+                            className={`px-10 py-5 rounded-xl font-bold text-xl transition-all flex items-center gap-3 ${isSavingVariation
+                                ? 'bg-[#2BD899]/50 text-[#0a0f1c]/50 cursor-not-allowed'
                                 : 'bg-[#2BD899] text-[#0a0f1c] hover:bg-[#25C78A] hover:scale-105 shadow-[0_0_40px_rgba(43,216,153,0.3)]'}`}
                         >
                             {isSavingVariation ? (

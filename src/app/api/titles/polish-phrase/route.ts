@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { db, super_topics } from '@/server/db';
 import { eq } from 'drizzle-orm';
+import { debugLog, debugError } from '@/lib/debug-logger';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -18,13 +19,18 @@ interface PolishRequest {
 }
 
 export async function POST(request: NextRequest) {
+    debugLog('Polish', '🚀 API Route HIT');
+    console.log('[Polish Phrase] API Route HIT - Code Updated: ' + new Date().toISOString());
     const startTime = Date.now();
 
     try {
         const body: PolishRequest = await request.json();
         const { topicId, lockedTitle, lockedPhrase } = body;
 
+        debugLog('Polish', 'Request received', { topicId, lockedTitle, lockedPhrase });
+
         if (!topicId || !lockedTitle || !lockedPhrase) {
+            debugError('Polish', 'Missing required fields', { topicId: !!topicId, lockedTitle: !!lockedTitle, lockedPhrase: !!lockedPhrase });
             return NextResponse.json(
                 { error: 'Missing required fields: topicId, lockedTitle, lockedPhrase' },
                 { status: 400 }
@@ -32,102 +38,75 @@ export async function POST(request: NextRequest) {
         }
 
         // Get topic for context
+        debugLog('Polish', 'Looking up topic in DB...');
         const topic = await db.query.super_topics.findFirst({
             where: eq(super_topics.id, topicId),
         });
 
         if (!topic) {
+            debugError('Polish', 'Topic not found in DB', { topicId });
             return NextResponse.json({ error: 'Topic not found' }, { status: 404 });
         }
 
+        debugLog('Polish', 'Topic found', { phrase: topic.phrase, emotion: topic.primary_emotion });
+
         // Build the polish prompt
-        const systemPrompt = `You are a PROFESSIONAL COPYWRITER and the world's best YouTube Title Optimizer. Your goal is to refine a "Draft Title" into polished, grammatically perfect variations.
+        const systemPrompt = `You are a PRO YOUTUBE TITLE EDITOR.
+Your Goal: Take the user's concept and refine it for Grammar and Clicks. Slight improvements, not total reinventions.
 
 ## INPUT CONTEXT
 - Locked Title: "${lockedTitle}"
-- Phrase: "${lockedPhrase}"
+- Input Phrase: "${lockedPhrase}"
 - Super Topic (SEO Keyword): "${topic.phrase || ''}"
-- Emotion: ${topic.primary_emotion || 'Curiosity'}
 
-## ⚠️ COPYWRITING RULES (MANDATORY) ⚠️
+## ⚠️ CRITICAL STYLE RULES ⚠️
 
-**GRAMMAR ENFORCEMENT:**
-- Fix ALL grammar issues in the input title
-- Ensure subject-verb agreement
-- Consider singular vs plural for maximum impact ("AI Thumbnail Makers" often beats "AI Thumbnail Maker")
+**1. CHARACTER COUNT (THE "GOLDEN ZONE"):**
+- **TARGET:** 48-56 Characters.
+- **HARD CONSTRAINT:** Do not go under 40 or over 60.
+- If it's too short, add "You", "Your", or a power word ("Finally").
 
-**TITLE CASE (MANDATORY):**
-- EVERY word must start with a capital letter
-- Small words (a, an, the, of, in, to, for) can be lowercase UNLESS they start the title
-- Example: "How AI Thumbnail Maker Can Kill Your Views" ✅
-- Example: "How ai thumbnail maker can kill views" ❌ NEVER OUTPUT THIS
+**2. ABSOLUTELY NO SEPARATORS:**
+-  NO colons (:), dashes (- – —), slashes (/), pipes (|).
+- Write **ONE CLEAN STATEMENT**.
 
-**PERSONALIZATION:**
-- Use "your" or "you" to make it personal and emotional
-- Example: "Could Ruin Your Channel" beats "Could Ruin Channels"
-- Example: "What You Need To Know" beats "What People Need To Know"
+**3. FLUFF BAN:**
+- Remove "In 2024", "Guide", "Tutorial" (unless user included them).
 
-**INTENSIFIERS (USE STRATEGICALLY):**
-- Add power words when they improve impact: "absolutely", "completely", "exactly", "really", "actually"
-- Example: "How AI Thumbnail Maker Can Absolutely Kill Your Views"
-- Don't overuse — 1-2 intensifiers per title max
+**4. GRAMMAR & FLOW:**
+- Fix any broken English.
+- **Flexibility:** You MAY change "Maker" to "Makers" or add articles (the/a) to make it sound like a Native Speaker.
 
-## ⚠️ CRITICAL RULES FOR ALL BUCKETS ⚠️
+**5. THUMBNAIL PHRASE:**
+- Update the phrase **ONLY** if the title angle changes significantly.
+- Keep it 2-4 words. Punchy.
 
-**KEYWORD PHRASE MUST STAY INTACT:**
-- The keyword phrase "${topic.phrase}" must appear as ONE CONTINUOUS CHUNK
-- Do NOT split it apart, insert words inside, or rephrase with synonyms
-- Keep the EXACT word order
+## YOUR TASK: 
+Generate 6-8 Variations in these 3 Buckets.
 
-**NO SEPARATORS:**
-- NO colons (:), dashes (– — -), slashes (/), pipes (|), or parentheses ()
-- Write ONE clean headline-style statement
-- NO two-part headlines like "Thing: Other Thing"
-
-**PUNCTUATION (USE SPARINGLY):**
-- Exclamation points (!) and question marks (?) ARE allowed
-- Use sparingly for impact, not on every title
-
-**LENGTH (CRITICAL):**
-- MINIMUM: 45 characters — reject anything shorter
-- IDEAL: 50-55 characters
-- MAXIMUM: 60 characters — NEVER exceed
-- If a draft is too short, expand it with personalization ("your") or power words
-- Aim for 6-8 words total
-
-**THUMBNAIL PHRASE:**
-- 3-6 words. ALL CAPS.
-
-## YOUR TASK:
-1. Generate 6-9 Variations in 3 Buckets (Balanced, Rank, Wild).
-2. **PICK A WINNER:** Choose the single best option for this specific creator/topic.
-3. **WRITE A STRATEGY NOTE:** A 2-3 sentence "Porch Talk" explanation of WHY this is the winner.
-
-### BUCKET 1: BALANCED (The "Perfect" Cut)
-- **Goal:** The best blend of CTR and Grammar.
-- **Keyword Rule:** May add 1-3 lead-in words BEFORE the keyword phrase
+### BUCKET 1: HIGH CTR / BALANCED
+- **Goal:** Optimize for Clicks & Grammar.
+- **Instructions:** Improve the impact of the original title. Make it punchier.
 - **Tag:** "balanced"
 
-### BUCKET 2: RANK (SEO Optimization) ⚠️ SPECIAL RULE
-- **Goal:** Maximum Search Ranking.
-- **Keyword Rule:** Keyword phrase MUST START the title (NO lead-in words!)
-- **Why:** YouTube weights early keywords for search ranking
+### BUCKET 2: RANK (SEO FIRST)
+- **Goal:** Optimize for Search.
+- **Rule:** The Keyword Phrase ("${topic.phrase || ''}") MUST be at the very start.
 - **Tag:** "rank"
 
-### BUCKET 3: WILD (Pattern Interrupt)
-- **Goal:** Stop the scroll.
-- **Keyword Rule:** May add 1-3 lead-in words BEFORE the keyword phrase
-- **Rules:** Extreme curiosity, unexpected angles
+### BUCKET 3: WILD CARD
+- **Goal:** Pattern Interrupt.
+- **Instructions:** Try a negative angle ("Stop", "Don't") or a Secret ("The Truth").
 - **Tag:** "wild"
 
-## OUTPUT FORMAT (respond with valid JSON)
+## OUTPUT FORMAT (JSON)
 {
   "variations": [
-    { "title": "...", "phrase": "...", "type": "balanced", "improvement": "...", "characters": 52, "leadInWords": 2 },
+    { "title": "...", "phrase": "...", "type": "balanced", "improvement": "Improved grammar and flow", "characters": 52 },
     ...
   ],
   "winningIndex": 0,
-  "strategyNote": "Hey, I picked the Balanced option because..."
+  "strategyNote": "..."
 }`;
 
         const userPrompt = `Generate the 3 Buckets and Pick a Winner for:
@@ -136,28 +115,80 @@ export async function POST(request: NextRequest) {
 Use GPT-5 Mini Low Reasoning. Keep the Strategy Note friendly and strategic (Porch Talk).`;
 
         console.log(`[Polish Phrase] Generating Variations + Winner Strategy using GPT-5 Mini`);
+        console.log(`[Polish Phrase] Input: topicId=${topicId}, title="${lockedTitle}", phrase="${lockedPhrase}"`);
 
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-5-mini',
-            temperature: 1,
-            top_p: 1,
-            max_completion_tokens: 2500,
-            reasoning_effort: 'low',
-            response_format: { type: 'json_object' },
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ],
-        });
+        let completion;
+        try {
+            completion = await openai.chat.completions.create({
+                model: 'gpt-5-mini',
+                temperature: 1,
+                top_p: 1,
+                max_completion_tokens: 2500,
+                reasoning_effort: 'low',
+                response_format: { type: 'json_object' },
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+            });
+            console.log(`[Polish Phrase] OpenAI call SUCCESS. Tokens used: ${completion.usage?.total_tokens}`);
+        } catch (openaiError) {
+            console.error('[Polish Phrase] OpenAI API FAILED:', openaiError);
+            throw new Error(`OpenAI API failed: ${openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error'}`);
+        }
 
         const responseText = completion.choices[0]?.message?.content || '{}';
-        const parsed = JSON.parse(responseText);
-        const variations = parsed.variations || [];
-        const winningIndex = parsed.winningIndex || 0;
+        console.log(`[Polish Phrase] Raw response (first 300 chars): ${responseText.slice(0, 300)}`);
+
+        let parsed: any;
+        try {
+            parsed = JSON.parse(responseText);
+            console.log(`[Polish Phrase] JSON parsed successfully. Keys: ${Object.keys(parsed).join(', ')}`);
+        } catch (e) {
+            console.error('[Polish Phrase] JSON Parse Error:', e);
+            console.error('[Polish Phrase] Raw text that failed to parse:', responseText.slice(0, 500));
+            throw new Error('Failed to parse AI response as JSON');
+        }
+
+        // ------------------------------------------------------------------
+        // ROBUST PARSING (Ported from topic-scoring.ts)
+        // ------------------------------------------------------------------
+        // Handle multiple response formats:
+        // 1. { "variations": [...] } (Ideal)
+        // 2. { "results": [...] }
+        // 3. { "data": [...] }
+        // 4. Bare array: [...]
+        // ------------------------------------------------------------------
+        let variations: any[] = [];
+
+        if (parsed.variations && Array.isArray(parsed.variations)) {
+            variations = parsed.variations;
+        } else if (Array.isArray(parsed)) {
+            variations = parsed;
+        } else if (typeof parsed === 'object' && parsed !== null) {
+            // Try failover keys
+            const possibleKeys = ['results', 'data', 'items', 'values'];
+            for (const key of possibleKeys) {
+                if (Array.isArray(parsed[key])) {
+                    variations = parsed[key];
+                    break;
+                }
+            }
+            // Last resort: Look for any array value in the object
+            if (variations.length === 0) {
+                const arrayValue = Object.values(parsed).find(v => Array.isArray(v));
+                if (Array.isArray(arrayValue)) {
+                    variations = arrayValue as any[];
+                }
+            }
+        }
+
+        const winningIndex = (typeof parsed.winningIndex === 'number') ? parsed.winningIndex : 0;
         const strategyNote = parsed.strategyNote || "This is the strongest overall option.";
 
         if (!Array.isArray(variations) || variations.length === 0) {
-            throw new Error('Invalid response format from GPT-5 Mini');
+            console.error('[Polish Phrase] Invalid Format. Received:', JSON.stringify(parsed).slice(0, 200));
+            throw new Error('Invalid response format from GPT-5 Mini (No variations found)');
         }
 
         // Identify the winner and separate it

@@ -86,6 +86,7 @@ unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, a
 - Maximum 4 words per phrase
 - Fragments are BETTER than complete sentences
 - No punctuation EXCEPT question marks (?)
+- NEVER use periods in acronyms (Use AI, not A.I.)
 - ALL CAPS
 
 ## TONE:
@@ -118,6 +119,18 @@ unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, a
 - Validation: "YOU WERE RIGHT", "CALLED IT"
 - Anger: "THEY LIED", "EXPOSED"
 
+## SUPER TOPIC ANCHOR (CRITICAL):
+The core subject is: "{{phrase}}"
+
+## THE 60/40 RULE:
+You must maintain this specific balance:
+- **60% (18 phrases)** MUST explicitly include the words from the Super Topic "{{phrase}}" or a close variation.
+  - Reason: Anchors the viewer to the specific subject.
+  - Example: If topic is "AI Agent", use "AI AGENT TRAP", "STOP USING AI AGENTS", "AI AGENT FAILURE".
+- **40% (12 phrases)** can be wildcard / pure curiosity.
+  - Reason: We need broad appeal options too.
+  - Example: "THE UNSEEN TRAP", "WHY IT FAILS", "STOP DOING THIS".
+
 Generate exactly 30 phrases. One per line. No numbering, no explanations.
 Be VISCERAL. Be EMOTIONAL. Generic = failure.`;
 
@@ -135,6 +148,7 @@ VIDEO TITLE: "{{title}}"
 4. Keep the EMOTION and IMPACT
 5. Remove any banned words if they snuck in
 6. Ensure ALL CAPS format
+7. NEVER use periods in acronyms (Correct A.I. to AI)
 
 ## BANNED WORDS (remove these):
 unlocked, unleashed, ultimate, guide, secrets, proven, simple, easy, powerful, amazing, incredible, hidden, transformative
@@ -214,6 +228,7 @@ export async function POST(request: NextRequest) {
         // We stick the Persona at the VERY TOP so it frames the entire task
         const fullPrompt = `${selectedPersona}\n\n${RUTHLESS_CREATIVE_PROMPT}`
             .replace("{{title}}", title)
+            .replace(/\{\{phrase\}\}/g, topic.phrase)
             .replace(/\{\{emotion\}\}/g, emotion)
             .replace(/\{\{secondaryEmotion\}\}/g, secondaryEmotion)
             .replace("{{goal}}", goal);

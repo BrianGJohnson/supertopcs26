@@ -1,0 +1,29 @@
+=== Debug Log Started: 2025-12-12T21:53:42.058Z ===
+
+[2025-12-12T21:53:42.058Z] [TitleLock] 🔒 Lock endpoint called
+[2025-12-12T21:53:42.059Z] [TitleLock] Request received
+  DATA: {
+    "superTopicId": "f8f22767-ad2a-4b7d-83a2-c2d25dc8c196",
+    "lockedTitle": "Warning! AI Thumbnail Maker's Surprising Flaw",
+    "thumbnailPhrases": [
+      "AI THUMBNAIL CHAOS"
+    ]
+  }
+[2025-12-12T21:53:42.332Z] [TitleLock] ✅ Title locked successfully
+  DATA: {
+    "id": "f8f22767-ad2a-4b7d-83a2-c2d25dc8c196",
+    "title": "Warning! AI Thumbnail Maker's Surprising Flaw"
+  }
+[2025-12-12T21:53:42.401Z] [Polish] 🚀 API Route HIT
+[2025-12-12T21:53:42.402Z] [Polish] Request received
+  DATA: {
+    "topicId": "f8f22767-ad2a-4b7d-83a2-c2d25dc8c196",
+    "lockedTitle": "Warning! AI Thumbnail Maker's Surprising Flaw",
+    "lockedPhrase": "AI THUMBNAIL CHAOS"
+  }
+[2025-12-12T21:53:42.402Z] [Polish] Looking up topic in DB...
+[2025-12-12T21:53:42.625Z] [Polish] Topic found
+  DATA: {
+    "phrase": "ai thumbnail maker",
+    "emotion": "Curiosity"
+  }
